@@ -1,0 +1,344 @@
+/* ========================================
+   Portfolio Detail Page
+   ======================================== */
+
+.portfolio-detail-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* --- Form --- */
+.portfolio-form {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+}
+
+.pf-field {
+  margin-bottom: 1rem;
+}
+
+.pf-field label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 0.3rem;
+}
+
+.pf-input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 5px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.pf-input:focus {
+  border-color: var(--color-primary, #528c68);
+}
+
+.pf-domain-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.pf-domain-row > div {
+  flex: 1;
+}
+
+.pf-domain-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.pf-tags-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 5px;
+  padding: 0.4rem 0.65rem;
+}
+
+.pf-tags-input input {
+  border: none;
+  outline: none;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  flex: 1;
+}
+
+.pf-btn-upload {
+  width: 100%;
+  padding: 0.55rem;
+  background: var(--color-primary, #528c68);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 0.5rem;
+  transition: background 0.2s;
+}
+
+.pf-btn-upload:hover {
+  background: #467a5a;
+}
+
+.pf-titelbild-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  padding: 0.35rem 0;
+  margin-bottom: 1rem;
+}
+
+.pf-preview-link {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-primary, #528c68);
+  margin-bottom: 0.5rem;
+  text-decoration: none;
+}
+
+.pf-preview-link:hover {
+  text-decoration: underline;
+}
+
+.pf-btn-preview {
+  width: 100%;
+  padding: 0.55rem;
+  background: var(--color-primary, #528c68);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.pf-btn-preview:hover {
+  background: #467a5a;
+}
+
+/* --- Live Preview --- */
+.portfolio-preview {
+  position: sticky;
+  top: 1rem;
+}
+
+.pf-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.pf-device-toggle {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pf-device-toggle button {
+  background: none;
+  border: 1px solid var(--border-light, #e5e7eb);
+  padding: 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  transition: all 0.2s;
+}
+
+.pf-device-toggle button.active {
+  background: var(--color-primary, #528c68);
+  color: white;
+  border-color: var(--color-primary, #528c68);
+}
+
+.pf-browser-frame {
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: max-width 0.3s;
+}
+
+.pf-browser-frame.mobile {
+  max-width: 375px;
+  margin: 0 auto;
+}
+
+.pf-browser-topbar {
+  background: #f5f5f5;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.pf-browser-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.pf-browser-dots .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.pf-browser-dots .dot.red { background: #ff5f56; }
+.pf-browser-dots .dot.yellow { background: #ffbd2e; }
+.pf-browser-dots .dot.green { background: #27c93f; }
+
+.pf-browser-content {
+  padding: 1rem;
+  min-height: 400px;
+}
+
+/* --- Simulated Portfolio Preview --- */
+.pf-sim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 1rem;
+}
+
+.pf-sim-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-sim-social {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #888;
+}
+
+.pf-sim-hero {
+  margin-bottom: 1rem;
+}
+
+.pf-sim-hero-img {
+  width: 100%;
+  height: 250px;
+  background: linear-gradient(135deg, #2a3a2a, #3a4a30);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-sim-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 1rem;
+}
+
+.pf-sim-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pf-sim-sort {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+.pf-sim-search {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+}
+
+.pf-sim-search input {
+  border: none;
+  outline: none;
+  font-size: 0.75rem;
+  font-family: inherit;
+  width: 80px;
+}
+
+.help-icon {
+  color: #7fb5ff;
+  cursor: help;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 0.2rem;
+}
+
+/* --- Table Action Icons --- */
+.action-col {
+  text-align: right !important;
+}
+
+td.actions {
+  text-align: right;
+}
+
+td.actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  padding: 0.25rem;
+  transition: color 0.15s;
+  vertical-align: middle;
+}
+
+td.actions button:hover {
+  color: var(--text-primary, #333);
+}
+
+td.actions button.text-red:hover {
+  color: #ef4444;
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .portfolio-detail-layout {
+    grid-template-columns: 1fr;
+  }
+}

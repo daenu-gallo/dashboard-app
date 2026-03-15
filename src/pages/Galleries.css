@@ -1,0 +1,353 @@
+.galleries-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 4rem; /* For floating button */
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.view-btn {
+  padding: 0.25rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.view-btn.active {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.search-box, .tags-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+}
+
+.search-box input, .tags-box input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.galleries-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.galleries-table th {
+  padding: 1rem 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.galleries-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.galleries-table tr:hover {
+  background-color: var(--bg-main);
+}
+
+.img-col {
+  width: 80px;
+  padding-right: 0 !important;
+}
+
+.gallery-thumbnail {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-md);
+  background-color: #e5e7eb;
+  background-size: cover;
+  background-position: center;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.img-placeholder {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.status-badge.on {
+  color: var(--color-primary);
+}
+
+.status-badge.off {
+  color: var(--text-secondary);
+}
+
+.action-col {
+  text-align: right;
+}
+
+.actions-inner {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.actions-inner button:hover {
+  color: var(--text-primary);
+}
+
+.actions-inner button.text-red:hover {
+  color: var(--color-red);
+}
+
+/* Floating Action Button */
+.floating-chat {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: var(--color-primary);
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  transition: transform 0.2s;
+}
+
+.floating-chat:hover {
+  transform: scale(1.05);
+}
+
+/* ==============================
+   Pagination
+   ============================== */
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pagination-page {
+  background: none;
+  border: none;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.pagination-page:hover {
+  color: var(--color-primary, #528c68);
+}
+
+.pagination-page.active {
+  font-weight: 700;
+  color: var(--text-primary, #333);
+}
+
+.pagination-next {
+  background: none;
+  border: none;
+  font-size: 0.8125rem;
+  color: var(--color-primary, #528c68);
+  cursor: pointer;
+  font-family: inherit;
+  margin-left: 0.5rem;
+}
+
+.pagination-next:hover {
+  text-decoration: underline;
+}
+
+.pagination-perpage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.pagination-perpage select {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+}
+
+/* ==============================
+   Gallery Grid / Card View
+   ============================== */
+.galleries-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.25rem;
+}
+
+.gallery-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: white;
+  transition: box-shadow 0.2s;
+}
+
+.gallery-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.gallery-card-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.gallery-card-info {
+  padding: 0.5rem 0.625rem 0.5rem;
+}
+
+.gallery-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.gallery-card-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.gallery-card-title:hover {
+  color: var(--color-primary, #528c68);
+}
+
+.gallery-card-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  padding: 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.gallery-card-edit:hover {
+  color: var(--color-primary, #528c68);
+}
+
+.gallery-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gallery-card-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  padding: 1px;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.6875rem;
+  transition: color 0.15s;
+}
+
+.gallery-card-actions button:hover {
+  color: var(--color-primary, #528c68);
+}
+
+.gallery-card-actions button span {
+  font-size: 0.625rem;
+}
+
+/* Responsive grid */
+@media (max-width: 1200px) {
+  .galleries-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .galleries-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .galleries-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
