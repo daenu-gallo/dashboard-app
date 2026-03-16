@@ -5,9 +5,8 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import './Galleries.css';
 import './Portfolio.css';
 
-const portfolios = [
-  { id: 1, title: 'Hochzeitsfotos Fotohahn', description: '', created: '28.02.2024', lastEdit: '29.08.2024 - 09:28' },
-];
+
+
 
 /* ——— Portfolio Detail View ——— */
 const PortfolioDetail = ({ portfolio, onBack }) => {
@@ -211,12 +210,33 @@ const PortfolioDetail = ({ portfolio, onBack }) => {
 /* ——— Portfolio List View ——— */
 const PortfoliosPage = () => {
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
+  const [portfolioList, setPortfolioList] = usePersistedState('portfolios_list', []);
   // Read settings for each portfolio to get cover images
   const [p1Settings] = usePersistedState('portfolio_1_settings', { titelbild: null });
 
   const getCoverImage = (portfolioId) => {
     if (portfolioId === 1) return p1Settings?.titelbild;
     return null;
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Portfolio wirklich löschen?')) {
+      setPortfolioList(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
+  const handleCreate = () => {
+    const title = prompt('Portfolio-Titel eingeben:');
+    if (title && title.trim()) {
+      const maxId = portfolioList.reduce((max, p) => Math.max(max, p.id || 0), 0);
+      setPortfolioList(prev => [...prev, {
+        id: maxId + 1,
+        title: title.trim(),
+        description: '',
+        created: new Date().toLocaleDateString('de-DE'),
+        lastEdit: new Date().toLocaleDateString('de-DE') + ' - ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+      }]);
+    }
   };
 
   if (selectedPortfolio) {
@@ -229,14 +249,14 @@ const PortfoliosPage = () => {
         <h1 className="text-h1">Portfolios</h1>
       </div>
 
-      <div className="filters card">
-        <div className="search-box">
-          <Search size={16} className="text-muted" />
-          <input type="text" placeholder="Suche" />
+      <div className="galleries-card">
+        <div className="galleries-toolbar">
+          <div className="search-container">
+            <Search size={16} className="search-icon" />
+            <input type="text" placeholder="Suche" className="search-input" />
+          </div>
         </div>
-      </div>
 
-      <div className="table-container card">
         <table className="galleries-table">
           <thead>
             <tr>
@@ -249,7 +269,10 @@ const PortfoliosPage = () => {
             </tr>
           </thead>
           <tbody>
-            {portfolios.map((portfolio) => {
+            {portfolioList.length === 0 && (
+              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>Keine Portfolios vorhanden</td></tr>
+            )}
+            {portfolioList.map((portfolio) => {
               const titelbild = getCoverImage(portfolio.id);
               return (
               <tr key={portfolio.id}>
@@ -269,7 +292,7 @@ const PortfoliosPage = () => {
                 <td className="actions">
                   <button title="Bearbeiten" onClick={() => setSelectedPortfolio(portfolio)}><Edit3 size={16} /></button>
                   <button title="Öffnen"><ExternalLink size={16} /></button>
-                  <button title="Löschen" className="text-red"><Trash2 size={16} /></button>
+                  <button title="Löschen" className="text-red" onClick={() => handleDelete(portfolio.id)}><Trash2 size={16} /></button>
                 </td>
               </tr>
               );
@@ -278,10 +301,10 @@ const PortfoliosPage = () => {
         </table>
         
         <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)' }}>
-            <span className="text-sm text-muted">1</span>
+            <span className="text-sm text-muted">{portfolioList.length}</span>
             
             <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
-                <button className="btn-outline" style={{ border: 'none', color: 'var(--color-primary)' }}>
+                <button className="btn-outline" style={{ border: 'none', color: 'var(--color-primary)' }} onClick={handleCreate}>
                     <Plus size={16} /> Neues Portfolio erstellen
                 </button>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>

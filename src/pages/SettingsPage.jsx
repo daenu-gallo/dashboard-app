@@ -227,11 +227,7 @@ const MarkenTab = () => {
   const [brands, setBrands] = usePersistedState('settings_brands', [
     { id: 1, name: 'Fotohahn', active: true, logo: null },
   ]);
-  const [watermarks, setWatermarks] = usePersistedState('settings_watermarks_v2', [
-    { id: 1, name: 'Standard', wmType: 'image', image: null, scale: 100, transparency: 50, position: 'mitte' },
-    { id: 2, name: 'Wasserzeichen Hochzeitsfotograf', wmType: 'text', image: null, text: 'Hochzeitsfotograf Fotohahn', font: 'Open Sans, 64px, weiß', scale: 100, transparency: 50, position: 'mitte' },
-    { id: 3, name: 'Fotohahn.ch', wmType: 'image', image: null, scale: 100, transparency: 50, position: 'mitte' },
-  ]);
+  const [watermarks, setWatermarks] = usePersistedState('settings_watermarks_v2', []);
 
   const [modalType, setModalType] = useState(null);
   const [modalData, setModalData] = useState({});
@@ -563,6 +559,8 @@ const defaultPresets = [];
 const VoreinstellungenTab = () => {
   const [presets, setPresets] = usePersistedState('settings_presets', defaultPresets);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const [brands] = usePersistedState('settings_brands', []);
+  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
   const [modal, setModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
 
@@ -689,7 +687,9 @@ const VoreinstellungenTab = () => {
                   <div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standard Marke</label>
                       <select className="form-input-st" value={detailModal.marke} onChange={e => ud('marke', e.target.value)}>
-                        <option value="">Wähle eine Standard Marke</option><option>{globalBrand.firmenname || 'Fotohahn'}</option>
+                        <option value="">Wähle eine Standard Marke</option>
+                        {brands.map((b, i) => <option key={i} value={b.name}>{b.name}</option>)}
+                        {brands.length === 0 && <option>{globalBrand.firmenname || 'Fotohahn'}</option>}
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standard Domain</label>
                       <select className="form-input-st" value={detailModal.domain} onChange={e => ud('domain', e.target.value)}>
@@ -698,6 +698,7 @@ const VoreinstellungenTab = () => {
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle ein Standard Wasserzeichen</label>
                       <select className="form-input-st" value={detailModal.wasserzeichen} onChange={e => ud('wasserzeichen', e.target.value)}>
                         <option value="">Wähle ein Standard Wasserzeichen</option>
+                        {watermarks.map((w, i) => <option key={i} value={w.name}>{w.name}</option>)}
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standard Sprache</label>
                       <select className="form-input-st" value={detailModal.sprache} onChange={e => ud('sprache', e.target.value)}>
