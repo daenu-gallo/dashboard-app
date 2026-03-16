@@ -244,3 +244,301 @@
     display: none;
   }
 }
+
+/* ── Wizard Modal Styles ── */
+.topbar-modal-wide {
+  width: 780px;
+  max-width: 95vw;
+}
+
+.wizard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background: var(--color-primary, #528c68);
+  color: white;
+}
+
+.wizard-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.wizard-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: white;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.wizard-close:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.wizard-field {
+  margin-bottom: 1rem;
+}
+
+.wizard-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 0.4rem;
+}
+
+.wizard-help-icon {
+  color: var(--color-primary, #528c68);
+  cursor: help;
+}
+
+.wizard-date-wrapper {
+  position: relative;
+}
+
+/* ── Step 2 Layout ── */
+.wizard-step2-body {
+  display: flex;
+  gap: 2rem;
+}
+
+.wizard-step2-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.wizard-step2-right {
+  flex: 0 0 260px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+/* ── Toggle ── */
+.wizard-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.wizard-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #ccc;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.wizard-toggle.active {
+  background: var(--color-primary, #528c68);
+}
+
+.wizard-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+.wizard-toggle.active .wizard-toggle-knob {
+  transform: translateX(20px);
+}
+
+.wizard-toggle-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ── Design Description ── */
+.wizard-design-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #666);
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+/* ── Preview Button ── */
+.wizard-preview-btn {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: var(--color-primary, #528c68);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.wizard-preview-btn:hover {
+  opacity: 0.9;
+}
+
+/* ── Phone Mockup ── */
+.wizard-phone-frame {
+  width: 220px;
+  background: #1a1a1a;
+  border-radius: 28px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.wizard-phone-notch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px 6px;
+  color: white;
+  font-size: 0.6rem;
+}
+
+.wizard-phone-time {
+  font-weight: 600;
+  background: #e74c3c;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.55rem;
+}
+
+.wizard-phone-icons {
+  font-size: 0.4rem;
+  letter-spacing: 2px;
+}
+
+.wizard-phone-content {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.wizard-phone-header {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #eee;
+  font-size: 0.6rem;
+}
+
+.wizard-phone-header.dark {
+  background: #222;
+  color: #eee;
+  border-bottom-color: #444;
+}
+
+.wizard-phone-menu-icon {
+  font-size: 0.85rem;
+}
+
+.wizard-phone-brand-name {
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+.wizard-phone-action {
+  font-size: 0.5rem;
+  padding: 2px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.wizard-phone-header.dark .wizard-phone-action {
+  border-color: #555;
+}
+
+.wizard-phone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 2px;
+}
+
+.wizard-phone-grid.dark {
+  background: #222;
+}
+
+.wizard-phone-thumb {
+  aspect-ratio: 1;
+  border-radius: 1px;
+}
+
+.wizard-phone-contact {
+  padding: 10px 12px;
+  text-align: center;
+  border-top: 1px solid #eee;
+  font-size: 0.55rem;
+  color: #666;
+}
+
+.wizard-phone-contact.dark {
+  background: #222;
+  color: #aaa;
+  border-top-color: #444;
+}
+
+.wizard-phone-contact-name {
+  font-weight: 600;
+  font-size: 0.7rem;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.wizard-phone-contact.dark .wizard-phone-contact-name {
+  color: #eee;
+}
+
+.wizard-phone-contact-links {
+  font-size: 0.5rem;
+  color: var(--color-primary, #528c68);
+}
+
+.wizard-phone-bottom-bar {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  border-top: 1px solid #eee;
+  font-size: 0.75rem;
+}
+
+.wizard-phone-bottom-bar.dark {
+  background: #222;
+  border-top-color: #444;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .wizard-step2-body {
+    flex-direction: column;
+  }
+  .wizard-step2-right {
+    flex: 0 0 auto;
+  }
+  .topbar-modal-wide {
+    width: 95vw;
+  }
+}
+

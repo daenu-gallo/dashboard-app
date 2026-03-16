@@ -1,15 +1,56 @@
-import React, { useState } from 'react';
-import { HelpCircle, ChevronRight, Menu, FolderPlus, X, LogOut, User } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { HelpCircle, ChevronRight, Menu, FolderPlus, X, LogOut, User, Calendar, HelpCircle as HelpIcon } from 'lucide-react';
 import './Topbar.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+
+const designTemplates = [
+  { key: 'Breeze', label: 'Breeze', description: 'Das elegante Breeze Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos. Alle wichtigen Informationen der Galerie werden übersichtlich und dezent auf den ersten Blick sichtbar.' },
+  { key: 'Simple Filigree', label: 'Simple Filigree', description: 'Ein minimalistisches Design mit feinen Linien und zurückhaltendem Stil. Perfekt für elegante Hochzeiten und Portraits.' },
+  { key: 'Scrappbook 2.0 Dark', label: 'Scrappbook 2.0 Dark', description: 'Modernes dunkles Design für einen cineastischen Look. Ideal für Events und Street-Photography.' },
+  { key: 'Vicky Baumann Fineart', label: 'Vicky Baumann Fineart', description: 'Fine-Art Design mit viel Weissraum und typographischem Fokus. Für Fine-Art und Editorial Fotografie.' },
+];
 
 const Topbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [newGalerieName, setNewGalerieName] = useState('');
+  const [wizardStep, setWizardStep] = useState(1);
+
+  // Step 1 fields
+  const [titel, setTitel] = useState('');
+  const [interneBezeichnung, setInterneBezeichnung] = useState('');
+  const [shootingDatum, setShootingDatum] = useState('');
+
+  // Step 2 fields
+  const [selectedPreset, setSelectedPreset] = useState('');
+  const [gesichtserkennung, setGesichtserkennung] = useState(true);
+  const [selectedBrand, setSelectedBrand] = useState('Fotohahn');
+  const [selectedDesign, setSelectedDesign] = useState('Breeze');
+
+  // Load presets and brands from localStorage
+  const presets = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('settings_presets') || '[]'); } catch { return []; }
+  }, [showModal]);
+  const brands = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('settings_brands') || '[{"id":1,"name":"Fotohahn","active":true}]'); } catch { return [{ id: 1, name: 'Fotohahn', active: true }]; }
+  }, [showModal]);
+
+  const activeDesign = designTemplates.find(d => d.key === selectedDesign) || designTemplates[0];
+
+  const openModal = () => {
+    setWizardStep(1);
+    setTitel('');
+    setInterneBezeichnung('');
+    setShootingDatum('');
+    const standardPreset = presets.find(p => p.standard);
+    setSelectedPreset(standardPreset ? standardPreset.name : (presets[0]?.name || ''));
+    setGesichtserkennung(true);
+    setSelectedBrand(brands.find(b => b.active)?.name || brands[0]?.name || 'Fotohahn');
+    setSelectedDesign('Breeze');
+    setShowModal(true);
+  };
   
   // Simple breadcrumb logic based on path
   const getBreadcrumbs = () => {
@@ -24,7 +65,7 @@ const Topbar = () => {
   const breadcrumbs = getBreadcrumbs();
 
   const handleCreateGalerie = () => {
-    if (newGalerieName.trim()) {
+    if (titel.trim()) {
       // Read existing galleries from localStorage
       let galleries = [];
       try {
@@ -32,23 +73,23 @@ const Topbar = () => {
         if (stored) galleries = JSON.parse(stored);
       } catch (e) {}
 
-      // Read the standard preset
-      let standardPreset = null;
+      // Find the selected preset
+      let preset = null;
       try {
-        const presets = JSON.parse(localStorage.getItem('settings_presets') || '[]');
-        standardPreset = presets.find(p => p.standard);
+        const allPresets = JSON.parse(localStorage.getItem('settings_presets') || '[]');
+        preset = allPresets.find(p => p.name === selectedPreset) || allPresets.find(p => p.standard);
       } catch (e) {}
 
       // Create new gallery with next available ID
       const maxId = galleries.reduce((max, g) => Math.max(max, g.id || 0), 0);
-      const gallerySlug = newGalerieName.toLowerCase()
+      const gallerySlug = titel.trim().toLowerCase()
         .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
         .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
       const newGallery = {
         id: maxId + 1,
-        title: newGalerieName.trim(),
-        name: '',
+        title: titel.trim(),
+        name: interneBezeichnung.trim(),
         views: 0,
         shared: 0,
         zip: 0,
@@ -60,80 +101,75 @@ const Topbar = () => {
         color: '#528c68',
       };
 
-      // Apply standard preset settings to the new gallery
-      if (standardPreset) {
-        const galleryKey = newGalerieName.trim();
-        // Toggles
-        const toggles = {
-          appHinweis: standardPreset.appHinweis !== false,
-          teilen: standardPreset.teilen !== false,
-          kommentarfunktion: standardPreset.kommentar !== false,
-          dateienamen: standardPreset.zeigeDateinamen || false,
-          download: standardPreset.download !== false,
-          downloadPin: standardPreset.downloadPin || false,
-          wasserzeichen: false,
+      // Apply settings to the new gallery
+      const galleryKey = titel.trim();
+      const toggles = {
+        appHinweis: preset ? preset.appHinweis !== false : true,
+        teilen: preset ? preset.teilen !== false : true,
+        kommentarfunktion: preset ? preset.kommentar !== false : true,
+        dateienamen: preset ? preset.zeigeDateinamen || false : false,
+        download: preset ? preset.download !== false : true,
+        downloadPin: preset ? preset.downloadPin || false : false,
+        wasserzeichen: false,
+        gesichtserkennung: gesichtserkennung,
+      };
+      localStorage.setItem(`gallery_${galleryKey}_toggles`, JSON.stringify(toggles));
+
+      const settings = {
+        titel: titel.trim(),
+        interneBezeichnung: interneBezeichnung.trim(),
+        shootingdatum: shootingDatum,
+        ablaufdatum: preset ? preset.ablauf || '' : '',
+        passwort: '',
+        marke: selectedBrand,
+        sprache: preset ? preset.sprache || 'Deutsch' : 'Deutsch',
+        domain: preset ? preset.domain || 'app.fotohahn.ch' : 'app.fotohahn.ch',
+        domainpfad: gallerySlug,
+        galerieart: '',
+        mitteilung: preset ? preset.mitteilung || '' : '',
+        sortierung: preset ? preset.sortierung || 'Uploaddatum' : 'Uploaddatum',
+        tags: preset ? preset.tags || '' : '',
+      };
+      localStorage.setItem(`gallery_${galleryKey}_settings`, JSON.stringify(settings));
+
+      const design = {
+        vorlage: selectedDesign,
+        schriftart: preset ? preset.schriftart || '' : '',
+        primaerfarbe: preset ? preset.primaerfarbe || '' : '',
+        sekundaerfarbe: preset ? preset.sekundaerfarbe || '' : '',
+        bildabstand: preset ? preset.bildabstand || '' : '',
+        bilddarstellung: preset ? preset.bilddarstellung || 'Standard' : 'Standard',
+        dekorativ: preset ? preset.dekorativ !== false : true,
+        fotografenhinweis: preset ? preset.fotografenhinweis || false : false,
+      };
+      localStorage.setItem(`gallery_${galleryKey}_design`, JSON.stringify(design));
+
+      // Tracking
+      if (preset && (preset.gaCode || preset.gtmId || preset.fbPixel)) {
+        const tracking = {
+          gaCode: preset.gaCode || '',
+          gtmId: preset.gtmId || '',
+          fbPixel: preset.fbPixel || '',
         };
-        localStorage.setItem(`gallery_${galleryKey}_toggles`, JSON.stringify(toggles));
-
-        // Settings / form data
-        const settings = {
-          titel: newGalerieName.trim(),
-          interneBezeichnung: '',
-          shootingdatum: '',
-          ablaufdatum: standardPreset.ablauf || '',
-          passwort: '',
-          marke: standardPreset.marke || 'Fotohahn',
-          sprache: standardPreset.sprache || 'Deutsch',
-          domain: standardPreset.domain || 'app.fotohahn.ch',
-          domainpfad: gallerySlug,
-          galerieart: '',
-          mitteilung: standardPreset.mitteilung || '',
-          sortierung: standardPreset.sortierung || 'Uploaddatum',
-          tags: standardPreset.tags || '',
-        };
-        localStorage.setItem(`gallery_${galleryKey}_settings`, JSON.stringify(settings));
-
-        // Design
-        const design = {
-          vorlage: standardPreset.vorlage || '',
-          schriftart: standardPreset.schriftart || '',
-          primaerfarbe: standardPreset.primaerfarbe || '',
-          sekundaerfarbe: standardPreset.sekundaerfarbe || '',
-          bildabstand: standardPreset.bildabstand || '',
-          bilddarstellung: standardPreset.bilddarstellung || 'Standard',
-          dekorativ: standardPreset.dekorativ !== false,
-          fotografenhinweis: standardPreset.fotografenhinweis || false,
-        };
-        localStorage.setItem(`gallery_${galleryKey}_design`, JSON.stringify(design));
-
-        // Tracking
-        if (standardPreset.gaCode || standardPreset.gtmId || standardPreset.fbPixel) {
-          const tracking = {
-            gaCode: standardPreset.gaCode || '',
-            gtmId: standardPreset.gtmId || '',
-            fbPixel: standardPreset.fbPixel || '',
-          };
-          localStorage.setItem(`gallery_${galleryKey}_tracking`, JSON.stringify(tracking));
-        }
-
-        // Sync all to IndexedDB
-        try {
-          const dbReq = indexedDB.open('fotohahn_db', 1);
-          dbReq.onsuccess = () => {
-            const db = dbReq.result;
-            const tx = db.transaction('persisted_state', 'readwrite');
-            const store = tx.objectStore('persisted_state');
-            store.put(toggles, `gallery_${galleryKey}_toggles`);
-            store.put(settings, `gallery_${galleryKey}_settings`);
-            store.put(design, `gallery_${galleryKey}_design`);
-          };
-        } catch (e) {}
+        localStorage.setItem(`gallery_${galleryKey}_tracking`, JSON.stringify(tracking));
       }
+
+      // Sync all to IndexedDB
+      try {
+        const dbReq = indexedDB.open('fotohahn_db', 1);
+        dbReq.onsuccess = () => {
+          const db = dbReq.result;
+          const tx = db.transaction('persisted_state', 'readwrite');
+          const store = tx.objectStore('persisted_state');
+          store.put(toggles, `gallery_${galleryKey}_toggles`);
+          store.put(settings, `gallery_${galleryKey}_settings`);
+          store.put(design, `gallery_${galleryKey}_design`);
+        };
+      } catch (e) {}
 
       // Save updated list to localStorage + IndexedDB
       const updatedList = [...galleries, newGallery];
       localStorage.setItem('galleries_list_v2', JSON.stringify(updatedList));
-      // Sync to IndexedDB
       try {
         const dbReq = indexedDB.open('fotohahn_db', 1);
         dbReq.onsuccess = () => {
@@ -142,13 +178,9 @@ const Topbar = () => {
           tx.objectStore('persisted_state').put(updatedList, 'galleries_list_v2');
         };
       } catch (e) {}
-      // Notify other components
       window.dispatchEvent(new CustomEvent('persisted-state-change', { detail: { key: 'galleries_list_v2' } }));
 
       setShowModal(false);
-      setNewGalerieName('');
-
-      // Navigate to the new gallery
       navigate(`/galleries/${gallerySlug}`);
     }
   };
@@ -174,7 +206,7 @@ const Topbar = () => {
         
         <div className="topbar-right">
           {location.pathname === '/' || location.pathname === '/galleries' ? (
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <button className="btn-primary" onClick={openModal}>
               <FolderPlus size={16} />
               Neue Galerie erstellen
             </button>
@@ -194,40 +226,188 @@ const Topbar = () => {
         </div>
       </header>
 
-      {/* Neue Galerie Modal */}
+      {/* Neue Galerie Wizard Modal */}
       {showModal && (
         <div className="topbar-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="topbar-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="topbar-modal-header">
+          <div className={`topbar-modal ${wizardStep === 2 ? 'topbar-modal-wide' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="wizard-header">
               <h3>Neue Galerie erstellen</h3>
-              <button className="topbar-modal-close" onClick={() => setShowModal(false)}>
+              <button className="wizard-close" onClick={() => setShowModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <div className="topbar-modal-body">
-              <label className="topbar-modal-label">Name der Galerie</label>
-              <input
-                className="topbar-modal-input"
-                type="text"
-                placeholder="z.B. Hochzeit Anna & Peter"
-                value={newGalerieName}
-                onChange={(e) => setNewGalerieName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateGalerie()}
-                autoFocus
-              />
-            </div>
-            <div className="topbar-modal-footer">
-              <button className="topbar-modal-cancel" onClick={() => setShowModal(false)}>
-                Abbrechen
-              </button>
-              <button
-                className="topbar-modal-submit"
-                onClick={handleCreateGalerie}
-                disabled={!newGalerieName.trim()}
-              >
-                Erstellen
-              </button>
-            </div>
+
+            {wizardStep === 1 ? (
+              /* ── Step 1: Details ── */
+              <>
+                <div className="topbar-modal-body">
+                  <div className="wizard-field">
+                    <label className="wizard-label">
+                      Titel
+                      <HelpCircle size={14} className="wizard-help-icon" />
+                    </label>
+                    <input
+                      className="topbar-modal-input"
+                      type="text"
+                      placeholder="Titel"
+                      value={titel}
+                      onChange={(e) => setTitel(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="wizard-field">
+                    <label className="wizard-label">
+                      Interne Bezeichnung (optional)
+                      <HelpCircle size={14} className="wizard-help-icon" />
+                    </label>
+                    <input
+                      className="topbar-modal-input"
+                      type="text"
+                      placeholder="Interne Bezeichnung (optional)"
+                      value={interneBezeichnung}
+                      onChange={(e) => setInterneBezeichnung(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="wizard-field">
+                    <label className="wizard-label">
+                      Datum des Shootings (optional)
+                    </label>
+                    <div className="wizard-date-wrapper">
+                      <input
+                        className="topbar-modal-input"
+                        type="date"
+                        placeholder="Datum des Shootings"
+                        value={shootingDatum}
+                        onChange={(e) => setShootingDatum(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="topbar-modal-footer">
+                  <button className="topbar-modal-cancel" onClick={() => setShowModal(false)}>
+                    Abbrechen
+                  </button>
+                  <button
+                    className="topbar-modal-submit"
+                    onClick={() => setWizardStep(2)}
+                    disabled={!titel.trim()}
+                  >
+                    Nächster Schritt
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── Step 2: Einstellungen & Design ── */
+              <>
+                <div className="topbar-modal-body wizard-step2-body">
+                  <div className="wizard-step2-left">
+                    <div className="wizard-field">
+                      <label className="wizard-label">Galerie Voreinstellung</label>
+                      <select
+                        className="topbar-modal-input"
+                        value={selectedPreset}
+                        onChange={(e) => setSelectedPreset(e.target.value)}
+                      >
+                        {presets.length === 0 && <option value="">Keine Voreinstellungen</option>}
+                        {presets.map((p, i) => (
+                          <option key={i} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="wizard-toggle-row">
+                      <div
+                        className={`wizard-toggle ${gesichtserkennung ? 'active' : ''}`}
+                        onClick={() => setGesichtserkennung(!gesichtserkennung)}
+                      >
+                        <div className="wizard-toggle-knob" />
+                      </div>
+                      <span className="wizard-toggle-label">
+                        Gesichtserkennung
+                        <HelpCircle size={14} className="wizard-help-icon" />
+                      </span>
+                    </div>
+
+                    <div className="wizard-field">
+                      <label className="wizard-label">Marke</label>
+                      <select
+                        className="topbar-modal-input"
+                        value={selectedBrand}
+                        onChange={(e) => setSelectedBrand(e.target.value)}
+                      >
+                        {brands.map((b, i) => (
+                          <option key={i} value={b.name}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="wizard-field">
+                      <label className="wizard-label">Design auswählen:</label>
+                      <select
+                        className="topbar-modal-input"
+                        value={selectedDesign}
+                        onChange={(e) => setSelectedDesign(e.target.value)}
+                      >
+                        {designTemplates.map(t => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <p className="wizard-design-desc">{activeDesign.description}</p>
+
+                    <button className="wizard-preview-btn" onClick={() => {}}>
+                      Zur Vorschau-Galerie
+                    </button>
+                  </div>
+
+                  <div className="wizard-step2-right">
+                    <div className="wizard-phone-frame">
+                      <div className="wizard-phone-notch">
+                        <span className="wizard-phone-time">09:01</span>
+                        <span className="wizard-phone-icons">●●●</span>
+                      </div>
+                      <div className="wizard-phone-content">
+                        <div className={`wizard-phone-header ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
+                          <div className="wizard-phone-menu-icon">☰</div>
+                          <div className="wizard-phone-brand-name">{selectedBrand}</div>
+                          <div className="wizard-phone-action">Bilder auswählen</div>
+                        </div>
+                        <div className={`wizard-phone-grid ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
+                          {[1,2,3,4,5,6,7,8,9].map(i => (
+                            <div key={i} className="wizard-phone-thumb" style={{ background: `hsl(${i * 35 + 20}, 40%, ${65 + (i % 3) * 8}%)` }} />
+                          ))}
+                        </div>
+                        <div className={`wizard-phone-contact ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
+                          <div className="wizard-phone-contact-name">{selectedBrand}</div>
+                          <div className="wizard-phone-contact-links">
+                            Impressum | Datenschutz | Apps
+                          </div>
+                        </div>
+                        <div className={`wizard-phone-bottom-bar ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
+                          <span>🖼</span><span>🛒</span><span>↗</span><span>📑</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="topbar-modal-footer">
+                  <button className="topbar-modal-cancel" onClick={() => setWizardStep(1)}>
+                    Zurück
+                  </button>
+                  <button
+                    className="topbar-modal-submit"
+                    onClick={handleCreateGalerie}
+                  >
+                    Erstellen
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
