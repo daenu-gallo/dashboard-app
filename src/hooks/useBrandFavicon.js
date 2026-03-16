@@ -8,7 +8,7 @@ import { usePersistedState } from './usePersistedState';
  */
 export function useBrandFavicon() {
   const [brands] = usePersistedState('settings_brands', [
-    { id: 1, name: 'Fotohahn', active: true, logo: null },
+    { id: 1, name: '', active: true, logo: null },
   ]);
 
   useEffect(() => {

@@ -57,7 +57,7 @@ const ResetPasswordPage = () => {
               <path d="M17 17m-3 0a3 3 0 1 0 6 0 3 3 0 1 0 -6 0" />
             </svg>
           )}
-          <h1 className="login-brand">{globalBrand.webseite ? globalBrand.webseite.replace(/^https?:\/\//, '').replace(/^www\./, '') : 'fotohahn.ch'}</h1>
+          <h1 className="login-brand">{globalBrand.webseite ? globalBrand.webseite.replace(/^https?:\/\//, '').replace(/^www\./, '') : ''}</h1>
         </div>
 
         <h2 className="login-title">Neues Passwort setzen</h2>
@@ -120,11 +120,11 @@ const ResetPasswordPage = () => {
         )}
 
         <div className="login-footer">
-          <a href="https://fotohahn.ch/impressum" target="_blank" rel="noopener noreferrer">Impressum</a>
-          <span>·</span>
-          <a href="https://fotohahn.ch/datenschutzerklaerung-von-fotohahn-ch/" target="_blank" rel="noopener noreferrer">Datenschutz</a>
-          <span>·</span>
-          <a href="https://fotohahn.ch/kontaktaufnahme-hochzeitsfotograf-thun-bern/" target="_blank" rel="noopener noreferrer">Kontakt</a>
+          <a href="#">Impressum</a>
+          <span className="login-footer-sep">|</span>
+          <a href="#">Datenschutz</a>
+          <span className="login-footer-sep">|</span>
+          <a href="#">Kontakt</a>
         </div>
       </div>
     </div>

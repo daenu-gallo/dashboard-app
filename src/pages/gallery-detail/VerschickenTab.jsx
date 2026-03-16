@@ -35,7 +35,7 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
   const [selectedEditId, setSelectedEditId] = useState(null);
 
   const displayTitle = settings?.titel || gallery?.title || 'Galerie';
-  const galleryUrl = `https://${settings?.domain || 'app.fotohahn.ch'}/${settings?.domainpfad || galleryKey || 'vorschau-hochzeit'}`;
+  const galleryUrl = settings?.domain ? `https://${settings.domain}/${settings?.domainpfad || galleryKey}` : '';
   const password = settings?.passwort || settings?.password || '';
 
   // Get selected template

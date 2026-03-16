@@ -20,7 +20,11 @@ const Sidebar = () => {
       <div className="sidebar-top">
         {/* Logo Area */}
         <div className="sidebar-logo">
-          <img src={globalBrand.logoDark || '/fotohahn-logo.png'} alt={globalBrand.firmenname || 'Logo'} className="logo-icon" style={{ width: 44, height: 44, objectFit: 'contain' }} />
+          {globalBrand.logoDark ? (
+            <img src={globalBrand.logoDark} alt={globalBrand.firmenname || 'Logo'} className="logo-icon" style={{ width: 44, height: 44, objectFit: 'contain' }} />
+          ) : (
+            <div className="logo-icon" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', borderRadius: '50%', fontSize: '0.6rem', color: '#999' }}>Logo</div>
+          )}
         </div>
         
         {/* Icons/Links */}

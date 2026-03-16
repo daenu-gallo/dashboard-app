@@ -14,10 +14,10 @@ const PortfolioDetail = ({ portfolio, onBack }) => {
   const [formData, setFormData] = usePersistedState(`${pKey}_settings`, {
     titel: portfolio.title,
     beschreibung: '',
-    marken: 'Fotohahn',
+    marken: '',
     passwort: '',
     sprache: 'Deutsch',
-    domain: 'app.fotohahn.ch',
+    domain: '',
     domainpfad: 'Hochzeitsfotos',
     tags: '',
     titelbild: null,
@@ -25,7 +25,7 @@ const PortfolioDetail = ({ portfolio, onBack }) => {
   });
   const [previewMode, setPreviewMode] = useState('desktop');
   const titelbildInputRef = React.useRef(null);
-  const [brands] = usePersistedState('settings_brands', [{ id: 1, name: 'Fotohahn', active: true }]);
+  const [brands] = usePersistedState('settings_brands', []);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
 
   const updateField = (field, value) => {
@@ -100,7 +100,7 @@ const PortfolioDetail = ({ portfolio, onBack }) => {
             <label>Domain</label>
             <div className="pf-domain-row">
               <select className="pf-input" style={{ flex: '0 0 45%' }} value={formData.domain} onChange={(e) => updateField('domain', e.target.value)}>
-                <option>app.fotohahn.ch</option>
+                <option value="">Domain wählen</option>
               </select>
               <div>
                 <span className="pf-domain-label">Domainpfad</span>

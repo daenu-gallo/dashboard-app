@@ -94,7 +94,7 @@ const CustomerView = () => {
   // Read persisted settings and toggles
   const [settings] = usePersistedState(`gallery_${galleryKey}_settings`, {
     titel: galleryKey,
-    domain: 'app.fotohahn.ch',
+    domain: '',
     domainpfad: toSlug(galleryKey),
     passwort: '',
     sprache: 'Deutsch',
@@ -122,19 +122,19 @@ const CustomerView = () => {
 
   // Legal links from Eigene Domains settings
   const [impressumList] = usePersistedState('settings_impressum_v2', [
-    { id: 1, name: 'AGB', url: 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/', content: 'https://fotohahn.ch/impressum/' },
+    { id: 1, name: '', url: '', content: '' },
   ]);
   const [datenschutzList] = usePersistedState('settings_datenschutz_v2', [
-    { id: 1, name: 'AGB', url: 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/', content: 'https://fotohahn.ch/datenschutzerklaerung-von-fotohahn-ch/' },
+    { id: 1, name: '', url: '', content: '' },
   ]);
   const impressumUrl = impressumList[0]?.url || '#';
   const datenschutzUrl = datenschutzList[0]?.url || '#';
 
   // Brand name from settings
   const [brands] = usePersistedState('settings_brands', [
-    { id: 1, name: 'Fotohahn', active: true, logo: null },
+    { id: 1, name: '', active: true, logo: null },
   ]);
-  const activeBrand = brands.find(b => b.active) || brands[0] || { name: 'Fotohahn' };
+  const activeBrand = brands.find(b => b.active) || brands[0] || { name: '' };
   const brandName = activeBrand.name;
 
   // Global brand settings (logos, contact, social)
@@ -750,7 +750,7 @@ const CustomerView = () => {
               <h3>{globalBrand.firmenname || brandName}</h3>
               <p className="cv-contact-name">{globalBrand.firmenname || brandName}</p>
               <p className="cv-contact-detail">{globalBrand.telefon || '+41796662009'}</p>
-              <p className="cv-contact-detail">{globalBrand.email || 'info@fotohahn.ch'}</p>
+              <p className="cv-contact-detail">{globalBrand.email || ''}</p>
               <div className="cv-contact-socials">
                 {globalBrand.facebook && <a href={globalBrand.facebook} className="cv-social-icon" target="_blank" rel="noreferrer"><Facebook size={18} /></a>}
                 {globalBrand.instagram && <a href={globalBrand.instagram} className="cv-social-icon" target="_blank" rel="noreferrer"><Instagram size={18} /></a>}

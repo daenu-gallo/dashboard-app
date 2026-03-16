@@ -6,7 +6,7 @@ const EinstellungenTab = ({ gallery }) => {
   const galleryKey = gallery?.title || 'default';
   // Track the most recent title saved to the gallery list for reliable lookups
   const lastSavedTitle = useRef(galleryKey);
-  const [brands] = usePersistedState('settings_brands', [{ id: 1, name: 'Fotohahn', active: true }]);
+  const [brands] = usePersistedState('settings_brands', []);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
 
   const [toggles, setToggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
@@ -42,9 +42,9 @@ const EinstellungenTab = ({ gallery }) => {
     shootingdatum: '',
     ablaufdatum: '',
     passwort: '',
-    marke: 'Fotohahn',
+    marke: '',
     sprache: 'Deutsch',
-    domain: 'app.fotohahn.ch',
+    domain: '',
     domainpfad: (gallery?.title || '').toLowerCase()
       .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
       .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
@@ -342,7 +342,7 @@ const EinstellungenTab = ({ gallery }) => {
           <div style={{ flex: 1 }}>
             <div className="form-label">Eigene Domains</div>
             <select className="form-select" style={{ width: '100%' }} value={formData.domain} onChange={e => updateField('domain', e.target.value)}>
-              <option>app.fotohahn.ch</option>
+              <option value="">Domain wählen</option>
             </select>
           </div>
           <div style={{ flex: 1 }}>

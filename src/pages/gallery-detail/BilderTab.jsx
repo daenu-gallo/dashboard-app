@@ -359,7 +359,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
       {/* Watermark overlay */}
       {isReal && showWatermark && (
         <div className="photo-watermark-overlay">
-          {watermarkText || 'Fotohahn.ch'}
+          {watermarkText || ''}
         </div>
       )}
 
@@ -1090,7 +1090,7 @@ const BilderTab = ({ gallery, onCountsChange }) => {
                     onSetAppIcon={() => setAppIcon(img.src)}
                     onApplyWatermark={() => setWatermarkModalTarget({ albumIdx: idx, imgIdx, photoSrc: img.src })}
                     showWatermark={!!albumToggles[idx]?.watermark}
-                    watermarkText={albumToggles[idx]?.watermarkName || globalBrand.firmenname || 'Fotohahn.ch'}
+                    watermarkText={albumToggles[idx]?.watermarkName || globalBrand.firmenname || ''}
                   />
                 ))}
               </div>

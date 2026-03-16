@@ -45,21 +45,21 @@ const PositionGrid = ({ value, onChange }) => (
 const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
   const [activeSubTab, setActiveSubTab] = useState('kontakt');
   const [globalSettings, setGlobalSettings] = usePersistedState('global_brand_settings', {
-    firmenname: 'Fotohahn',
-    webseite: 'https://www.fotohahn.ch',
-    email: 'info@fotohahn.ch',
-    telefon: '+41796662009',
+    firmenname: '',
+    webseite: '',
+    email: '',
+    telefon: '',
     logoDark: null,
     logoDarkName: '',
     logoLight: null,
     logoLightName: '',
     teamBild: null,
     teamBildName: '',
-    facebook: 'https://www.facebook.com/Fotohahn.ch',
-    instagram: 'https://www.instagram.com/Hochzeitsfotograf_fotohahn.ch/',
-    twitter: 'https://twitter.com/fotohahnc',
-    pinterest: 'https://www.pinterest.ch/Hochzeitsfotograf_Fotohahn/fotohahn',
-    youtube: 'https://www.youtube.com/watch?v=p2wE2qW_dIg',
+    facebook: '',
+    instagram: '',
+    twitter: '',
+    pinterest: '',
+    youtube: '',
   });
 
   const logoDarkRef = useRef(null);
@@ -224,9 +224,7 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
 
 /* ——— Tab: Marken & Wasserzeichen ——— */
 const MarkenTab = () => {
-  const [brands, setBrands] = usePersistedState('settings_brands', [
-    { id: 1, name: 'Fotohahn', active: true, logo: null },
-  ]);
+  const [brands, setBrands] = usePersistedState('settings_brands', []);
   const [watermarks, setWatermarks] = usePersistedState('settings_watermarks_v2', []);
 
   const [modalType, setModalType] = useState(null);
@@ -571,7 +569,7 @@ const VoreinstellungenTab = () => {
     const p = presets[idx];
     setDetailModal({
       idx, activeTab: 'einstellungen',
-      name: p.name, marke: p.marke || '', domain: p.domain || 'app.fotohahn.ch',
+      name: p.name, marke: p.marke || '', domain: p.domain || '',
       wasserzeichen: p.wasserzeichen || '', sprache: p.sprache || 'Deutsch',
       mitteilung: p.mitteilung || '', sortierung: p.sortierung || 'Uploaddatum',
       ablauf: p.ablauf || '', tags: p.tags || '',
@@ -606,7 +604,7 @@ const VoreinstellungenTab = () => {
   };
 
   const ud = (field, val) => setDetailModal(prev => ({ ...prev, [field]: val }));
-  const displayName = (name) => name.replace(/fotohahn/gi, globalBrand.firmenname || 'fotohahn');
+  const displayName = (name) => globalBrand.firmenname ? name.replace(/fotohahn/gi, globalBrand.firmenname) : name;
 
   const detailTabs = [
     { id: 'einstellungen', label: 'Einstellungen' },
@@ -689,11 +687,11 @@ const VoreinstellungenTab = () => {
                       <select className="form-input-st" value={detailModal.marke} onChange={e => ud('marke', e.target.value)}>
                         <option value="">Wähle eine Standard Marke</option>
                         {brands.map((b, i) => <option key={i} value={b.name}>{b.name}</option>)}
-                        {brands.length === 0 && <option>{globalBrand.firmenname || 'Fotohahn'}</option>}
+                        {brands.length === 0 && <option value="">Keine Marken vorhanden</option>}
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standard Domain</label>
                       <select className="form-input-st" value={detailModal.domain} onChange={e => ud('domain', e.target.value)}>
-                        <option>app.fotohahn.ch</option>
+                        <option value="">Domain wählen</option>
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle ein Standard Wasserzeichen</label>
                       <select className="form-input-st" value={detailModal.wasserzeichen} onChange={e => ud('wasserzeichen', e.target.value)}>
@@ -894,12 +892,12 @@ const SteuerTab = () => {
 /* ——— Tab: Mitteilungen ——— */
 const MitteilungenTab = () => {
   const [mittData, setMittData] = usePersistedState('settings_mitteilungen', {
-    titel: 'Fotoshooting',
-    mitteilung: '15% Rabatt auf Familienshooting',
+    titel: '',
+    mitteilung: '',
     bild: null,
     bildName: '',
-    buttontext: 'Jetzt buchen',
-    buttonaktion: 'www.fotohahn.ch',
+    buttontext: '',
+    buttonaktion: '',
     werSoll: 'Alle',
     wannAnzeigen: '0',
     wieOftAnzeigen: '1',
@@ -1002,15 +1000,9 @@ const MitteilungenTab = () => {
 
 /* ——— Tab: Eigene Domains ——— */
 const DomainsTab = () => {
-  const [domains, setDomains] = usePersistedState('settings_domains', [
-    { id: 1, domain: 'app.fotohahn.ch', target: 'horizontal-pheasant-40jnz8finut07rqvhi1o1svy.herokudns.com', impressum: 'AGB', datenschutz: 'AGB' },
-  ]);
-  const [impressumList, setImpressumList] = usePersistedState('settings_impressum_v2', [
-    { id: 1, name: 'AGB', url: 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/', content: 'https://fotohahn.ch/impressum/' },
-  ]);
-  const [datenschutzList, setDatenschutzList] = usePersistedState('settings_datenschutz_v2', [
-    { id: 1, name: 'AGB', url: 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/', content: 'https://fotohahn.ch/datenschutzerklaerung-von-fotohahn-ch/' },
-  ]);
+  const [domains, setDomains] = usePersistedState('settings_domains', []);
+  const [impressumList, setImpressumList] = usePersistedState('settings_impressum_v2', []);
+  const [datenschutzList, setDatenschutzList] = usePersistedState('settings_datenschutz_v2', []);
   const [legalModal, setLegalModal] = useState(null); // { type: 'impressum'|'datenschutz', mode: 'add'|'edit', data: {...} }
 
   const [domainModal, setDomainModal] = useState(null); // { name: '' }
@@ -1121,11 +1113,11 @@ const DomainsTab = () => {
               </div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
                 <label style={{ fontWeight: 600 }}>Internetaddresse <HelpCircle size={13} style={{ color: '#aaa' }} /></label>
-                <input className="form-input-st" placeholder={legalModal.type === 'impressum' ? 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/' : 'https://fotohahn.ch/agb-fotohahn-hochzeitsfotograf/'} value={legalModal.data.url} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, url: e.target.value } }))} />
+                <input className="form-input-st" placeholder="https://example.com/agb" value={legalModal.data.url} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, url: e.target.value } }))} />
               </div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
                 <label style={{ fontWeight: 600 }}>{legalModal.type === 'impressum' ? 'Impressum' : 'Datenschutz'} <HelpCircle size={13} style={{ color: '#aaa' }} /></label>
-                <textarea className="form-input-st" rows={3} placeholder={legalModal.type === 'impressum' ? 'https://fotohahn.ch/impressum/' : 'https://fotohahn.ch/datenschutzerklaerung-von-fotohahn-ch/'} value={legalModal.data.content} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, content: e.target.value } }))} style={{ resize: 'vertical' }} />
+                <textarea className="form-input-st" rows={3} placeholder={legalModal.type === 'impressum' ? 'https://example.com/impressum' : 'https://example.com/datenschutz'} value={legalModal.data.content} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, content: e.target.value } }))} style={{ resize: 'vertical' }} />
               </div>
               <button onClick={saveLegal} style={{ ...greenBtn, width: '100%', marginTop: '1rem', padding: '0.65rem' }}>
                 {typeLabel} bearbeiten

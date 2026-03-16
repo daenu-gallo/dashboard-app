@@ -27,7 +27,7 @@ const Topbar = () => {
   // Step 2 fields
   const [selectedPreset, setSelectedPreset] = useState('');
 
-  const [selectedBrand, setSelectedBrand] = useState('Fotohahn');
+  const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedDesign, setSelectedDesign] = useState('Atelier');
 
   // Load presets and brands from localStorage
@@ -35,7 +35,7 @@ const Topbar = () => {
     try { return JSON.parse(localStorage.getItem('settings_presets') || '[]'); } catch { return []; }
   }, [showModal]);
   const brands = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('settings_brands') || '[{"id":1,"name":"Fotohahn","active":true}]'); } catch { return [{ id: 1, name: 'Fotohahn', active: true }]; }
+    try { return JSON.parse(localStorage.getItem('settings_brands') || '[]'); } catch { return []; }
   }, [showModal]);
 
   const activeDesign = designTemplates.find(d => d.key === selectedDesign) || designTemplates[0];
@@ -62,11 +62,11 @@ const Topbar = () => {
     // Apply preset values
     if (initialPreset) {
       setSelectedDesign(initialPreset.vorlage || 'Atelier');
-      setSelectedBrand(initialPreset.marke || brands.find(b => b.active)?.name || 'Fotohahn');
+      setSelectedBrand(initialPreset.marke || brands.find(b => b.active)?.name || '');
 
     } else {
       setSelectedDesign('Atelier');
-      setSelectedBrand(brands.find(b => b.active)?.name || 'Fotohahn');
+      setSelectedBrand(brands.find(b => b.active)?.name || '');
 
     }
     setShowModal(true);
@@ -144,7 +144,7 @@ const Topbar = () => {
         passwort: '',
         marke: selectedBrand,
         sprache: preset ? preset.sprache || 'Deutsch' : 'Deutsch',
-        domain: preset ? preset.domain || 'app.fotohahn.ch' : 'app.fotohahn.ch',
+        domain: preset ? preset.domain || '' : '',
         domainpfad: gallerySlug,
         galerieart: '',
         mitteilung: preset ? preset.mitteilung || '' : '',

@@ -56,7 +56,7 @@ const GalleriesPage = () => {
   const [linkModal, setLinkModal] = useState(null); // { url: '', copied: false }
 
   const handleShare = (title) => {
-    const url = `https://app.fotohahn.ch/${toSlug(title)}`;
+    const url = `https://app.example.com/${toSlug(title)}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkModal({ url, copied: true });
       setTimeout(() => setLinkModal(prev => prev ? { ...prev, copied: true } : null), 100);

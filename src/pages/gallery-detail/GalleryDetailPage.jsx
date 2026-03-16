@@ -67,7 +67,7 @@ const GalleryDetailPage = () => {
   const galleryKey = gallery?.title || 'default';
   const [settings] = usePersistedState(`gallery_${galleryKey}_settings`, {
     titel: gallery.title,
-    domain: 'app.fotohahn.ch',
+    domain: '',
     domainpfad: slug,
   });
 
@@ -85,7 +85,7 @@ const GalleryDetailPage = () => {
   const avatarSrc = getAvatarSrc();
 
   const displayTitle = settings.titel || gallery.title;
-  const displayUrl = `https://${settings.domain || 'app.fotohahn.ch'}/${settings.domainpfad || slug}`;
+  const displayUrl = settings.domain ? `https://${settings.domain}/${settings.domainpfad || slug}` : '';
 
   // Note: We intentionally do NOT auto-navigate when domainpfad changes.
   // Changing the URL during editing would re-mount the component with a different
