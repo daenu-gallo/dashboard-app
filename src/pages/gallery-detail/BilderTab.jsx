@@ -2,13 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
 
-const defaultAlbums = [
-  { name: 'Paarportrait', count: 77, previewCount: 2, totalPhotos: 24 },
-  { name: 'Getting Ready', count: 101, previewCount: 2, totalPhotos: 28 },
-  { name: 'First Look', count: 90, previewCount: 2, totalPhotos: 20 },
-  { name: 'Brautpaarshooting', count: 151, previewCount: 2, totalPhotos: 32 },
-  { name: 'Ankunft Gäste', count: 150, previewCount: 2, totalPhotos: 26 },
-];
+const defaultAlbums = [];
 
 const photoColors = [
   '#8b6e4e','#96785c','#a0846a','#7a5c40','#6b4d33',
