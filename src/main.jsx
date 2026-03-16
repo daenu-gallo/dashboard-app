@@ -5,7 +5,7 @@ import App from './App.jsx'
 
 // ── Cache version reset ──
 // Increment this number to force clear all cached data on next load
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const storedVersion = localStorage.getItem('_cache_version');
 if (!storedVersion || Number(storedVersion) < CACHE_VERSION) {
   // Clear all localStorage

@@ -14,7 +14,7 @@ const TEMPLATES = [
     display: 'standard',
   },
   {
-    id: 'simple-filigree',
+    id: 'dark-shark',
     name: 'Dark Shark',
     primaryColor: '#1a1a2e',
     secondaryColor: '#e8d5b7',
@@ -23,8 +23,8 @@ const TEMPLATES = [
     display: 'standard',
   },
   {
-    id: 'breeze',
-    name: 'Breeze',
+    id: 'lazy-r',
+    name: 'Lazy R',
     primaryColor: '#f5f0eb',
     secondaryColor: '#2d4a3e',
     font: 'Playfair Display',

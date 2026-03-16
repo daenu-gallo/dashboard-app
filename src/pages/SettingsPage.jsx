@@ -578,7 +578,7 @@ const VoreinstellungenTab = () => {
       download: p.download !== false, downloadPin: p.downloadPin || false,
       appHinweis: p.appHinweis !== false, teilen: p.teilen !== false,
       kommentar: p.kommentar !== false, zeigeDateinamen: p.zeigeDateinamen || false,
-      gesichtserkennung: p.gesichtserkennung || false,
+
       // Design
       vorlage: p.vorlage || '', schriftart: p.schriftart || '', primaerfarbe: p.primaerfarbe || '',
       sekundaerfarbe: p.sekundaerfarbe || '', bildabstand: p.bildabstand || '', bilddarstellung: p.bilddarstellung || 'Standard',
@@ -728,7 +728,6 @@ const VoreinstellungenTab = () => {
                       { key: 'download', label: 'Download' }, { key: 'downloadPin', label: 'Download PIN' },
                       { key: 'appHinweis', label: 'App-Hinweis' }, { key: 'teilen', label: 'Teilen' },
                       { key: 'kommentar', label: 'Kommentarfunktion' }, { key: 'zeigeDateinamen', label: 'Zeige Dateinamen' },
-                      { key: 'gesichtserkennung', label: 'Gesichtserkennung', help: true },
                     ].map(t => (
                       <div key={t.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div style={ts(detailModal[t.key])} onClick={() => ud(t.key, !detailModal[t.key])}><div style={tk(detailModal[t.key])} /></div>
