@@ -189,6 +189,20 @@ const Topbar = () => {
         localStorage.setItem(`gallery_${galleryKey}_tracking`, JSON.stringify(tracking));
       }
 
+      // Sync preset albums to the new gallery
+      const presetAlbums = (preset?.alben || []).map(name => ({
+        name,
+        count: 0,
+        previewCount: 2,
+        totalPhotos: 2,
+      }));
+      if (presetAlbums.length > 0) {
+        localStorage.setItem(`gallery_${galleryKey}_albums`, JSON.stringify(presetAlbums));
+        const albumNames = {};
+        presetAlbums.forEach((a, i) => { albumNames[i] = a.name; });
+        localStorage.setItem(`gallery_${galleryKey}_albumNames`, JSON.stringify(albumNames));
+      }
+
       // Sync all to IndexedDB
       try {
         const dbReq = indexedDB.open('fotohahn_db', 1);
@@ -204,6 +218,12 @@ const Topbar = () => {
           store.put(preset?.schriftart || td.font, `gallery_${galleryKey}_design_font`);
           store.put(preset?.bildabstand || td.spacing, `gallery_${galleryKey}_design_spacing`);
           store.put(preset?.bilddarstellung || td.display, `gallery_${galleryKey}_design_display`);
+          if (presetAlbums.length > 0) {
+            store.put(presetAlbums, `gallery_${galleryKey}_albums`);
+            const albumNamesObj = {};
+            presetAlbums.forEach((a, i) => { albumNamesObj[i] = a.name; });
+            store.put(albumNamesObj, `gallery_${galleryKey}_albumNames`);
+          }
         };
       } catch (e) {}
 
