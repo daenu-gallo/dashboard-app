@@ -56,13 +56,11 @@ const GalleriesPage = () => {
   const [linkModal, setLinkModal] = useState(null); // { url: '', copied: false }
 
   const handleShare = (title) => {
-    const url = `https://app.example.com/${toSlug(title)}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setLinkModal({ url, copied: true });
-      setTimeout(() => setLinkModal(prev => prev ? { ...prev, copied: true } : null), 100);
-    }).catch(() => {
-      setLinkModal({ url, copied: false });
-    });
+    const slug = toSlug(title);
+    const url = `/${slug}`;
+    const subject = encodeURIComponent(`Galerie: ${title}`);
+    const body = encodeURIComponent(`Hier ist der Link zu deiner Galerie:\n\n${window.location.origin}${url}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   const handleToggleFavorite = (id) => {

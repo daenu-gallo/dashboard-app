@@ -1035,7 +1035,7 @@ const DomainsTab = () => {
   const deleteItem = (setList, id) => setList(prev => prev.filter(i => i.id !== id));
 
   const typeLabel = legalModal?.type === 'impressum' ? 'Impressum' : 'Datenschutzerklärung';
-  const generatorLabel = legalModal?.type === 'impressum' ? 'Impressumsgenerator' : 'Datenschutzgenerator';
+
 
   return (
     <div>
@@ -1112,7 +1112,7 @@ const DomainsTab = () => {
               <button onClick={saveLegal} style={{ ...greenBtn, width: '100%', marginTop: '1rem', padding: '0.65rem' }}>
                 {typeLabel} bearbeiten
               </button>
-              <div style={{ marginTop: '0.35rem', fontSize: 13, color: '#5a8a5c', cursor: 'pointer' }}>{generatorLabel}</div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '0.75rem' }}>
                 {legalModal.mode === 'edit' && (
                   <span style={{ fontSize: 13, color: '#888', cursor: 'pointer' }} onClick={deleteLegal}>
