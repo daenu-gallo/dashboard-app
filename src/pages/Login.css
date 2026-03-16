@@ -196,3 +196,54 @@
     font-size: 1.75rem;
   }
 }
+
+/* Auth page elements */
+.login-error {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.login-success {
+  width: 100%;
+  padding: 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.login-success p {
+  margin: 0.25rem 0;
+}
+
+.login-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 1.25rem 0;
+  text-align: center;
+}
+
+.login-subtitle {
+  font-size: 0.8125rem;
+  color: #666;
+  text-align: center;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

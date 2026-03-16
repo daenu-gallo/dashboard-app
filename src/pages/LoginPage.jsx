@@ -1,20 +1,38 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Facebook } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { usePersistedState } from '../hooks/usePersistedState';
 import loginBg from '../assets/login-bg.png';
 import './Login.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Simulate login
-    navigate('/');
+    setError('');
+    setLoading(true);
+
+    try {
+      await login(email, password);
+      navigate('/');
+    } catch (err) {
+      if (err.message?.includes('Invalid login credentials')) {
+        setError('Ungültige E-Mail oder Passwort.');
+      } else if (err.message?.includes('Email not confirmed')) {
+        setError('Bitte bestätige zuerst deine E-Mail-Adresse.');
+      } else {
+        setError(err.message || 'Ein Fehler ist aufgetreten.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,6 +53,12 @@ const LoginPage = () => {
           <h1 className="login-brand">{globalBrand.webseite ? globalBrand.webseite.replace(/^https?:\/\//, '').replace(/^www\./, '') : 'fotohahn.ch'}</h1>
         </div>
 
+        {error && (
+          <div className="login-error">
+            {error}
+          </div>
+        )}
+
         <form className="login-form" onSubmit={handleLogin}>
           <div className="login-field">
             <label>E-Mail</label>
@@ -45,6 +69,8 @@ const LoginPage = () => {
                 placeholder="name@domain.de"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
               />
             </div>
           </div>
@@ -58,16 +84,20 @@ const LoginPage = () => {
                 placeholder="Passwort"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
               />
             </div>
           </div>
 
-          <button type="submit" className="login-btn">Login</button>
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? 'Anmeldung...' : 'Login'}
+          </button>
         </form>
 
         <div className="login-links">
-          <a href="#" className="login-link">Passwort vergessen?</a>
-          <a href="#" className="login-link">Noch keinen Account?</a>
+          <Link to="/forgot-password" className="login-link">Passwort vergessen?</Link>
+          <Link to="/register" className="login-link">Noch keinen Account?</Link>
         </div>
 
         <div className="login-footer">

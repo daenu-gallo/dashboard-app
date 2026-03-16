@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { HelpCircle, ChevronRight, Menu, FolderPlus, X } from 'lucide-react';
+import { HelpCircle, ChevronRight, Menu, FolderPlus, X, LogOut, User } from 'lucide-react';
 import './Topbar.css';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Topbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [newGalerieName, setNewGalerieName] = useState('');
   
@@ -177,6 +179,18 @@ const Topbar = () => {
               Neue Galerie erstellen
             </button>
           ) : null}
+          
+          {user && (
+            <div className="topbar-user">
+              <div className="topbar-user-info">
+                <User size={16} />
+                <span className="topbar-user-email">{user.email}</span>
+              </div>
+              <button className="topbar-logout-btn" onClick={async () => { await logout(); navigate('/login'); }} title="Abmelden">
+                <LogOut size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
