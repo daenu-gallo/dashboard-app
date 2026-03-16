@@ -852,7 +852,6 @@ const VoreinstellungenTab = () => {
                 </div>
                 );
               })()}
-              )}
 
               {/* ── Tab: Alben ── */}
               {detailModal.activeTab === 'alben' && (
