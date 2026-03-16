@@ -39,18 +39,38 @@ const Topbar = () => {
 
   const activeDesign = designTemplates.find(d => d.key === selectedDesign) || designTemplates[0];
 
+  // Sync wizard fields when a preset is selected
+  const applyPreset = (presetName) => {
+    setSelectedPreset(presetName);
+    const p = presets.find(pr => pr.name === presetName);
+    if (p) {
+      if (p.vorlage) setSelectedDesign(p.vorlage);
+      if (p.marke) setSelectedBrand(p.marke);
+      setGesichtserkennung(p.gesichtserkennung !== false);
+    }
+  };
+
   const openModal = () => {
     setWizardStep(1);
     setTitel('');
     setInterneBezeichnung('');
     setShootingDatum('');
     const standardPreset = presets.find(p => p.standard);
-    setSelectedPreset(standardPreset ? standardPreset.name : (presets[0]?.name || ''));
-    setGesichtserkennung(true);
-    setSelectedBrand(brands.find(b => b.active)?.name || brands[0]?.name || 'Fotohahn');
-    setSelectedDesign('Atelier');
+    const initialPreset = standardPreset || presets[0];
+    setSelectedPreset(initialPreset?.name || '');
+    // Apply preset values
+    if (initialPreset) {
+      setSelectedDesign(initialPreset.vorlage || 'Atelier');
+      setSelectedBrand(initialPreset.marke || brands.find(b => b.active)?.name || 'Fotohahn');
+      setGesichtserkennung(initialPreset.gesichtserkennung !== false);
+    } else {
+      setSelectedDesign('Atelier');
+      setSelectedBrand(brands.find(b => b.active)?.name || 'Fotohahn');
+      setGesichtserkennung(true);
+    }
     setShowModal(true);
   };
+
   
   // Simple breadcrumb logic based on path
   const getBreadcrumbs = () => {
@@ -309,7 +329,7 @@ const Topbar = () => {
                       <select
                         className="topbar-modal-input"
                         value={selectedPreset}
-                        onChange={(e) => setSelectedPreset(e.target.value)}
+                        onChange={(e) => applyPreset(e.target.value)}
                       >
                         {presets.length === 0 && <option value="">Keine Voreinstellungen</option>}
                         {presets.map((p, i) => (
