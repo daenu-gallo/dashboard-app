@@ -8,18 +8,8 @@ const toSlug = (title) => title.toLowerCase()
   .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
   .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
-// Mock data - fresh website, all counts at 0
-const galleries = [
-  { id: 1, title: 'vorschau-hochzeit', name: 'Hochzeitsfotograf Fotohahn', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#8b6e4e' },
-  { id: 2, title: 'SV Strättligen', name: '', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#4a6e5a' },
-  { id: 3, title: 'Hochzeit Edith & Thomas', name: 'Hochzeitsfotos', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#6b4d33' },
-  { id: 4, title: 'Hochzeit Beat & Pamela', name: 'Hochzeit', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#5c7a4d' },
-  { id: 5, title: 'Hochzeit Zina & Mohamed', name: '', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#7d6245' },
-  { id: 6, title: 'Hochzeit Marita & Martin', name: 'Hochzeit', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#917b5a' },
-  { id: 7, title: 'Engagement Fotoshooting Janissa & Rory', name: '', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#556b4e' },
-  { id: 8, title: 'Hochzeit Sara & Irene', name: '', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#6a5c3d' },
-  { id: 9, title: 'Hochzeit Sanja & Emanuel Küpfer', name: '', views: 0, shared: 0, zip: 0, single: 0, shop: false, lastView: '-', lastEdit: '-', created: '13.03.2026', color: '#4d6b5c' },
-];
+// No default galleries - start fresh
+const galleries = [];
 
 const GalleriesPage = () => {
   const navigate = useNavigate();

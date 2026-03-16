@@ -556,18 +556,9 @@ const MarkenTab = () => {
   );
 };
 
-/* ——— Tab: Galerie Voreinstellungen ——— */
-const defaultPresets = [
-  { name: 'Online Galerie', standard: false },
-  { name: 'Hochzeiten – by fotohahn', standard: false },
-  { name: 'Auswahlgalerie – by fotohahn', standard: false },
-  { name: 'Portrait / Familie / Baby / Tiere – by fotohahn', standard: false },
-  { name: 'Kita / Schulen – by fotohahn', standard: false },
-  { name: 'Events (Reitturniere / Abibälle etc.) – by fotohahn', standard: false },
-  { name: 'Standard – by fotohahn', standard: false },
-  { name: 'Optimale Einstellungen – by fotohahn', standard: false },
-  { name: 'Optimale Einstellungen – by fotohahn', standard: true },
-];
+// No default presets - start fresh
+const defaultPresets = [];
+
 
 const VoreinstellungenTab = () => {
   const [presets, setPresets] = usePersistedState('settings_presets', defaultPresets);
