@@ -25,7 +25,7 @@ const Topbar = () => {
 
   // Step 2 fields
   const [selectedPreset, setSelectedPreset] = useState('');
-  const [gesichtserkennung, setGesichtserkennung] = useState(true);
+
   const [selectedBrand, setSelectedBrand] = useState('Fotohahn');
   const [selectedDesign, setSelectedDesign] = useState('Atelier');
 
@@ -46,7 +46,7 @@ const Topbar = () => {
     if (p) {
       if (p.vorlage) setSelectedDesign(p.vorlage);
       if (p.marke) setSelectedBrand(p.marke);
-      setGesichtserkennung(p.gesichtserkennung !== false);
+
     }
   };
 
@@ -62,11 +62,11 @@ const Topbar = () => {
     if (initialPreset) {
       setSelectedDesign(initialPreset.vorlage || 'Atelier');
       setSelectedBrand(initialPreset.marke || brands.find(b => b.active)?.name || 'Fotohahn');
-      setGesichtserkennung(initialPreset.gesichtserkennung !== false);
+
     } else {
       setSelectedDesign('Atelier');
       setSelectedBrand(brands.find(b => b.active)?.name || 'Fotohahn');
-      setGesichtserkennung(true);
+
     }
     setShowModal(true);
   };
@@ -131,7 +131,7 @@ const Topbar = () => {
         download: preset ? preset.download !== false : true,
         downloadPin: preset ? preset.downloadPin || false : false,
         wasserzeichen: false,
-        gesichtserkennung: gesichtserkennung,
+
       };
       localStorage.setItem(`gallery_${galleryKey}_toggles`, JSON.stringify(toggles));
 
@@ -338,18 +338,6 @@ const Topbar = () => {
                       </select>
                     </div>
 
-                    <div className="wizard-toggle-row">
-                      <div
-                        className={`wizard-toggle ${gesichtserkennung ? 'active' : ''}`}
-                        onClick={() => setGesichtserkennung(!gesichtserkennung)}
-                      >
-                        <div className="wizard-toggle-knob" />
-                      </div>
-                      <span className="wizard-toggle-label">
-                        Gesichtserkennung
-                        <HelpCircle size={14} className="wizard-help-icon" />
-                      </span>
-                    </div>
 
                     <div className="wizard-field">
                       <label className="wizard-label">Marke</label>
