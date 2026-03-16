@@ -743,12 +743,12 @@ const VoreinstellungenTab = () => {
                 <div>
                   <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Vorlagen</label>
                     <select className="form-input-st" value={detailModal.vorlage} onChange={e => ud('vorlage', e.target.value)}>
-                      <option value="">Vorlage wählen</option><option>Simple Filigree</option><option>Atelier</option><option>Scrappbook 2.0 Dark</option><option>Vicky Baumann Fineart</option>
+                      <option value="">Vorlage wählen</option><option>Atelier</option><option>Dark Shark</option><option>Lazy R</option><option>Luminance</option><option>Noir Classique</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', overflowX: 'auto', padding: '0.25rem 0' }}>
-                    {['Simple Filigree', 'Atelier', 'Scrappbook 2.0 Dark', 'Vicky Baumann Fineart'].map(t => (
-                      <div key={t} onClick={() => ud('vorlage', t)} style={{ flex: '0 0 140px', height: 80, border: detailModal.vorlage === t ? '2px solid #4a7c59' : '1px solid #ddd', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: t.includes('Dark') ? '#333' : '#f8f8f8', color: t.includes('Dark') ? '#fff' : '#333', fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', padding: '0.5rem', textTransform: 'uppercase' }}>
+                    {['Atelier', 'Dark Shark', 'Lazy R', 'Luminance', 'Noir Classique'].map(t => (
+                      <div key={t} onClick={() => ud('vorlage', t)} style={{ flex: '0 0 140px', height: 80, border: detailModal.vorlage === t ? '2px solid #4a7c59' : '1px solid #ddd', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: t === 'Dark Shark' || t === 'Noir Classique' ? '#333' : '#f8f8f8', color: t === 'Dark Shark' || t === 'Noir Classique' ? '#fff' : '#333', fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', padding: '0.5rem', textTransform: 'uppercase' }}>
                         {t}
                       </div>
                     ))}

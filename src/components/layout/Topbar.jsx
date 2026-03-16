@@ -5,10 +5,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const designTemplates = [
-  { key: 'Atelier', label: 'Atelier', description: 'Das elegante Atelier Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos. Alle wichtigen Informationen der Galerie werden übersichtlich und dezent auf den ersten Blick sichtbar.' },
-  { key: 'Simple Filigree', label: 'Simple Filigree', description: 'Ein minimalistisches Design mit feinen Linien und zurückhaltendem Stil. Perfekt für elegante Hochzeiten und Portraits.' },
-  { key: 'Scrappbook 2.0 Dark', label: 'Scrappbook 2.0 Dark', description: 'Modernes dunkles Design für einen cineastischen Look. Ideal für Events und Street-Photography.' },
-  { key: 'Vicky Baumann Fineart', label: 'Vicky Baumann Fineart', description: 'Fine-Art Design mit viel Weissraum und typographischem Fokus. Für Fine-Art und Editorial Fotografie.' },
+  { key: 'Atelier', label: 'Atelier', description: 'Das elegante Atelier Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos.' },
+  { key: 'Dark Shark', label: 'Dark Shark', description: 'Modernes dunkles Design für einen cineastischen Look. Ideal für Events und Street-Photography.' },
+  { key: 'Lazy R', label: 'Lazy R', description: 'Ein entspanntes, warmes Design mit natürlichem Charme. Perfekt für Lifestyle- und Outdoor-Fotografie.' },
+  { key: 'Luminance', label: 'Luminance', description: 'Lichtdurchflutetes Design mit viel Weissraum. Ideal für Fine-Art, Portraits und elegante Hochzeiten.' },
+  { key: 'Noir Classique', label: 'Noir Classique', description: 'Klassisch-dunkles Design mit zeitloser Eleganz. Für Schwarz-Weiss und Editorial Fotografie.' },
 ];
 
 const Topbar = () => {
