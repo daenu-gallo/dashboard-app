@@ -153,17 +153,31 @@ const Topbar = () => {
       };
       localStorage.setItem(`gallery_${galleryKey}_settings`, JSON.stringify(settings));
 
-      const design = {
-        vorlage: selectedDesign,
-        schriftart: preset ? preset.schriftart || '' : '',
-        primaerfarbe: preset ? preset.primaerfarbe || '' : '',
-        sekundaerfarbe: preset ? preset.sekundaerfarbe || '' : '',
-        bildabstand: preset ? preset.bildabstand || '' : '',
-        bilddarstellung: preset ? preset.bilddarstellung || 'Standard' : 'Standard',
-        dekorativ: preset ? preset.dekorativ !== false : true,
-        fotografenhinweis: preset ? preset.fotografenhinweis || false : false,
+      // Save design settings to the same keys DesignTab reads via usePersistedState
+      const templateId = (() => {
+        const name = selectedDesign;
+        if (name === 'Atelier') return 'atelier';
+        if (name === 'Dark Shark') return 'dark-shark';
+        if (name === 'Lazy R') return 'lazy-r';
+        if (name === 'Luminance') return 'luminance';
+        if (name === 'Noir Classique') return 'noir-classique';
+        return 'atelier';
+      })();
+      // Template defaults lookup
+      const templateDefaults = {
+        'atelier': { primaryColor: '#f0f0f4', secondaryColor: '#1a1a1a', font: 'Inter', spacing: 'klein', display: 'standard' },
+        'dark-shark': { primaryColor: '#1a1a2e', secondaryColor: '#e8d5b7', font: 'Josefin Sans', spacing: 'klein', display: 'standard' },
+        'lazy-r': { primaryColor: '#f5f0eb', secondaryColor: '#2d4a3e', font: 'Playfair Display', spacing: 'mittel', display: 'standard' },
+        'luminance': { primaryColor: '#1a0a10', secondaryColor: '#d4a0a0', font: 'Cormorant Garamond', spacing: 'klein', display: 'standard' },
+        'noir-classique': { primaryColor: '#111111', secondaryColor: '#ffffff', font: 'Montserrat', spacing: 'mittel', display: 'kacheln' },
       };
-      localStorage.setItem(`gallery_${galleryKey}_design`, JSON.stringify(design));
+      const td = templateDefaults[templateId] || templateDefaults['atelier'];
+      localStorage.setItem(`gallery_${galleryKey}_design_template`, JSON.stringify(templateId));
+      localStorage.setItem(`gallery_${galleryKey}_design_primaryColor`, JSON.stringify(preset?.primaerfarbe || td.primaryColor));
+      localStorage.setItem(`gallery_${galleryKey}_design_secondaryColor`, JSON.stringify(preset?.sekundaerfarbe || td.secondaryColor));
+      localStorage.setItem(`gallery_${galleryKey}_design_font`, JSON.stringify(preset?.schriftart || td.font));
+      localStorage.setItem(`gallery_${galleryKey}_design_spacing`, JSON.stringify(preset?.bildabstand || td.spacing));
+      localStorage.setItem(`gallery_${galleryKey}_design_display`, JSON.stringify(preset?.bilddarstellung || td.display));
 
       // Tracking
       if (preset && (preset.gaCode || preset.gtmId || preset.fbPixel)) {
@@ -184,7 +198,12 @@ const Topbar = () => {
           const store = tx.objectStore('persisted_state');
           store.put(toggles, `gallery_${galleryKey}_toggles`);
           store.put(settings, `gallery_${galleryKey}_settings`);
-          store.put(design, `gallery_${galleryKey}_design`);
+          store.put(templateId, `gallery_${galleryKey}_design_template`);
+          store.put(preset?.primaerfarbe || td.primaryColor, `gallery_${galleryKey}_design_primaryColor`);
+          store.put(preset?.sekundaerfarbe || td.secondaryColor, `gallery_${galleryKey}_design_secondaryColor`);
+          store.put(preset?.schriftart || td.font, `gallery_${galleryKey}_design_font`);
+          store.put(preset?.bildabstand || td.spacing, `gallery_${galleryKey}_design_spacing`);
+          store.put(preset?.bilddarstellung || td.display, `gallery_${galleryKey}_design_display`);
         };
       } catch (e) {}
 

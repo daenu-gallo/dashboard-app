@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Tag, Edit3, ExternalLink, MessageCircle, Trash2, LayoutGrid, List, Eye, Share2, Download, Image as ImageIcon, Heart } from 'lucide-react';
+import { Search, Tag, Edit3, ExternalLink, Mail, Trash2, LayoutGrid, List, Eye, Share2, Download, Image as ImageIcon, Heart } from 'lucide-react';
 import { usePersistedState } from '../hooks/usePersistedState';
 import './Galleries.css';
 
@@ -244,7 +244,7 @@ const GalleriesPage = () => {
                     <div className="actions-inner">
                       <button title="Bearbeiten" onClick={() => navigate(`/galleries/${toSlug(gallery.title)}`)}><Edit3 size={16} /></button>
                       <button title="Kundenansicht öffnen" onClick={() => window.open(`/${toSlug(gallery.title)}`, '_blank')}><ExternalLink size={16} /></button>
-                      <button title="Link teilen" onClick={() => handleShare(gallery.title)}><MessageCircle size={16} /></button>
+                      <button title="E-Mail senden" onClick={() => handleShare(gallery.title)}><Mail size={16} /></button>
                       <button title="Löschen" className="text-red" onClick={() => handleDelete(gallery.id)}><Trash2 size={16} /></button>
                     </div>
                   </td>

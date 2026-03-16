@@ -85,8 +85,6 @@ const DesignTab = ({ gallery }) => {
   const [font, setFont] = usePersistedState(`gallery_${galleryKey}_design_font`, 'Inter');
   const [spacing, setSpacing] = usePersistedState(`gallery_${galleryKey}_design_spacing`, 'klein');
   const [displayMode, setDisplayMode] = usePersistedState(`gallery_${galleryKey}_design_display`, 'standard');
-  const [dekoElemente, setDekoElemente] = usePersistedState(`gallery_${galleryKey}_design_deko`, true);
-  const [fotoHinweis, setFotoHinweis] = usePersistedState(`gallery_${galleryKey}_design_fotoHinweis`, false);
 
   // ── Local UI State ──
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop | mobile

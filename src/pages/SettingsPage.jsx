@@ -580,7 +580,7 @@ const VoreinstellungenTab = () => {
       // Design
       vorlage: p.vorlage || '', schriftart: p.schriftart || '', primaerfarbe: p.primaerfarbe || '',
       sekundaerfarbe: p.sekundaerfarbe || '', bildabstand: p.bildabstand || '', bilddarstellung: p.bilddarstellung || 'Standard',
-      dekorativ: p.dekorativ !== false, fotografenhinweis: p.fotografenhinweis || false,
+
       // Tracking
       gaCode: p.gaCode || '', gtmId: p.gtmId || '', fbPixel: p.fbPixel || '',
       // Alben
@@ -777,16 +777,6 @@ const VoreinstellungenTab = () => {
                     <select className="form-input-st" value={detailModal.bilddarstellung} onChange={e => ud('bilddarstellung', e.target.value)}>
                       <option>Standard</option><option>Vollbild</option><option>Masonry</option>
                     </select></div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={ts(detailModal.dekorativ)} onClick={() => ud('dekorativ', !detailModal.dekorativ)}><div style={tk(detailModal.dekorativ)} /></div>
-                      <span style={{ fontSize: '0.8rem' }}>Zeige dekorative Elemente <HelpCircle size={12} style={{ marginLeft: 2, color: '#4a7c59' }} /></span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={ts(detailModal.fotografenhinweis)} onClick={() => ud('fotografenhinweis', !detailModal.fotografenhinweis)}><div style={tk(detailModal.fotografenhinweis)} /></div>
-                      <span style={{ fontSize: '0.8rem' }}>Zeige Fotografenhinweis im Titelbild <HelpCircle size={12} style={{ marginLeft: 2, color: '#4a7c59' }} /></span>
-                    </div>
-                  </div>
                 </div>
               )}
 

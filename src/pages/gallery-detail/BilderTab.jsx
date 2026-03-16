@@ -77,7 +77,7 @@ const VideoEmbedModal = ({ onClose, onSubmit }) => {
 };
 
 /* ---- Album hinzufügen Modal ---- */
-const AlbumModal = ({ onClose, onSubmit }) => {
+const AlbumModal = ({ onClose, onSubmit, watermarks = [] }) => {
   const [albumTitle, setAlbumTitle] = React.useState('');
   const [albumText, setAlbumText] = React.useState('');
   const [sortierung, setSortierung] = React.useState('Aufnahmedatum');
@@ -110,12 +110,16 @@ const AlbumModal = ({ onClose, onSubmit }) => {
             </select>
           </div>
           <div className="album-form-group">
-            <label>Watermark</label>
+            <label>Wasserzeichen</label>
             <select value={watermark} onChange={e => setWatermark(e.target.value)}>
               <option>Kein Wasserzeichen</option>
-              <option>Wasserzeichen 1</option>
+              {watermarks.map((wm, i) => (
+                <option key={i} value={wm.name || wm.text || `Wasserzeichen ${i + 1}`}>
+                  {wm.name || wm.text || `Wasserzeichen ${i + 1}`}
+                </option>
+              ))}
             </select>
-            <a href="#" className="album-form-link" onClick={e => e.preventDefault()}>Wasserzeichen hinzufügen</a>
+            <a href="/settings" className="album-form-link" onClick={e => { e.preventDefault(); onClose(); window.location.href = '/settings'; }}>Wasserzeichen hinzufügen</a>
           </div>
           <div className="album-form-toggle-row">
             <div className={`album-toggle ${downloadEnabled ? 'on' : ''}`} onClick={() => setDownloadEnabled(!downloadEnabled)}>
@@ -1118,6 +1122,7 @@ const BilderTab = ({ gallery, onCountsChange }) => {
         <AlbumModal
           onClose={() => setShowAlbumModal(false)}
           onSubmit={handleAddAlbum}
+          watermarks={watermarks}
         />
       )}
 
