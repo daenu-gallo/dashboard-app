@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const designTemplates = [
-  { key: 'Breeze', label: 'Breeze', description: 'Das elegante Breeze Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos. Alle wichtigen Informationen der Galerie werden übersichtlich und dezent auf den ersten Blick sichtbar.' },
+  { key: 'Atelier', label: 'Atelier', description: 'Das elegante Atelier Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos. Alle wichtigen Informationen der Galerie werden übersichtlich und dezent auf den ersten Blick sichtbar.' },
   { key: 'Simple Filigree', label: 'Simple Filigree', description: 'Ein minimalistisches Design mit feinen Linien und zurückhaltendem Stil. Perfekt für elegante Hochzeiten und Portraits.' },
   { key: 'Scrappbook 2.0 Dark', label: 'Scrappbook 2.0 Dark', description: 'Modernes dunkles Design für einen cineastischen Look. Ideal für Events und Street-Photography.' },
   { key: 'Vicky Baumann Fineart', label: 'Vicky Baumann Fineart', description: 'Fine-Art Design mit viel Weissraum und typographischem Fokus. Für Fine-Art und Editorial Fotografie.' },
@@ -27,7 +27,7 @@ const Topbar = () => {
   const [selectedPreset, setSelectedPreset] = useState('');
   const [gesichtserkennung, setGesichtserkennung] = useState(true);
   const [selectedBrand, setSelectedBrand] = useState('Fotohahn');
-  const [selectedDesign, setSelectedDesign] = useState('Breeze');
+  const [selectedDesign, setSelectedDesign] = useState('Atelier');
 
   // Load presets and brands from localStorage
   const presets = useMemo(() => {
@@ -48,7 +48,7 @@ const Topbar = () => {
     setSelectedPreset(standardPreset ? standardPreset.name : (presets[0]?.name || ''));
     setGesichtserkennung(true);
     setSelectedBrand(brands.find(b => b.active)?.name || brands[0]?.name || 'Fotohahn');
-    setSelectedDesign('Breeze');
+    setSelectedDesign('Atelier');
     setShowModal(true);
   };
   
@@ -358,40 +358,6 @@ const Topbar = () => {
                     </div>
 
                     <p className="wizard-design-desc">{activeDesign.description}</p>
-
-                    <button className="wizard-preview-btn" onClick={() => {}}>
-                      Zur Vorschau-Galerie
-                    </button>
-                  </div>
-
-                  <div className="wizard-step2-right">
-                    <div className="wizard-phone-frame">
-                      <div className="wizard-phone-notch">
-                        <span className="wizard-phone-time">09:01</span>
-                        <span className="wizard-phone-icons">●●●</span>
-                      </div>
-                      <div className="wizard-phone-content">
-                        <div className={`wizard-phone-header ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
-                          <div className="wizard-phone-menu-icon">☰</div>
-                          <div className="wizard-phone-brand-name">{selectedBrand}</div>
-                          <div className="wizard-phone-action">Bilder auswählen</div>
-                        </div>
-                        <div className={`wizard-phone-grid ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
-                          {[1,2,3,4,5,6,7,8,9].map(i => (
-                            <div key={i} className="wizard-phone-thumb" style={{ background: `hsl(${i * 35 + 20}, 40%, ${65 + (i % 3) * 8}%)` }} />
-                          ))}
-                        </div>
-                        <div className={`wizard-phone-contact ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
-                          <div className="wizard-phone-contact-name">{selectedBrand}</div>
-                          <div className="wizard-phone-contact-links">
-                            Impressum | Datenschutz | Apps
-                          </div>
-                        </div>
-                        <div className={`wizard-phone-bottom-bar ${selectedDesign.includes('Dark') ? 'dark' : ''}`}>
-                          <span>🖼</span><span>🛒</span><span>↗</span><span>📑</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
