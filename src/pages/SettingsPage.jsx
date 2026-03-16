@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload } from 'lucide-react';
+import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw } from 'lucide-react';
 import { usePersistedState } from '../hooks/usePersistedState';
 import './Settings.css';
 
@@ -578,8 +578,8 @@ const VoreinstellungenTab = () => {
       kommentar: p.kommentar !== false, zeigeDateinamen: p.zeigeDateinamen || false,
 
       // Design
-      vorlage: p.vorlage || '', schriftart: p.schriftart || '', primaerfarbe: p.primaerfarbe || '',
-      sekundaerfarbe: p.sekundaerfarbe || '', bildabstand: p.bildabstand || '', bilddarstellung: p.bilddarstellung || 'Standard',
+      vorlage: p.vorlage || 'Atelier', schriftart: p.schriftart || 'Inter', primaerfarbe: p.primaerfarbe || '#f0f0f4',
+      sekundaerfarbe: p.sekundaerfarbe || '#1a1a1a', bildabstand: p.bildabstand || 'Klein', bilddarstellung: p.bilddarstellung || 'Standard',
 
       // Tracking
       gaCode: p.gaCode || '', gtmId: p.gtmId || '', fbPixel: p.fbPixel || '',
@@ -737,47 +737,121 @@ const VoreinstellungenTab = () => {
               )}
 
               {/* ── Tab: Design ── */}
-              {detailModal.activeTab === 'design' && (
-                <div>
-                  <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Vorlagen</label>
-                    <select className="form-input-st" value={detailModal.vorlage} onChange={e => ud('vorlage', e.target.value)}>
-                      <option value="">Vorlage wählen</option><option>Atelier</option><option>Dark Shark</option><option>Lazy R</option><option>Luminance</option><option>Noir Classique</option>
+              {detailModal.activeTab === 'design' && (() => {
+                const PRESET_TEMPLATES = [
+                  { id: 'atelier', name: 'Atelier', primaryColor: '#f0f0f4', secondaryColor: '#1a1a1a', font: 'Inter', spacing: 'Klein', display: 'Standard' },
+                  { id: 'dark-shark', name: 'Dark Shark', primaryColor: '#1a1a2e', secondaryColor: '#e8d5b7', font: 'Josefin Sans', spacing: 'Klein', display: 'Standard' },
+                  { id: 'lazy-r', name: 'Lazy R', primaryColor: '#f5f0eb', secondaryColor: '#2d4a3e', font: 'Playfair Display', spacing: 'Mittel', display: 'Standard' },
+                  { id: 'luminance', name: 'Luminance', primaryColor: '#1a0a10', secondaryColor: '#d4a0a0', font: 'Cormorant Garamond', spacing: 'Klein', display: 'Standard' },
+                  { id: 'noir-classique', name: 'Noir Classique', primaryColor: '#111111', secondaryColor: '#ffffff', font: 'Montserrat', spacing: 'Mittel', display: 'Kacheln' },
+                ];
+                const PRESET_FONTS = ['Inter', 'Josefin Sans', 'Playfair Display', 'Cormorant Garamond', 'Montserrat', 'Lora', 'Raleway', 'Outfit', 'DM Serif Display', 'Libre Baskerville'];
+                const applyPresetTemplate = (name) => {
+                  const tmpl = PRESET_TEMPLATES.find(t => t.name === name);
+                  if (!tmpl) { ud('vorlage', name); return; }
+                  ud('vorlage', name);
+                  ud('primaerfarbe', tmpl.primaryColor);
+                  ud('sekundaerfarbe', tmpl.secondaryColor);
+                  ud('schriftart', tmpl.font);
+                  ud('bildabstand', tmpl.spacing);
+                  ud('bilddarstellung', tmpl.display);
+                };
+                const resetPresetField = (field) => {
+                  const tmpl = PRESET_TEMPLATES.find(t => t.name === detailModal.vorlage) || PRESET_TEMPLATES[0];
+                  if (field === 'primaerfarbe') ud('primaerfarbe', tmpl.primaryColor);
+                  if (field === 'sekundaerfarbe') ud('sekundaerfarbe', tmpl.secondaryColor);
+                  if (field === 'schriftart') ud('schriftart', tmpl.font);
+                  if (field === 'bildabstand') ud('bildabstand', tmpl.spacing);
+                  if (field === 'bilddarstellung') ud('bilddarstellung', tmpl.display);
+                };
+                return (
+                <div className="design-controls">
+                  <div className="form-group">
+                    <div className="form-label">Vorlagen</div>
+                    <select className="form-select" value={detailModal.vorlage} onChange={e => applyPresetTemplate(e.target.value)}>
+                      {PRESET_TEMPLATES.map(t => (
+                        <option key={t.id} value={t.name}>{t.name}</option>
+                      ))}
                     </select>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', overflowX: 'auto', padding: '0.25rem 0' }}>
-                    {['Atelier', 'Dark Shark', 'Lazy R', 'Luminance', 'Noir Classique'].map(t => (
-                      <div key={t} onClick={() => ud('vorlage', t)} style={{ flex: '0 0 140px', height: 80, border: detailModal.vorlage === t ? '2px solid #4a7c59' : '1px solid #ddd', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: t === 'Dark Shark' || t === 'Noir Classique' ? '#333' : '#f8f8f8', color: t === 'Dark Shark' || t === 'Noir Classique' ? '#fff' : '#333', fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', padding: '0.5rem', textTransform: 'uppercase' }}>
-                        {t}
+                  <div className="template-carousel">
+                    <div className="template-carousel-viewport">
+                      <div className="template-carousel-track">
+                        {PRESET_TEMPLATES.map((t) => (
+                          <div
+                            key={t.id}
+                            className={`template-thumb ${detailModal.vorlage === t.name ? 'active' : ''}`}
+                            onClick={() => applyPresetTemplate(t.name)}
+                            style={{ background: t.primaryColor, color: t.secondaryColor, border: detailModal.vorlage === t.name ? '2px solid var(--color-primary)' : '2px solid transparent' }}
+                          >
+                            <span className="template-thumb-label">{t.name.toUpperCase()}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                  <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><label style={{ ...labelSt, flex: 1, marginBottom: 0 }}>Schriftart</label><span style={resetIcon} title="Zurücksetzen">↺</span>
-                    <select className="form-input-st" style={{ flex: 3 }} value={detailModal.schriftart} onChange={e => ud('schriftart', e.target.value)}>
-                      <option value="">Schriftart wählen</option><option>Open Sans</option><option>Roboto</option><option>Playfair Display</option><option>Montserrat</option>
-                    </select></div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div><label style={labelSt}>Primärfarbe <span style={resetIcon}>↺</span></label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <input type="color" value={detailModal.primaerfarbe || '#000000'} onChange={e => ud('primaerfarbe', e.target.value)} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', cursor: 'pointer', padding: 0 }} />
-                        <input className="form-input-st" placeholder="Primärfarbe auswählen" value={detailModal.primaerfarbe} onChange={e => ud('primaerfarbe', e.target.value)} style={{ flex: 1 }} />
-                        <Edit3 size={14} style={{ color: '#4a7c59', cursor: 'pointer' }} />
-                      </div></div>
-                    <div><label style={labelSt}>Sekundärfarbe <span style={resetIcon}>↺</span></label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <input type="color" value={detailModal.sekundaerfarbe || '#000000'} onChange={e => ud('sekundaerfarbe', e.target.value)} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', cursor: 'pointer', padding: 0 }} />
-                        <input className="form-input-st" placeholder="Sekundärfarbe auswählen" value={detailModal.sekundaerfarbe} onChange={e => ud('sekundaerfarbe', e.target.value)} style={{ flex: 1 }} />
-                        <Edit3 size={14} style={{ color: '#4a7c59', cursor: 'pointer' }} />
-                      </div></div>
+                  <div className="form-group">
+                    <div className="form-label">
+                      Schriftart
+                      <RotateCcw size={12} className="settings-icon reset-btn" onClick={() => resetPresetField('schriftart')} title="Zurücksetzen" />
+                    </div>
+                    <select className="form-select" value={detailModal.schriftart} onChange={e => ud('schriftart', e.target.value)} style={{ fontFamily: detailModal.schriftart }}>
+                      {PRESET_FONTS.map(f => (
+                        <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Bildabstand <span style={resetIcon}>↺</span></label>
-                    <select className="form-input-st" value={detailModal.bildabstand} onChange={e => ud('bildabstand', e.target.value)}>
-                      <option value="">Bildabstand wählen</option><option>Kein Abstand</option><option>Klein</option><option>Mittel</option><option>Gross</option>
-                    </select></div>
-                  <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Bilddarstellung <span style={resetIcon}>↺</span></label>
-                    <select className="form-input-st" value={detailModal.bilddarstellung} onChange={e => ud('bilddarstellung', e.target.value)}>
-                      <option>Standard</option><option>Vollbild</option><option>Masonry</option>
-                    </select></div>
+                  <div className="color-picker-row">
+                    <div className="color-field">
+                      <label>
+                        Primärfarbe
+                        <RotateCcw size={10} className="reset-btn" onClick={() => resetPresetField('primaerfarbe')} title="Zurücksetzen" />
+                      </label>
+                      <div className="color-input-row">
+                        <div className="color-swatch-wrapper">
+                          <input type="color" value={detailModal.primaerfarbe || '#f0f0f4'} onChange={e => ud('primaerfarbe', e.target.value)} className="color-native-picker" />
+                          <div className="color-swatch" style={{ background: detailModal.primaerfarbe || '#f0f0f4' }} />
+                        </div>
+                        <input className="form-input" style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.75rem' }} value={detailModal.primaerfarbe || ''} onChange={e => ud('primaerfarbe', e.target.value)} />
+                        <Edit3 size={12} className="settings-icon" />
+                      </div>
+                    </div>
+                    <div className="color-field">
+                      <label>
+                        Sekundärfarbe
+                        <RotateCcw size={10} className="reset-btn" onClick={() => resetPresetField('sekundaerfarbe')} title="Zurücksetzen" />
+                      </label>
+                      <div className="color-input-row">
+                        <div className="color-swatch-wrapper">
+                          <input type="color" value={detailModal.sekundaerfarbe || '#1a1a1a'} onChange={e => ud('sekundaerfarbe', e.target.value)} className="color-native-picker" />
+                          <div className="color-swatch" style={{ background: detailModal.sekundaerfarbe || '#1a1a1a' }} />
+                        </div>
+                        <input className="form-input" style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.75rem' }} value={detailModal.sekundaerfarbe || ''} onChange={e => ud('sekundaerfarbe', e.target.value)} />
+                        <Edit3 size={12} className="settings-icon" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <div className="form-label">
+                      Bildabstand
+                      <RotateCcw size={12} className="settings-icon reset-btn" onClick={() => resetPresetField('bildabstand')} title="Zurücksetzen" />
+                    </div>
+                    <select className="form-select" value={detailModal.bildabstand} onChange={e => ud('bildabstand', e.target.value)}>
+                      <option value="Klein">Klein</option>
+                      <option value="Mittel">Mittel</option>
+                      <option value="Gross">Groß</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <div className="form-label">Bilddarstellung</div>
+                    <select className="form-select" value={detailModal.bilddarstellung} onChange={e => ud('bilddarstellung', e.target.value)}>
+                      <option value="Standard">Standard</option>
+                      <option value="Kacheln">Kacheln</option>
+                    </select>
+                  </div>
                 </div>
+                );
+              })()}
               )}
 
               {/* ── Tab: Alben ── */}
