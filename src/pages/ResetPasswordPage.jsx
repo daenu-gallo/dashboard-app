@@ -120,11 +120,11 @@ const ResetPasswordPage = () => {
         )}
 
         <div className="login-footer">
-          <a href="#">Impressum</a>
+          <a href="https://fotohahn.ch/impressum" target="_blank" rel="noopener noreferrer">Impressum</a>
           <span>·</span>
-          <a href="#">Datenschutz</a>
+          <a href="https://fotohahn.ch/datenschutz" target="_blank" rel="noopener noreferrer">Datenschutz</a>
           <span>·</span>
-          <a href="#">Kontakt</a>
+          <a href="https://fotohahn.ch/kontakt" target="_blank" rel="noopener noreferrer">Kontakt</a>
         </div>
       </div>
     </div>
