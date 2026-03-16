@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.gitignore
+.DS_Store
+*.log
+*.md
+.vscode
+.idea
+nixpacks.toml
+.node-version
