@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import CookieConsent from './components/CookieConsent';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 
 /* Protected route wrapper - redirects to login if not authenticated */
@@ -64,30 +65,33 @@ function AppContent() {
   useBrandFavicon();
 
   return (
-    <Routes>
-      {/* Public auth pages - no layout */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <>
+      <Routes>
+        {/* Public auth pages - no layout */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/* Protected admin pages with shared layout */}
-      <Route element={
-        <ProtectedRoute>
-          <AdminLayout />
-        </ProtectedRoute>
-      }>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/galleries" element={<GalleriesPage />} />
-        <Route path="/galleries/:slug" element={<GalleryDetailPage />} />
-        <Route path="/portfolios" element={<PortfoliosPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/shop" element={<div className="p-4 text-center">Shop Funktionalität kommt bald...</div>} />
-      </Route>
+        {/* Protected admin pages with shared layout */}
+        <Route element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/galleries" element={<GalleriesPage />} />
+          <Route path="/galleries/:slug" element={<GalleryDetailPage />} />
+          <Route path="/portfolios" element={<PortfoliosPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/shop" element={<div className="p-4 text-center">Shop Funktionalität kommt bald...</div>} />
+        </Route>
 
-      {/* Customer view - clean URL /:slug (lower priority than static routes above) */}
-      <Route path="/:slug" element={<CustomerView />} />
-    </Routes>
+        {/* Customer view - clean URL /:slug (lower priority than static routes above) */}
+        <Route path="/:slug" element={<CustomerView />} />
+      </Routes>
+      <CookieConsent />
+    </>
   );
 }
 
