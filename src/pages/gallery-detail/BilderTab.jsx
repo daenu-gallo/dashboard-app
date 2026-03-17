@@ -537,10 +537,26 @@ const BilderTab = ({ gallery, onCountsChange }) => {
   const applyWatermarkWithIndex = (wmIdx) => {
     if (!watermarkModalTarget) return;
     const { albumIdx, imgIdx } = watermarkModalTarget;
-    const img = uploadedImages[albumIdx]?.[imgIdx];
-    if (!img || !img.src) return;
     const wm = watermarks[wmIdx];
     if (!wm) return;
+
+    // Album-level watermark: just save the watermark ID in albumToggles
+    if (imgIdx == null) {
+      setAlbumToggles(prev => ({
+        ...prev,
+        [albumIdx]: {
+          ...(prev[albumIdx] || {}),
+          watermark: true,
+          watermarkId: String(wm.id),
+        },
+      }));
+      setWatermarkModalTarget(null);
+      return;
+    }
+
+    // Single-image watermark: bake into the image via canvas
+    const img = uploadedImages[albumIdx]?.[imgIdx];
+    if (!img || !img.src) return;
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
