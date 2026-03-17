@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Legal pages
+Allow: /legal/impressum
+Allow: /legal/datenschutz
+Allow: /legal/agb
+
+# Auth pages (no indexing)
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /settings
+Disallow: /galleries
+
+Sitemap: https://app.fotohahn.ch/sitemap.xml

@@ -227,8 +227,8 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
 /* ——— Tab: Marken & Wasserzeichen ——— */
 const MarkenTab = () => {
   const { user } = useAuth();
-  const [brands, setBrands] = usePersistedState('settings_brands', []);
-  const [watermarks, setWatermarks] = usePersistedState('settings_watermarks_v2', []);
+  const [brands, setBrands] = useState([]);
+  const [watermarks, setWatermarks] = useState([]);
 
   // ── Load from Supabase on mount ──
   const loadedRef = useRef(false);
@@ -258,7 +258,6 @@ const MarkenTab = () => {
   const brandSyncSkip = useRef(true);
   useEffect(() => {
     if (brandSyncSkip.current) { brandSyncSkip.current = false; return; }
-    if (brandLoadedFromDb.current) { brandLoadedFromDb.current = false; return; }
     if (!user) return;
     if (brandSyncTimer.current) clearTimeout(brandSyncTimer.current);
     brandSyncTimer.current = setTimeout(async () => {
@@ -279,7 +278,6 @@ const MarkenTab = () => {
   const wmSyncSkip = useRef(true);
   useEffect(() => {
     if (wmSyncSkip.current) { wmSyncSkip.current = false; return; }
-    if (wmLoadedFromDb.current) { wmLoadedFromDb.current = false; return; }
     if (!user) return;
     if (wmSyncTimer.current) clearTimeout(wmSyncTimer.current);
     wmSyncTimer.current = setTimeout(async () => {
@@ -300,7 +298,7 @@ const MarkenTab = () => {
   const [modalType, setModalType] = useState(null);
   const [modalData, setModalData] = useState({});
   const [brandSettingsBrand, setBrandSettingsBrand] = useState(null);
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const [globalBrand] = useState({});
   const brandFileRef = useRef({});
   const wmFileRef = useRef({});
   const modalFileRef = useRef(null);
@@ -765,10 +763,10 @@ const defaultPresets = [];
 
 const VoreinstellungenTab = () => {
   const { user } = useAuth();
-  const [presets, setPresets] = usePersistedState('settings_presets', defaultPresets);
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
-  const [brands] = usePersistedState('settings_brands', []);
-  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  const [presets, setPresets] = useState(defaultPresets);
+  const [globalBrand] = useState({});
+  const [brands] = useState([]);
+  const [watermarks] = useState([]);
 
   // ── Load presets from Supabase on mount ──
   const presetsLoadedRef = useRef(false);
