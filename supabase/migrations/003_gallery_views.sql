@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS gallery_views (
   id BIGSERIAL PRIMARY KEY,
-  gallery_id UUID REFERENCES galleries(id) ON DELETE CASCADE,
+  gallery_id BIGINT REFERENCES galleries(id) ON DELETE CASCADE,
   viewed_at TIMESTAMPTZ DEFAULT NOW(),
   visitor_id TEXT,          -- anonymous hash for unique visitor counting
   referrer TEXT,
