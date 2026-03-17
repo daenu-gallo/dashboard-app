@@ -126,3 +126,19 @@ ul {
 .text-muted {
   color: var(--text-secondary);
 }
+
+/* Lazy loading shimmer animation */
+@keyframes lazyShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.lazy-image-wrapper {
+  display: inline-block;
+}
+
+.lazy-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

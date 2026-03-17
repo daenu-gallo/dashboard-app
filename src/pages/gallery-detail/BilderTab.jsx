@@ -421,7 +421,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
       }}
     >
       {isReal ? (
-        <img src={src} alt={filename} />
+        <img src={src} alt={filename} loading="lazy" decoding="async" />
       ) : (
         <div className="photo-placeholder" style={{ color: 'rgba(0,0,0,0.2)', fontSize: '0.5rem' }}>
           <ImageIcon size={20} />

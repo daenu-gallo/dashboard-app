@@ -1065,7 +1065,7 @@ const CustomerView = () => {
               <div className={`cv-photo-grid ${designDisplay === 'kacheln' ? 'cv-tiles' : 'cv-masonry'}`} style={{ padding: '1rem 60px' }}>
                 {selPhotos.map((photo, pIdx) => (
                   <div key={pIdx} className="cv-photo">
-                    <img src={photo.src} alt={photo.name || ''} />
+                    <img src={photo.src} alt={photo.name || ''} loading="lazy" decoding="async" />
                     <span className="cv-photo-heart-badge">♥</span>
                     {toggles.wasserzeichen && (
                       <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
