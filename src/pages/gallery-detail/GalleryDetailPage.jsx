@@ -36,8 +36,9 @@ const GalleryDetailPage = () => {
 
   // Read uploaded images for avatar thumbnail (still from localStorage until NAS migration)
   const [appIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
+  const [overrideIcon, setOverrideIcon] = useState(null);
 
-  const avatarSrc = appIconSrc || null;
+  const avatarSrc = overrideIcon || appIconSrc || null;
 
   const displayTitle = gallery?.title || slug;
   const displayUrl = gallery?.domain
@@ -51,13 +52,13 @@ const GalleryDetailPage = () => {
     // They will be migrated in the NAS image phase  
     const legacyGallery = { title: gallery.title, slug: gallery.slug };
     switch (activeTab) {
-      case 'bilder': return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} />;
+      case 'bilder': return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
       case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} />;
       case 'design': return <DesignTab gallery={legacyGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
       case 'statistiken': return <StatistikenTab />;
       case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={{}} appIconSrc={appIconSrc} />;
-      default: return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} />;
+      default: return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
     }
   };
 

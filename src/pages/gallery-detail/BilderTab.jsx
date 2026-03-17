@@ -491,7 +491,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
 };
 
 /* ---- Main BilderTab ---- */
-const BilderTab = ({ gallery, onCountsChange }) => {
+const BilderTab = ({ gallery, onCountsChange, onAppIconChange }) => {
   const galleryKey = gallery?.title || 'default';
   const [globalBrand] = usePersistedState('global_brand_settings', {});
   const [expandedAlbums, setExpandedAlbums] = usePersistedState(`gallery_${galleryKey}_expanded`, {});
@@ -613,8 +613,8 @@ const BilderTab = ({ gallery, onCountsChange }) => {
   // Set image as App-Icon (gallery avatar thumbnail, NOT favicon)
   const setAppIcon = (imgSrc) => {
     if (!imgSrc) return;
-    // Persist as gallery app icon (shown in gallery header avatar)
     setAppIconSrc(imgSrc);
+    if (onAppIconChange) onAppIconChange(imgSrc);
   };
 
   const setAlbumTitelbild = (albumIdx, img) => {
