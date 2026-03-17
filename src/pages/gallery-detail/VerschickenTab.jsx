@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Copy, Mail, Facebook, Twitter, MessageCircle, Image as ImageIcon, X, Trash2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useBrand } from '../../contexts/BrandContext';
 
 const DEFAULT_TEMPLATES = [
   {
@@ -26,7 +27,7 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
   const [betreff, setBetreff] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [templates, setTemplates] = usePersistedState('email_templates', DEFAULT_TEMPLATES);
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand } = useBrand();
 
   // Template modal state
   const [editName, setEditName] = useState('');

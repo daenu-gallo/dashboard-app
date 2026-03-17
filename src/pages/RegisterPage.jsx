@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usePersistedState } from '../hooks/usePersistedState';
+import { useBrand } from '../contexts/BrandContext';
 import loginBg from '../assets/login-bg.png';
 import './Login.css';
 
@@ -13,7 +13,7 @@ const RegisterPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand } = useBrand();
 
   const handleRegister = async (e) => {
     e.preventDefault();

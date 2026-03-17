@@ -8,12 +8,12 @@ import {
   ShoppingCart,
   LogOut
 } from 'lucide-react';
-import { usePersistedState } from '../../hooks/usePersistedState';
+import { useBrand } from '../../contexts/BrandContext';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand } = useBrand();
 
   return (
     <aside className="sidebar">

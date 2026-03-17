@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useBrand } from '../../contexts/BrandContext';
 import { supabase } from '../../lib/supabaseClient';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
 
@@ -494,7 +495,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
 /* ---- Main BilderTab ---- */
 const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, onAppIconChange }) => {
   const galleryKey = gallery?.title || 'default';
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand } = useBrand();
   const [expandedAlbums, setExpandedAlbums] = usePersistedState(`gallery_${galleryKey}_expanded`, {});
 
   // ── Albums: Initialize from Supabase, fallback to defaults ──

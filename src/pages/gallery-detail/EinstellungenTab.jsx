@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, X, Check, Info } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useBrand } from '../../contexts/BrandContext';
 
 const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const galleryKey = gallery?.title || 'default';
-  const [brands] = usePersistedState('settings_brands', []);
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand, brands } = useBrand();
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
   const [presets] = usePersistedState('settings_presets', []);
 
