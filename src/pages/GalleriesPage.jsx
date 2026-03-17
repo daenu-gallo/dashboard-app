@@ -48,18 +48,20 @@ const GalleriesPage = () => {
     } catch (err) { console.error('Favorite error:', err); }
   };
 
-  const handleShare = (title) => {
+  const handleShare = async (title) => {
     const slug = toSlug(title);
-    const url = `/${slug}`;
-    const subject = encodeURIComponent(`Galerie: ${title}`);
-    const body = encodeURIComponent(`Hier ist der Link zu deiner Galerie:\n\n${window.location.origin}${url}`);
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    const url = `${window.location.origin}/${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyToast(title);
+      setTimeout(() => setCopyToast(null), 2500);
+    } catch {
+      // Fallback for older browsers
+      prompt('Galerie-Link kopieren:', url);
+    }
   };
 
-  const handleDownload = (gallery) => {
-    alert(`Download für "${gallery.title}" wird vorbereitet... (${(gallery.zip_downloads || 0) + (gallery.single_downloads || 0)} Downloads bisher)`);
-  };
-
+  const [copyToast, setCopyToast] = useState(null);
   const [linkModal, setLinkModal] = useState(null);
 
   // Format date from ISO string
@@ -336,6 +338,18 @@ const GalleriesPage = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {/* Copy Toast */}
+      {copyToast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#528c68', color: '#fff', padding: '0.7rem 1.5rem',
+          borderRadius: 10, fontSize: '0.85rem', fontWeight: 600,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)', zIndex: 9999,
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          ✓ Link kopiert: {copyToast}
         </div>
       )}
 
