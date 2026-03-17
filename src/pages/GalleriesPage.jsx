@@ -95,15 +95,25 @@ const GalleriesPage = () => {
   // Gallery card image - try to load the title image from localStorage
   const GalleryCardImage = ({ gallery, className, children }) => {
     const slug = gallery.slug;
-    // Try to get the title image for this gallery
+    const title = gallery.title || slug;
     let thumbSrc = null;
     try {
-      const stored = localStorage.getItem(`gallery_${slug}_titleImages`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Check first album (index 0) titelbild
-        const first = parsed[0] || parsed;
-        if (first?.titelbild?.src) thumbSrc = first.titelbild.src;
+      // Try title key first (BilderTab uses gallery.title), then slug
+      for (const key of [title, slug]) {
+        if (thumbSrc) break;
+        const stored = localStorage.getItem(`gallery_${key}_titleImages`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const first = parsed[0] || parsed;
+          if (first?.titelbild?.src) { thumbSrc = first.titelbild.src; break; }
+        }
+        // Fallback: first uploaded image
+        const imgs = localStorage.getItem(`gallery_${key}_images`);
+        if (imgs) {
+          const parsed = JSON.parse(imgs);
+          const firstAlbum = parsed[0] || parsed[Object.keys(parsed)[0]];
+          if (Array.isArray(firstAlbum) && firstAlbum[0]?.src) { thumbSrc = firstAlbum[0].src; break; }
+        }
       }
     } catch (e) {}
     return (
