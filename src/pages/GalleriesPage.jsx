@@ -1,39 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Tag, Edit3, ExternalLink, Mail, Trash2, LayoutGrid, List, Eye, Share2, Download, Image as ImageIcon, Heart } from 'lucide-react';
-import { usePersistedState } from '../hooks/usePersistedState';
+import { useGalleries, toSlug } from '../contexts/GalleryContext';
 import './Galleries.css';
-
-const toSlug = (title) => title.toLowerCase()
-  .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-  .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-
-// No default galleries - start fresh
-const galleries = [];
 
 const GalleriesPage = () => {
   const navigate = useNavigate();
-  const [galleryList, setGalleryList] = usePersistedState('galleries_list_v2', galleries);
+  const { galleries, loading, error, updateGallery, deleteGallery } = useGalleries();
   const [viewMode, setViewMode] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [tagQuery, setTagQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
-  // Filtered galleries with tag support
-  const filteredGalleries = galleryList.filter(g => {
+  // Filtered galleries
+  const filteredGalleries = galleries.filter(g => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch = !q || g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
+    const matchesSearch = !q ||
+      g.title.toLowerCase().includes(q) ||
+      (g.internal_name || '').toLowerCase().includes(q);
     if (!tagQuery) return matchesSearch;
-    // Read tags from localStorage for filtering
     const t = tagQuery.toLowerCase();
-    try {
-      const stored = localStorage.getItem(`gallery_${g.title}_tags`);
-      if (stored) {
-        const gTags = JSON.parse(stored);
-        if (Array.isArray(gTags) && gTags.some(tag => tag.toLowerCase().includes(t))) return matchesSearch;
-      }
-    } catch (e) { }
+    if (Array.isArray(g.tags) && g.tags.some(tag => tag.toLowerCase().includes(t))) return matchesSearch;
     return false;
   });
 
@@ -44,16 +32,21 @@ const GalleriesPage = () => {
     ? filteredGalleries.slice((currentPage - 1) * perPage, currentPage * perPage)
     : filteredGalleries;
 
-  // Reset page when search changes
   const handleSearchChange = (val) => { setSearchQuery(val); setCurrentPage(1); };
   const handleTagChange = (val) => { setTagQuery(val); setCurrentPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setCurrentPage(1); };
 
-  const handleDelete = (id) => {
-    setGalleryList(prev => prev.filter(g => g.id !== id));
+  const handleDelete = async (id) => {
+    try { await deleteGallery(id); } catch (err) { console.error('Delete error:', err); }
   };
 
-  const [linkModal, setLinkModal] = useState(null); // { url: '', copied: false }
+  const handleToggleFavorite = async (gallery) => {
+    try {
+      // Store favorite in toggles JSONB
+      const toggles = { ...(gallery.toggles || {}), favorite: !gallery.toggles?.favorite };
+      await updateGallery(gallery.id, { toggles });
+    } catch (err) { console.error('Favorite error:', err); }
+  };
 
   const handleShare = (title) => {
     const slug = toSlug(title);
@@ -63,59 +56,29 @@ const GalleriesPage = () => {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
-  const handleToggleFavorite = (id) => {
-    setGalleryList(prev => prev.map(g => g.id === id ? { ...g, favorite: !g.favorite } : g));
-  };
-
   const handleDownload = (gallery) => {
-    alert(`Download für "${gallery.title}" wird vorbereitet... (${gallery.zip + gallery.single} Downloads bisher)`);
+    alert(`Download für "${gallery.title}" wird vorbereitet... (${(gallery.zip_downloads || 0) + (gallery.single_downloads || 0)} Downloads bisher)`);
   };
 
-  const handlePreview = (id) => {
-    window.open(`/galleries/${id}/preview`, '_blank');
+  const [linkModal, setLinkModal] = useState(null);
+
+  // Format date from ISO string
+  const formatDate = (iso) => {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleDateString('de-DE');
+  };
+  const formatDateTime = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE') + ' - ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Sub-component to read gallery thumbnail from persisted state
-  const GalleryCardImage = ({ gallery, className, children }) => {
-    const slug = toSlug(gallery.title);
-    // Use the original title as key (matches how GalleryDetailPage stores data)
-    const galleryKey = gallery.title;
-    const [appIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
-    const [titleImages] = usePersistedState(`gallery_${galleryKey}_titleImages`, {});
-    const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
-
-    // Priority: appIcon > titelbild > first uploaded image > placeholder
-    let imgSrc = appIconSrc;
-    if (!imgSrc) {
-      for (const idx of Object.keys(titleImages)) {
-        if (titleImages[idx]?.titelbild?.src) { imgSrc = titleImages[idx].titelbild.src; break; }
-      }
-    }
-    if (!imgSrc) {
-      for (const idx of Object.keys(uploadedImages)) {
-        if (uploadedImages[idx]?.length > 0) { imgSrc = uploadedImages[idx][0].src; break; }
-      }
-    }
-
-    return (
-      <Link to={`/galleries/${slug}`} className={className || 'gallery-card-image'} style={{
-        background: imgSrc ? `url(${imgSrc}) center / cover no-repeat` : '#e8e8e8'
-      }}>
-        {!imgSrc && <ImageIcon size={className === 'gallery-thumbnail' ? 14 : 28} style={{ color: 'rgba(0,0,0,0.15)' }} />}
-        {children}
-      </Link>
-    );
-  };
-
-  // Sub-component to read and display gallery tags
+  // Gallery card tags display
   const GalleryTags = ({ gallery }) => {
-    const galleryKey = gallery.title;
-    const [tags] = usePersistedState(`gallery_${galleryKey}_tags`, []);
-
-    if (!tags || tags.length === 0) return null;
+    if (!gallery.tags || gallery.tags.length === 0) return null;
     return (
       <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-        {tags.map(tag => (
+        {gallery.tags.map(tag => (
           <span key={tag} style={{
             background: 'var(--color-primary)',
             color: 'white',
@@ -129,8 +92,53 @@ const GalleriesPage = () => {
     );
   };
 
+  // Gallery card image - try to load the title image from localStorage
+  const GalleryCardImage = ({ gallery, className, children }) => {
+    const slug = gallery.slug;
+    // Try to get the title image for this gallery
+    let thumbSrc = null;
+    try {
+      const stored = localStorage.getItem(`gallery_${slug}_titleImages`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Check first album (index 0) titelbild
+        const first = parsed[0] || parsed;
+        if (first?.titelbild?.src) thumbSrc = first.titelbild.src;
+      }
+    } catch (e) {}
+    return (
+      <Link to={`/galleries/${slug}`} className={className || 'gallery-card-image'} style={{
+        background: thumbSrc ? 'transparent' : '#e8e8e8',
+      }}>
+        {thumbSrc ? (
+          <img src={thumbSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+        ) : (
+          <ImageIcon size={className === 'gallery-thumbnail' ? 14 : 28} style={{ color: 'rgba(0,0,0,0.15)' }} />
+        )}
+        {children}
+      </Link>
+    );
+  };
 
+  if (loading) {
+    return (
+      <div className="galleries-page">
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>
+          Galerien werden geladen...
+        </div>
+      </div>
+    );
+  }
 
+  if (error) {
+    return (
+      <div className="galleries-page">
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#c00' }}>
+          Fehler: {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="galleries-page">
@@ -172,21 +180,21 @@ const GalleriesPage = () => {
               <GalleryCardImage gallery={gallery} />
               <div className="gallery-card-info">
                 <div className="gallery-card-title-row">
-                  <Link to={`/galleries/${toSlug(gallery.title)}`} className="gallery-card-title">{gallery.title}</Link>
+                  <Link to={`/galleries/${gallery.slug}`} className="gallery-card-title">{gallery.title}</Link>
                   <button
                     className="gallery-card-edit"
-                    onClick={() => navigate(`/galleries/${toSlug(gallery.title)}`)}
+                    onClick={() => navigate(`/galleries/${gallery.slug}`)}
                     title="Bearbeiten"
                   >
                     <Edit3 size={13} />
                   </button>
                 </div>
                 <div className="gallery-card-actions">
-                  <button title={`${gallery.views} Aufrufe`} onClick={() => handlePreview(gallery.id)}><Eye size={13} /> <span>{gallery.views}</span></button>
+                  <button title={`${gallery.views || 0} Aufrufe`} onClick={() => window.open(`/${gallery.slug}`, '_blank')}><Eye size={13} /> <span>{gallery.views || 0}</span></button>
                   <button title="Link teilen" onClick={() => handleShare(gallery.title)}><Share2 size={13} /></button>
-                  <button title={`${gallery.zip + gallery.single} Downloads`} onClick={() => handleDownload(gallery)}><Download size={13} /></button>
-                  <button title="Favorit" className={gallery.favorite ? 'text-red' : ''} onClick={() => handleToggleFavorite(gallery.id)}><Heart size={13} fill={gallery.favorite ? 'currentColor' : 'none'} /></button>
-                  <button title="Tags" onClick={() => navigate(`/galleries/${toSlug(gallery.title)}`)}><Tag size={13} /></button>
+                  <button title={`${(gallery.zip_downloads || 0) + (gallery.single_downloads || 0)} Downloads`} onClick={() => handleDownload(gallery)}><Download size={13} /></button>
+                  <button title="Favorit" className={gallery.toggles?.favorite ? 'text-red' : ''} onClick={() => handleToggleFavorite(gallery)}><Heart size={13} fill={gallery.toggles?.favorite ? 'currentColor' : 'none'} /></button>
+                  <button title="Tags" onClick={() => navigate(`/galleries/${gallery.slug}`)}><Tag size={13} /></button>
                   <button title="Löschen" className="text-red" onClick={(e) => { e.stopPropagation(); handleDelete(gallery.id); }}><Trash2 size={13} /></button>
                 </div>
               </div>
@@ -208,16 +216,13 @@ const GalleriesPage = () => {
                 <th>Geteilt</th>
                 <th>ZIP-Downloads</th>
                 <th>Einzeldownloads</th>
-                <th>Letzter Aufruf</th>
                 <th>Letzte Änderung</th>
                 <th>Erstellt</th>
                 <th className="action-col">Aktion</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedGalleries.map((gallery) => {
-                const listSlug = toSlug(gallery.title);
-                return (
+              {paginatedGalleries.map((gallery) => (
                 <tr key={gallery.id}>
                   <td className="img-col">
                     <GalleryCardImage gallery={gallery} className="gallery-thumbnail">
@@ -225,30 +230,28 @@ const GalleriesPage = () => {
                     </GalleryCardImage>
                   </td>
                   <td className="font-medium">
-                    <Link to={`/galleries/${toSlug(gallery.title)}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{gallery.title}</Link>
+                    <Link to={`/galleries/${gallery.slug}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{gallery.title}</Link>
                   </td>
                   <td className="text-muted">
-                    {gallery.name}
+                    {gallery.internal_name || ''}
                     <GalleryTags gallery={gallery} />
                   </td>
-                  <td>{gallery.views}</td>
-                  <td>{gallery.shared}</td>
-                  <td>{gallery.zip}</td>
-                  <td>{gallery.single}</td>
-                  <td className="text-muted text-sm">{gallery.lastView}</td>
-                  <td className="text-muted text-sm">{gallery.lastEdit}</td>
-                  <td className="text-muted text-sm">{gallery.created}</td>
+                  <td>{gallery.views || 0}</td>
+                  <td>{gallery.shared || 0}</td>
+                  <td>{gallery.zip_downloads || 0}</td>
+                  <td>{gallery.single_downloads || 0}</td>
+                  <td className="text-muted text-sm">{formatDateTime(gallery.updated_at)}</td>
+                  <td className="text-muted text-sm">{formatDate(gallery.created_at)}</td>
                   <td className="action-col">
                     <div className="actions-inner">
-                      <button title="Bearbeiten" onClick={() => navigate(`/galleries/${toSlug(gallery.title)}`)}><Edit3 size={16} /></button>
-                      <button title="Kundenansicht öffnen" onClick={() => window.open(`/${toSlug(gallery.title)}`, '_blank')}><ExternalLink size={16} /></button>
+                      <button title="Bearbeiten" onClick={() => navigate(`/galleries/${gallery.slug}`)}><Edit3 size={16} /></button>
+                      <button title="Kundenansicht öffnen" onClick={() => window.open(`/${gallery.slug}`, '_blank')}><ExternalLink size={16} /></button>
                       <button title="E-Mail senden" onClick={() => handleShare(gallery.title)}><Mail size={16} /></button>
                       <button title="Löschen" className="text-red" onClick={() => handleDelete(gallery.id)}><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
-              );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -284,7 +287,7 @@ const GalleriesPage = () => {
           </div>
         </div>
       )}
-      
+
       {/* ── Link Modal ── */}
       {linkModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setLinkModal(null)}>

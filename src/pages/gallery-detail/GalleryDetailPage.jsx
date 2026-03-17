@@ -8,43 +8,9 @@ import AuswahlenTab from './AuswahlenTab';
 import StatistikenTab from './StatistikenTab';
 
 import VerschickenTab from './VerschickenTab';
+import { useGalleries } from '../../contexts/GalleryContext';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import './GalleryDetail.css';
-
-const galleryData = [
-  { title: 'vorschau-hochzeit', albums: 0, photos: 0, thumbnail: null },
-  { title: 'SV Strättligen', albums: 0, photos: 0, thumbnail: null },
-  { title: 'Hochzeit Edith & Thomas', albums: 0, photos: 0, thumbnail: null },
-];
-
-const toSlug = (title) => title.toLowerCase()
-  .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-  .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-
-// Load gallery by slug from hardcoded data or localStorage
-const getGalleryBySlug = (slug) => {
-  // Check hardcoded data
-  const hardcoded = galleryData.find(g => toSlug(g.title) === slug);
-  if (hardcoded) return hardcoded;
-  // Check localStorage
-  try {
-    const stored = localStorage.getItem('galleries_list_v2');
-    if (stored) {
-      const list = JSON.parse(stored);
-      const found = list.find(g => toSlug(g.title) === slug);
-      if (found) {
-        return {
-          title: found.title,
-          albums: 0,
-          photos: 0,
-          thumbnail: null,
-        };
-      }
-    }
-  } catch (e) {}
-  // Fallback - use slug as title
-  return { title: slug, albums: 0, photos: 0, thumbnail: null };
-};
 
 const tabs = [
   { id: 'bilder', label: 'Bilder' },
@@ -52,57 +18,69 @@ const tabs = [
   { id: 'design', label: 'Design' },
   { id: 'auswahlen', label: 'Auswahlen' },
   { id: 'statistiken', label: 'Statistiken' },
-
   { id: 'verschicken', label: 'Verschicken' },
 ];
 
 const GalleryDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { getGalleryBySlug, loading } = useGalleries();
   const [activeTab, setActiveTab] = useState('bilder');
+  
   const gallery = getGalleryBySlug(slug);
-  const [dynamicCounts, setDynamicCounts] = useState({ albums: gallery.albums, photos: gallery.photos });
+  const [dynamicCounts, setDynamicCounts] = useState({ albums: 0, photos: 0 });
 
-  // Read the persisted settings (same key as EinstellungenTab) so title/URL stay in sync
-  const galleryKey = gallery?.title || 'default';
-  const [settings] = usePersistedState(`gallery_${galleryKey}_settings`, {
-    titel: gallery.title,
-    domain: '',
-    domainpfad: slug,
-  });
+  // Gallery key for sub-components that still use localStorage (BilderTab, DesignTab, etc.)
+  // These will be migrated in a later step
+  const galleryKey = gallery?.title || slug;
 
-  // Read uploaded images for avatar thumbnail
-  const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
-  const [titleImages] = usePersistedState(`gallery_${galleryKey}_titleImages`, {});
-  // Read explicitly set App-Icon (set via "Als App-Icon" toolbar button)
+  // Read uploaded images for avatar thumbnail (still from localStorage until NAS migration)
   const [appIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
 
-  // Get avatar: only use explicitly set App-Icon (no auto-fallback)
-  const getAvatarSrc = () => {
-    if (appIconSrc) return appIconSrc;
-    return null;
-  };
-  const avatarSrc = getAvatarSrc();
+  const avatarSrc = appIconSrc || null;
 
-  const displayTitle = settings.titel || gallery.title;
-  const displayUrl = settings.domain ? `https://${settings.domain}/${settings.domainpfad || slug}` : '';
-
-  // Note: We intentionally do NOT auto-navigate when domainpfad changes.
-  // Changing the URL during editing would re-mount the component with a different
-  // galleryKey, causing all usePersistedState data (photos, albums) to become inaccessible.
+  const displayTitle = gallery?.title || slug;
+  const displayUrl = gallery?.domain
+    ? `https://${gallery.domain}/${gallery.domain_path || slug}`
+    : '';
 
   const renderTab = () => {
+    if (!gallery) return null;
+    // Pass gallery object from Supabase to sub-tabs
+    // Some tabs still use localStorage for their own data (BilderTab for images)
+    // They will be migrated in the NAS image phase  
+    const legacyGallery = { title: gallery.title, slug: gallery.slug };
     switch (activeTab) {
-      case 'bilder': return <BilderTab gallery={gallery} onCountsChange={setDynamicCounts} />;
-      case 'einstellungen': return <EinstellungenTab gallery={gallery} />;
-      case 'design': return <DesignTab gallery={gallery} />;
+      case 'bilder': return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} />;
+      case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} />;
+      case 'design': return <DesignTab gallery={legacyGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
       case 'statistiken': return <StatistikenTab />;
-
-      case 'verschicken': return <VerschickenTab gallery={gallery} galleryKey={galleryKey} settings={settings} uploadedImages={uploadedImages} appIconSrc={appIconSrc} />;
-      default: return <BilderTab gallery={gallery} onCountsChange={setDynamicCounts} />;
+      case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={{}} appIconSrc={appIconSrc} />;
+      default: return <BilderTab gallery={legacyGallery} onCountsChange={setDynamicCounts} />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="gallery-detail">
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>
+          Galerie wird geladen...
+        </div>
+      </div>
+    );
+  }
+
+  if (!gallery) {
+    return (
+      <div className="gallery-detail">
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>
+          <p>Galerie nicht gefunden.</p>
+          <Link to="/galleries" style={{ color: 'var(--color-primary)' }}>← Zurück zu Galerien</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="gallery-detail">

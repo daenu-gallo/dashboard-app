@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HelpCircle, ChevronRight, Menu, FolderPlus, X, LogOut, User, Calendar, HelpCircle as HelpIcon } from 'lucide-react';
 import './Topbar.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGalleries, toSlug } from '../../contexts/GalleryContext';
+import { supabase } from '../../lib/supabaseClient';
 
 const designTemplates = [
   { key: 'Atelier', label: 'Atelier', description: 'Das elegante Atelier Template passt zu jeder Art der Fotografie. Dank des cleanen Headers ist es unaufdringlich und zeitlos.' },
@@ -16,8 +18,10 @@ const Topbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { createGallery } = useGalleries();
   const [showModal, setShowModal] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
+  const [creating, setCreating] = useState(false);
 
   // Step 1 fields
   const [titel, setTitel] = useState('');
@@ -26,17 +30,23 @@ const Topbar = () => {
 
   // Step 2 fields
   const [selectedPreset, setSelectedPreset] = useState('');
-
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedDesign, setSelectedDesign] = useState('Atelier');
 
-  // Load presets and brands from localStorage
-  const presets = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('settings_presets') || '[]'); } catch { return []; }
-  }, [showModal]);
-  const brands = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('settings_brands') || '[]'); } catch { return []; }
-  }, [showModal]);
+  // Load presets and brands from Supabase
+  const [presets, setPresets] = useState([]);
+  const [brands, setBrands] = useState([]);
+
+  useEffect(() => {
+    if (showModal && user) {
+      // Fetch presets
+      supabase.from('presets').select('*').eq('user_id', user.id)
+        .then(({ data }) => setPresets(data || []));
+      // Fetch brands
+      supabase.from('brands').select('*').eq('user_id', user.id)
+        .then(({ data }) => setBrands(data || []));
+    }
+  }, [showModal, user]);
 
   const activeDesign = designTemplates.find(d => d.key === selectedDesign) || designTemplates[0];
 
@@ -45,9 +55,10 @@ const Topbar = () => {
     setSelectedPreset(presetName);
     const p = presets.find(pr => pr.name === presetName);
     if (p) {
-      if (p.vorlage) setSelectedDesign(p.vorlage);
-      if (p.marke) setSelectedBrand(p.marke);
-
+      const s = p.settings || {};
+      const d = p.design || {};
+      if (d.vorlage) setSelectedDesign(d.vorlage);
+      if (s.marke) setSelectedBrand(s.marke);
     }
   };
 
@@ -56,18 +67,18 @@ const Topbar = () => {
     setTitel('');
     setInterneBezeichnung('');
     setShootingDatum('');
-    const standardPreset = presets.find(p => p.standard);
+    setCreating(false);
+    const standardPreset = presets.find(p => p.is_default);
     const initialPreset = standardPreset || presets[0];
     setSelectedPreset(initialPreset?.name || '');
-    // Apply preset values
     if (initialPreset) {
-      setSelectedDesign(initialPreset.vorlage || 'Atelier');
-      setSelectedBrand(initialPreset.marke || brands.find(b => b.active)?.name || '');
-
+      const d = initialPreset.design || {};
+      const s = initialPreset.settings || {};
+      setSelectedDesign(d.vorlage || 'Atelier');
+      setSelectedBrand(s.marke || brands.find(b => b.active)?.name || '');
     } else {
       setSelectedDesign('Atelier');
       setSelectedBrand(brands.find(b => b.active)?.name || '');
-
     }
     setShowModal(true);
   };
@@ -85,163 +96,29 @@ const Topbar = () => {
 
   const breadcrumbs = getBreadcrumbs();
 
-  const handleCreateGalerie = () => {
-    if (titel.trim()) {
-      // Read existing galleries from localStorage
-      let galleries = [];
-      try {
-        const stored = localStorage.getItem('galleries_list_v2');
-        if (stored) galleries = JSON.parse(stored);
-      } catch (e) {}
+  const handleCreateGalerie = async () => {
+    if (!titel.trim() || creating) return;
+    setCreating(true);
 
-      // Find the selected preset
-      let preset = null;
-      try {
-        const allPresets = JSON.parse(localStorage.getItem('settings_presets') || '[]');
-        preset = allPresets.find(p => p.name === selectedPreset) || allPresets.find(p => p.standard);
-      } catch (e) {}
+    try {
+      // Find the selected preset data
+      const preset = presets.find(p => p.name === selectedPreset);
 
-      // Create new gallery with next available ID
-      const maxId = galleries.reduce((max, g) => Math.max(max, g.id || 0), 0);
-      const gallerySlug = titel.trim().toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-
-      const newGallery = {
-        id: maxId + 1,
+      const gallery = await createGallery({
         title: titel.trim(),
-        name: interneBezeichnung.trim(),
-        views: 0,
-        shared: 0,
-        zip: 0,
-        single: 0,
-        shop: false,
-        lastView: '-',
-        lastEdit: new Date().toLocaleDateString('de-DE') + ' - ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-        created: new Date().toLocaleDateString('de-DE'),
-        color: '#528c68',
-      };
-
-      // Apply settings to the new gallery
-      const galleryKey = titel.trim();
-      const toggles = {
-        appHinweis: preset ? preset.appHinweis !== false : true,
-        teilen: preset ? preset.teilen !== false : true,
-        kommentarfunktion: preset ? preset.kommentar !== false : true,
-        dateienamen: preset ? preset.zeigeDateinamen || false : false,
-        download: preset ? preset.download !== false : true,
-        downloadPin: preset ? preset.downloadPin || false : false,
-        wasserzeichen: false,
-
-      };
-      localStorage.setItem(`gallery_${galleryKey}_toggles`, JSON.stringify(toggles));
-
-      const settings = {
-        titel: titel.trim(),
-        interneBezeichnung: interneBezeichnung.trim(),
-        shootingdatum: shootingDatum,
-        ablaufdatum: preset ? preset.ablauf || '' : '',
-        passwort: '',
-        marke: selectedBrand,
-        sprache: preset ? preset.sprache || 'Deutsch' : 'Deutsch',
-        domain: preset ? preset.domain || '' : '',
-        domainpfad: gallerySlug,
-        galerieart: '',
-        mitteilung: preset ? preset.mitteilung || '' : '',
-        sortierung: preset ? preset.sortierung || 'Uploaddatum' : 'Uploaddatum',
-        tags: preset ? preset.tags || '' : '',
-      };
-      localStorage.setItem(`gallery_${galleryKey}_settings`, JSON.stringify(settings));
-
-      // Save design settings to the same keys DesignTab reads via usePersistedState
-      const templateId = (() => {
-        const name = selectedDesign;
-        if (name === 'Atelier') return 'atelier';
-        if (name === 'Dark Shark') return 'dark-shark';
-        if (name === 'Lazy R') return 'lazy-r';
-        if (name === 'Luminance') return 'luminance';
-        if (name === 'Noir Classique') return 'noir-classique';
-        return 'atelier';
-      })();
-      // Template defaults lookup
-      const templateDefaults = {
-        'atelier': { primaryColor: '#f0f0f4', secondaryColor: '#1a1a1a', font: 'Inter', spacing: 'klein', display: 'standard' },
-        'dark-shark': { primaryColor: '#1a1a2e', secondaryColor: '#e8d5b7', font: 'Josefin Sans', spacing: 'klein', display: 'standard' },
-        'lazy-r': { primaryColor: '#f5f0eb', secondaryColor: '#2d4a3e', font: 'Playfair Display', spacing: 'mittel', display: 'standard' },
-        'luminance': { primaryColor: '#1a0a10', secondaryColor: '#d4a0a0', font: 'Cormorant Garamond', spacing: 'klein', display: 'standard' },
-        'noir-classique': { primaryColor: '#111111', secondaryColor: '#ffffff', font: 'Montserrat', spacing: 'mittel', display: 'kacheln' },
-      };
-      const td = templateDefaults[templateId] || templateDefaults['atelier'];
-      localStorage.setItem(`gallery_${galleryKey}_design_template`, JSON.stringify(templateId));
-      localStorage.setItem(`gallery_${galleryKey}_design_primaryColor`, JSON.stringify(preset?.primaerfarbe || td.primaryColor));
-      localStorage.setItem(`gallery_${galleryKey}_design_secondaryColor`, JSON.stringify(preset?.sekundaerfarbe || td.secondaryColor));
-      localStorage.setItem(`gallery_${galleryKey}_design_font`, JSON.stringify(preset?.schriftart || td.font));
-      localStorage.setItem(`gallery_${galleryKey}_design_spacing`, JSON.stringify(preset?.bildabstand || td.spacing));
-      localStorage.setItem(`gallery_${galleryKey}_design_display`, JSON.stringify(preset?.bilddarstellung || td.display));
-
-      // Tracking
-      if (preset && (preset.gaCode || preset.gtmId || preset.fbPixel)) {
-        const tracking = {
-          gaCode: preset.gaCode || '',
-          gtmId: preset.gtmId || '',
-          fbPixel: preset.fbPixel || '',
-        };
-        localStorage.setItem(`gallery_${galleryKey}_tracking`, JSON.stringify(tracking));
-      }
-
-      // Sync preset albums to the new gallery
-      const presetAlbums = (preset?.alben || []).map(name => ({
-        name,
-        count: 0,
-        previewCount: 2,
-        totalPhotos: 2,
-      }));
-      if (presetAlbums.length > 0) {
-        localStorage.setItem(`gallery_${galleryKey}_albums`, JSON.stringify(presetAlbums));
-        const albumNames = {};
-        presetAlbums.forEach((a, i) => { albumNames[i] = a.name; });
-        localStorage.setItem(`gallery_${galleryKey}_albumNames`, JSON.stringify(albumNames));
-      }
-
-      // Sync all to IndexedDB
-      try {
-        const dbReq = indexedDB.open('fotohahn_db', 1);
-        dbReq.onsuccess = () => {
-          const db = dbReq.result;
-          const tx = db.transaction('persisted_state', 'readwrite');
-          const store = tx.objectStore('persisted_state');
-          store.put(toggles, `gallery_${galleryKey}_toggles`);
-          store.put(settings, `gallery_${galleryKey}_settings`);
-          store.put(templateId, `gallery_${galleryKey}_design_template`);
-          store.put(preset?.primaerfarbe || td.primaryColor, `gallery_${galleryKey}_design_primaryColor`);
-          store.put(preset?.sekundaerfarbe || td.secondaryColor, `gallery_${galleryKey}_design_secondaryColor`);
-          store.put(preset?.schriftart || td.font, `gallery_${galleryKey}_design_font`);
-          store.put(preset?.bildabstand || td.spacing, `gallery_${galleryKey}_design_spacing`);
-          store.put(preset?.bilddarstellung || td.display, `gallery_${galleryKey}_design_display`);
-          if (presetAlbums.length > 0) {
-            store.put(presetAlbums, `gallery_${galleryKey}_albums`);
-            const albumNamesObj = {};
-            presetAlbums.forEach((a, i) => { albumNamesObj[i] = a.name; });
-            store.put(albumNamesObj, `gallery_${galleryKey}_albumNames`);
-          }
-        };
-      } catch (e) {}
-
-      // Save updated list to localStorage + IndexedDB
-      const updatedList = [...galleries, newGallery];
-      localStorage.setItem('galleries_list_v2', JSON.stringify(updatedList));
-      try {
-        const dbReq = indexedDB.open('fotohahn_db', 1);
-        dbReq.onsuccess = () => {
-          const db = dbReq.result;
-          const tx = db.transaction('persisted_state', 'readwrite');
-          tx.objectStore('persisted_state').put(updatedList, 'galleries_list_v2');
-        };
-      } catch (e) {}
-      window.dispatchEvent(new CustomEvent('persisted-state-change', { detail: { key: 'galleries_list_v2' } }));
+        internalName: interneBezeichnung.trim(),
+        shootingDate: shootingDatum || null,
+        preset: preset ? { ...(preset.settings || {}), ...(preset.design || {}), ...(preset.tracking || {}), alben: preset.albums || [] } : null,
+        brand: selectedBrand,
+        designTemplate: selectedDesign,
+      });
 
       setShowModal(false);
-      navigate(`/galleries/${gallerySlug}`);
+      navigate(`/galleries/${gallery.slug}`);
+    } catch (err) {
+      console.error('Error creating gallery:', err);
+      alert('Fehler beim Erstellen: ' + err.message);
+      setCreating(false);
     }
   };
 
@@ -416,8 +293,9 @@ const Topbar = () => {
                   <button
                     className="topbar-modal-submit"
                     onClick={handleCreateGalerie}
+                    disabled={creating}
                   >
-                    Erstellen
+                    {creating ? 'Erstelle...' : 'Erstellen'}
                   </button>
                 </div>
               </>

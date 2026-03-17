@@ -1,22 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, X, Check, Info } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useGalleries } from '../../contexts/GalleryContext';
 
-const EinstellungenTab = ({ gallery }) => {
+const EinstellungenTab = ({ gallery, supabaseGallery }) => {
   const galleryKey = gallery?.title || 'default';
   // Track the most recent title saved to the gallery list for reliable lookups
   const lastSavedTitle = useRef(galleryKey);
   const [brands] = usePersistedState('settings_brands', []);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  const [presets] = usePersistedState('settings_presets', []);
+  const { updateGallery } = useGalleries();
+
+  // Find the standard (default) preset and use its toggle settings
+  const standardPreset = presets.find(p => p.standard) || {};
 
   const [toggles, setToggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
-    appHinweis: true,
-    teilen: true,
-    kommentarfunktion: false,
-    dateienamen: false,
-    download: true,
-    downloadPin: false,
-    wasserzeichen: false,
+    appHinweis: standardPreset.appHinweis !== undefined ? standardPreset.appHinweis !== false : true,
+    teilen: standardPreset.teilen !== undefined ? standardPreset.teilen !== false : true,
+    kommentarfunktion: standardPreset.kommentar !== undefined ? standardPreset.kommentar !== false : false,
+    dateienamen: standardPreset.zeigeDateinamen || false,
+    download: standardPreset.download !== undefined ? standardPreset.download !== false : true,
+    downloadPin: standardPreset.downloadPin || false,
+    wasserzeichen: !!standardPreset.wasserzeichen,
+    selectedWatermarkId: standardPreset.wasserzeichen || '',
   });
 
   // Album-level toggles for sync
@@ -54,6 +62,38 @@ const EinstellungenTab = ({ gallery }) => {
   // Tags persisted state (separate for easy lookup in gallery overview)
   const [tags, setTags] = usePersistedState(`gallery_${galleryKey}_tags`, []);
   const [tagInput, setTagInput] = useState('');
+
+  // ── Sync changes to Supabase (debounced) ──
+  const syncTimer = useRef(null);
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    // Skip initial mount to avoid overwriting DB with default/empty values
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!supabaseGallery?.id) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
+      try {
+        await updateGallery(supabaseGallery.id, {
+          title: formData.titel || supabaseGallery.title,
+          slug: (formData.domainpfad || supabaseGallery.slug),
+          internal_name: formData.interneBezeichnung || null,
+          shooting_date: formData.shootingdatum || null,
+          expiry_date: formData.ablaufdatum || null,
+          password: formData.passwort || null,
+          brand: formData.marke || null,
+          language: formData.sprache || 'Deutsch',
+          domain: formData.domain || null,
+          domain_path: formData.domainpfad || null,
+          message: formData.mitteilung || null,
+          toggles,
+          tags,
+        });
+      } catch (err) {
+        console.error('[EinstellungenTab] Supabase sync error:', err);
+      }
+    }, 2000); // 2s debounce
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
+  }, [formData, toggles, tags]);
 
   // Hauptkunden persisted state
   const [hauptkunden, setHauptkunden] = usePersistedState(`gallery_${galleryKey}_hauptkunden`, [
@@ -374,20 +414,42 @@ const EinstellungenTab = ({ gallery }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
           {toggleItems.map((item) => (
-            <div key={item.key} className="toggle-row">
-              <span className="toggle-label">
-                {item.label}
-                {item.key === 'downloadPin' && toggles.downloadPin && formData.downloadPinCode && (
-                  <span style={{ marginLeft: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    PIN: {formData.downloadPinCode}
-                  </span>
-                )}
-              </span>
-              <div
-                className={`toggle-wrapper ${toggles[item.key] ? 'on' : ''}`}
-                onClick={() => toggle(item.key)}
-              />
-            </div>
+            <React.Fragment key={item.key}>
+              <div className="toggle-row">
+                <span className="toggle-label">
+                  {item.label}
+                  {item.key === 'downloadPin' && toggles.downloadPin && formData.downloadPinCode && (
+                    <span style={{ marginLeft: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      PIN: {formData.downloadPinCode}
+                    </span>
+                  )}
+                </span>
+                <div
+                  className={`toggle-wrapper ${toggles[item.key] ? 'on' : ''}`}
+                  onClick={() => toggle(item.key)}
+                />
+              </div>
+              {item.key === 'wasserzeichen' && toggles.wasserzeichen && watermarks.length > 0 && (
+                <div style={{ marginLeft: '1rem', marginBottom: '0.25rem' }}>
+                  <select
+                    className="form-select"
+                    style={{ fontSize: '0.85rem', padding: '0.35rem 0.5rem' }}
+                    value={toggles.selectedWatermarkId || ''}
+                    onChange={e => {
+                      setToggles(prev => ({ ...prev, selectedWatermarkId: e.target.value }));
+                      triggerSaveToast();
+                    }}
+                  >
+                    <option value="">Wasserzeichen wählen...</option>
+                    {watermarks.map(wm => (
+                      <option key={wm.id} value={wm.id}>
+                        {wm.name} ({wm.wmType === 'tile' ? 'Kachel' : wm.wmType === 'text' ? 'Text' : 'Bild'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>

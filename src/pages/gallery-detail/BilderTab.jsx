@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
 
@@ -106,14 +107,79 @@ const AlbumModal = ({ onClose, onSubmit, watermarks = [] }) => {
           <div className="album-form-group">
             <label>Wasserzeichen</label>
             <select value={watermark} onChange={e => setWatermark(e.target.value)}>
-              <option>Kein Wasserzeichen</option>
-              {watermarks.map((wm, i) => (
-                <option key={i} value={wm.name || wm.text || `Wasserzeichen ${i + 1}`}>
-                  {wm.name || wm.text || `Wasserzeichen ${i + 1}`}
+              <option value="">Kein Wasserzeichen</option>
+              {watermarks.map((wm) => (
+                <option key={wm.id} value={String(wm.id)}>
+                  {wm.name || wm.text || `Wasserzeichen`} ({wm.wmType === 'tile' ? 'Kachel' : wm.wmType === 'text' ? 'Text' : 'Bild'})
                 </option>
               ))}
             </select>
-            <a href="/settings" className="album-form-link" onClick={e => { e.preventDefault(); onClose(); window.location.href = '/settings'; }}>Wasserzeichen hinzufügen</a>
+            {/* Live watermark preview */}
+            {(() => {
+              const selWm = watermarks.find(wm => String(wm.id) === watermark);
+              if (!selWm) return null;
+              const posMap = {
+                'oben-links': { top: '6%', left: '6%' },
+                'oben-mitte': { top: '6%', left: '50%', transform: 'translateX(-50%)' },
+                'oben-rechts': { top: '6%', right: '6%' },
+                'mitte-links': { top: '50%', left: '6%', transform: 'translateY(-50%)' },
+                'mitte': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
+                'mitte-rechts': { top: '50%', right: '6%', transform: 'translateY(-50%)' },
+                'unten-links': { bottom: '6%', left: '6%' },
+                'unten-mitte': { bottom: '6%', left: '50%', transform: 'translateX(-50%)' },
+                'unten-rechts': { bottom: '6%', right: '6%' },
+              };
+              const opacityVal = (selWm.transparency ?? 50) / 100;
+              const pos = selWm.position || 'mitte';
+              return (
+                <div style={{ marginTop: '0.5rem', width: '100%', aspectRatio: '16/10', borderRadius: 8, overflow: 'hidden', position: 'relative', background: '#333' }}>
+                  <img src="/watermark-sample-bg.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {selWm.wmType === 'image' && selWm.image && (
+                    <img src={selWm.image} alt="" style={{
+                      position: 'absolute', maxWidth: '35%', maxHeight: '35%', objectFit: 'contain',
+                      opacity: opacityVal, pointerEvents: 'none',
+                      transform: (posMap[pos]?.transform || '') + ` scale(${(selWm.scale ?? 100) / 100})`,
+                      ...posMap[pos],
+                    }} />
+                  )}
+                  {selWm.wmType === 'text' && (() => {
+                    const fontStr = selWm.font || 'Open Sans, 64px, weiß';
+                    const [fontName, fontSizeStr] = fontStr.split(',').map(s => s.trim());
+                    const fontPx = parseInt(fontSizeStr) || 64;
+                    const fontColor = fontStr.includes('schwarz') ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+                    return (
+                      <span style={{
+                        position: 'absolute', fontFamily: `'${fontName}', sans-serif`, fontSize: fontPx * 0.35,
+                        fontWeight: 700, color: fontColor, opacity: opacityVal, pointerEvents: 'none',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', ...posMap[pos],
+                      }}>
+                        {selWm.text || selWm.name}
+                      </span>
+                    );
+                  })()}
+                  {selWm.wmType === 'tile' && selWm.image && (() => {
+                    const spacing = selWm.tileSpacing ?? 120;
+                    const size = selWm.tileSize ?? 60;
+                    const scaledSize = size * 0.6;
+                    const scaledSpacing = spacing * 0.6;
+                    const tiles = [];
+                    for (let row = -1; row < 5; row++) {
+                      for (let col = -1; col < 6; col++) {
+                        const x = col * scaledSpacing + (row % 2 ? scaledSpacing / 2 : 0);
+                        const y = row * scaledSpacing;
+                        tiles.push(
+                          <img key={`${row}-${col}`} src={selWm.image} alt="" style={{
+                            position: 'absolute', width: scaledSize, height: scaledSize, objectFit: 'contain',
+                            left: x, top: y, opacity: opacityVal, transform: 'rotate(-15deg)', pointerEvents: 'none',
+                          }} />
+                        );
+                      }
+                    }
+                    return <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>{tiles}</div>;
+                  })()}
+                </div>
+              );
+            })()}
           </div>
           <div className="album-form-toggle-row">
             <div className={`album-toggle ${downloadEnabled ? 'on' : ''}`} onClick={() => setDownloadEnabled(!downloadEnabled)}>
@@ -251,9 +317,7 @@ const WatermarkModal = ({ photoSrc, watermarks, onClose, onApply }) => {
             </div>
           )}
 
-          <a className="watermark-add-link" href="/settings" onClick={e => { e.preventDefault(); onClose(); window.location.href = '/settings'; }}>
-            Wasserzeichen hinzufügen
-          </a>
+
 
           <button
             className="watermark-apply-btn"
@@ -322,11 +386,20 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
+  const [showLightbox, setShowLightbox] = useState(false);
+
   const handleFullscreen = () => {
     if (!src) return;
-    const win = window.open('', '_blank');
-    win.document.write(`<html><head><title>${filename || 'Bild'}</title><style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${src}" /></body></html>`);
+    setShowLightbox(true);
   };
+
+  // Close lightbox on ESC
+  useEffect(() => {
+    if (!showLightbox) return;
+    const handler = (e) => { if (e.key === 'Escape') setShowLightbox(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showLightbox]);
 
   const actions = [
     { id: 'titelbild', icon: <ImageIcon size={13} />, label: 'Als Titelbild', action: onSetTitelbild },
@@ -394,6 +467,24 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
             ))}
           </div>
         </div>
+      )}
+
+      {/* Lightbox overlay */}
+      {showLightbox && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.92)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
+        }} onClick={() => setShowLightbox(false)}>
+          <button onClick={(e) => { e.stopPropagation(); setShowLightbox(false); }} style={{
+            position: 'absolute', top: 16, right: 16, background: 'none', border: 'none',
+            color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 100000, lineHeight: 1,
+          }}>✕</button>
+          <img src={src} alt={filename || 'Bild'} onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', cursor: 'default',
+            borderRadius: 4, boxShadow: '0 0 60px rgba(0,0,0,0.5)',
+          }} />
+        </div>,
+        document.body
       )}
     </div>
   );

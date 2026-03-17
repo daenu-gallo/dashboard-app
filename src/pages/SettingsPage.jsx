@@ -1,6 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw } from 'lucide-react';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 import './Settings.css';
 
 const settingsTabs = [
@@ -224,8 +226,76 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
 
 /* ——— Tab: Marken & Wasserzeichen ——— */
 const MarkenTab = () => {
+  const { user } = useAuth();
   const [brands, setBrands] = usePersistedState('settings_brands', []);
   const [watermarks, setWatermarks] = usePersistedState('settings_watermarks_v2', []);
+
+  // ── Load from Supabase on mount ──
+  const loadedRef = useRef(false);
+  const brandLoadedFromDb = useRef(false);
+  const wmLoadedFromDb = useRef(false);
+  useEffect(() => {
+    if (!user || loadedRef.current) return;
+    loadedRef.current = true;
+    (async () => {
+      const { data: dbBrands } = await supabase.from('brands').select('*').eq('user_id', user.id);
+      if (dbBrands?.length > 0) {
+        const mapped = dbBrands.map(b => ({ id: b.id, name: b.name, active: b.active, logo: b.logo || null }));
+        brandLoadedFromDb.current = true;
+        queueMicrotask(() => setBrands(mapped));
+      }
+      const { data: dbWm } = await supabase.from('watermarks').select('*').eq('user_id', user.id);
+      if (dbWm?.length > 0) {
+        const mapped = dbWm.map(w => ({ id: w.id, name: w.name, wmType: w.wm_type, image: w.image || null, text: w.text || '', font: w.font || '', scale: w.scale ?? 100, transparency: w.transparency ?? 50, position: w.position || 'mitte' }));
+        wmLoadedFromDb.current = true;
+        queueMicrotask(() => setWatermarks(mapped));
+      }
+    })();
+  }, [user]);
+
+  // ── Sync brands to Supabase (debounced) ──
+  const brandSyncTimer = useRef(null);
+  const brandSyncSkip = useRef(true);
+  useEffect(() => {
+    if (brandSyncSkip.current) { brandSyncSkip.current = false; return; }
+    if (brandLoadedFromDb.current) { brandLoadedFromDb.current = false; return; }
+    if (!user) return;
+    if (brandSyncTimer.current) clearTimeout(brandSyncTimer.current);
+    brandSyncTimer.current = setTimeout(async () => {
+      try {
+        await supabase.from('brands').delete().eq('user_id', user.id);
+        if (brands.length > 0) {
+          await supabase.from('brands').insert(brands.map(b => ({
+            user_id: user.id, name: b.name, active: b.active !== false,
+            logo: b.logo || null,
+          })));
+        }
+      } catch (err) { console.error('[Settings] Brand sync error:', err); }
+    }, 1500);
+  }, [brands]);
+
+  // ── Sync watermarks to Supabase (debounced) ──
+  const wmSyncTimer = useRef(null);
+  const wmSyncSkip = useRef(true);
+  useEffect(() => {
+    if (wmSyncSkip.current) { wmSyncSkip.current = false; return; }
+    if (wmLoadedFromDb.current) { wmLoadedFromDb.current = false; return; }
+    if (!user) return;
+    if (wmSyncTimer.current) clearTimeout(wmSyncTimer.current);
+    wmSyncTimer.current = setTimeout(async () => {
+      try {
+        await supabase.from('watermarks').delete().eq('user_id', user.id);
+        if (watermarks.length > 0) {
+          await supabase.from('watermarks').insert(watermarks.map(w => ({
+            user_id: user.id, name: w.name, wm_type: w.wmType || 'image',
+            position: w.position || 'mitte',
+            image: w.image || null, text: w.text || '', font: w.font || '',
+            scale: w.scale ?? 100, transparency: w.transparency ?? 50,
+          })));
+        }
+      } catch (err) { console.error('[Settings] Watermark sync error:', err); }
+    }, 1500);
+  }, [watermarks]);
 
   const [modalType, setModalType] = useState(null);
   const [modalData, setModalData] = useState({});
@@ -285,8 +355,16 @@ const MarkenTab = () => {
   // ── Save watermark ──
   const saveWatermark = () => {
     if (!modalData.name?.trim()) return;
+    const trimmedName = modalData.name.trim();
+    // Prevent duplicate names
+    const isNew = modalType === 'add-wm-image' || modalType === 'add-wm-text' || modalType === 'add-wm-tile';
+    const duplicate = watermarks.find(w => w.name === trimmedName && (isNew || w.id !== modalData.id));
+    if (duplicate) {
+      alert(`Ein Wasserzeichen mit dem Namen "${trimmedName}" existiert bereits. Bitte wähle einen anderen Namen.`);
+      return;
+    }
     const wmData = {
-      name: modalData.name.trim(),
+      name: trimmedName,
       wmType: modalData.wmType || 'image',
       image: modalData.image || null,
       text: modalData.text || '',
@@ -294,9 +372,11 @@ const MarkenTab = () => {
       scale: modalData.scale ?? 100,
       transparency: modalData.transparency ?? 50,
       position: modalData.position || 'mitte',
+      tileSpacing: modalData.tileSpacing ?? 120,
+      tileSize: modalData.tileSize ?? 60,
     };
-    if (modalType === 'add-wm-image' || modalType === 'add-wm-text') {
-      wmData.wmType = modalType === 'add-wm-image' ? 'image' : 'text';
+    if (isNew) {
+      wmData.wmType = modalType === 'add-wm-image' ? 'image' : modalType === 'add-wm-tile' ? 'tile' : 'text';
       setWatermarks(prev => [...prev, { id: Date.now(), ...wmData }]);
     } else {
       setWatermarks(prev => prev.map(w => w.id === modalData.id ? { ...w, ...wmData } : w));
@@ -348,12 +428,28 @@ const MarkenTab = () => {
             <div className="watermark-card" key={wm.id}>
               <div className="watermark-preview" style={{ cursor: 'pointer' }}
                 onClick={() => { if (!wmFileRef.current[wm.id]) { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange = (e) => handleWmImageUpload(wm.id, e); wmFileRef.current[wm.id] = inp; } wmFileRef.current[wm.id].click(); }}>
-                {wm.image ? (
+                {wm.wmType === 'tile' && wm.image ? (
+                  <div style={{ width: '100%', height: '100%', position: 'relative', background: '#f0f0f0', overflow: 'hidden' }}>
+                    {[...Array(9)].map((_, i) => (
+                      <img key={i} src={wm.image} alt="" style={{ width: 22, height: 22, objectFit: 'contain', position: 'absolute', opacity: 0.5, top: `${Math.floor(i / 3) * 35 + (i % 2 ? 12 : 0)}%`, left: `${(i % 3) * 35 + (Math.floor(i / 3) % 2 ? 12 : 0)}%` }} />
+                    ))}
+                  </div>
+                ) : wm.image ? (
                   <img src={wm.image} alt={wm.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 ) : wm.wmType === 'text' ? (
                   <span className="watermark-label" style={{ fontSize: 13, textAlign: 'center' }}>{wm.text || wm.name}</span>
+                ) : wm.wmType === 'tile' ? (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa', gap: 4 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '12px 12px 12px', gap: 6, opacity: 0.4 }}>
+                      {[...Array(9)].map((_, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: '#666' }} />)}
+                    </div>
+                    <span style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Kachel</span>
+                  </div>
                 ) : (
-                  <span className="watermark-text">©opyright</span>
+                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa' }}>
+                    <ImageIcon size={28} style={{ color: '#bbb' }} />
+                    <span style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Bild hochladen</span>
+                  </div>
                 )}
               </div>
               <div className="watermark-card-footer">
@@ -378,27 +474,58 @@ const MarkenTab = () => {
       {/* ── Wasserzeichen hinzufügen: Chooser ── */}
       {modalType === 'add-wm-chooser' && (
         <div style={overlayStyle} onClick={closeModal}>
-          <div style={modalWrap} onClick={e => e.stopPropagation()}>
+          <div style={{ ...modalWrap, maxWidth: 720 }} onClick={e => e.stopPropagation()}>
             <div style={greenHeader}><span>Wasserzeichen hinzufügen</span><X size={20} style={{ cursor: 'pointer' }} onClick={closeModal} /></div>
-            <div style={{ ...modalBody, padding: '1.5rem 2rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem' }}>
-                <button onClick={() => { setModalType('add-wm-image'); setModalData({ name: '', wmType: 'image', image: null, scale: 100, transparency: 50, position: 'mitte' }); }}
-                  style={{ ...greenBtn, flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}>
-                  Erstelle Wasserzeichen-Bild
-                </button>
-                <button onClick={() => { setModalType('add-wm-text'); setModalData({ name: '', wmType: 'text', text: '', font: 'Open Sans, 64px, weiß', scale: 100, transparency: 50, position: 'mitte' }); }}
-                  style={{ ...greenBtn, flex: 1, padding: '0.75rem', fontSize: '0.95rem' }}>
-                  Erstelle Wasserzeichen-Text
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Beispiel:</div>
-                  <img src="/watermark-bild-example.png" alt="Bild Beispiel" style={{ width: '100%', borderRadius: 8, border: '1px solid #e5e7eb' }} />
+            <div style={{ ...modalBody, padding: '2rem' }}>
+              <p style={{ color: '#666', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Wähle den Wasserzeichen-Typ:</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem' }}>
+                {/* Bild-Wasserzeichen Card */}
+                <div
+                  onClick={() => { setModalType('add-wm-image'); setModalData({ name: '', wmType: 'image', image: null, scale: 100, transparency: 50, position: 'mitte' }); }}
+                  style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: '2px solid #e5e7eb', transition: 'all 0.2s', background: '#fff' }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = '#528c68'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(82,140,104,0.15)'; }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ height: 140, background: 'linear-gradient(135deg, #2d3436, #636e72)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <ImageIcon size={48} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                    <div style={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(255,255,255,0.2)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#fff', backdropFilter: 'blur(4px)' }}>PNG / SVG</div>
+                  </div>
+                  <div style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1f2937' }}>Bild</div>
+                    <div style={{ fontSize: '0.75rem', color: '#999', marginTop: 2 }}>Logo oder Grafik</div>
+                  </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Beispiel:</div>
-                  <img src="/watermark-text-example.png" alt="Text Beispiel" style={{ width: '100%', borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                {/* Text-Wasserzeichen Card */}
+                <div
+                  onClick={() => { setModalType('add-wm-text'); setModalData({ name: '', wmType: 'text', text: '', font: 'Open Sans, 64px, weiß', scale: 100, transparency: 50, position: 'mitte' }); }}
+                  style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: '2px solid #e5e7eb', transition: 'all 0.2s', background: '#fff' }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = '#528c68'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(82,140,104,0.15)'; }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ height: 140, background: 'linear-gradient(135deg, #2d3436, #636e72)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: 700, fontFamily: "'Open Sans', sans-serif", letterSpacing: 2, textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>© WATERMARK</span>
+                  </div>
+                  <div style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1f2937' }}>Text</div>
+                    <div style={{ fontSize: '0.75rem', color: '#999', marginTop: 2 }}>Eigener Schriftzug</div>
+                  </div>
+                </div>
+                {/* Kachel-Wasserzeichen Card */}
+                <div
+                  onClick={() => { setModalType('add-wm-tile'); setModalData({ name: '', wmType: 'tile', image: null, scale: 60, transparency: 50, tileSpacing: 120, tileSize: 60 }); }}
+                  style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: '2px solid #e5e7eb', transition: 'all 0.2s', background: '#fff' }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = '#528c68'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(82,140,104,0.15)'; }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ height: 140, background: 'linear-gradient(135deg, #2d3436, #636e72)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                    {[...Array(12)].map((_, i) => (
+                      <span key={i} style={{ position: 'absolute', fontSize: 11, color: 'rgba(255,255,255,0.25)', fontWeight: 600, transform: 'rotate(-25deg)', top: `${Math.floor(i / 4) * 38 + (i % 2 ? 18 : 0)}%`, left: `${(i % 4) * 28 + (Math.floor(i / 4) % 2 ? 14 : 0)}%` }}>©</span>
+                    ))}
+                  </div>
+                  <div style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1f2937' }}>Kachel-Muster</div>
+                    <div style={{ fontSize: '0.75rem', color: '#999', marginTop: 2 }}>Wiederholendes Muster</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -452,7 +579,7 @@ const MarkenTab = () => {
                       'unten-rechts': { bottom: '8%', right: '8%' },
                     };
                     const scaleVal = (modalData.scale ?? 100) / 100;
-                    const opacityVal = 1 - (modalData.transparency ?? 50) / 100;
+                    const opacityVal = (modalData.transparency ?? 50) / 100;
                     return (
                       <img src={modalData.image} alt="Wasserzeichen" style={{
                         position: 'absolute',
@@ -477,14 +604,70 @@ const MarkenTab = () => {
                   <input type="range" min="10" max="100" value={modalData.scale ?? 100} onChange={e => setModalData(p => ({ ...p, scale: +e.target.value }))} style={{ width: '100%', accentColor: '#5a8a5c' }} />
                 </div>
                 <div style={{ marginTop: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Transparenz</span><span>{modalData.transparency ?? 50}%</span></div>
-                  <input type="range" min="0" max="100" value={modalData.transparency ?? 50} onChange={e => setModalData(p => ({ ...p, transparency: +e.target.value }))} style={{ width: '100%', accentColor: '#5a8a5c' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Deckkraft</span><span>{modalData.transparency ?? 50}%</span></div>
+                  <input type="range" min="5" max="100" value={modalData.transparency ?? 50} onChange={e => setModalData(p => ({ ...p, transparency: +e.target.value }))} style={{ width: '100%', accentColor: '#5a8a5c' }} />
                 </div>
                 <div style={{ marginTop: '1rem' }}>
                   <PositionGrid value={modalData.position || 'mitte'} onChange={pos => setModalData(p => ({ ...p, position: pos }))} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
                   <button onClick={saveWatermark} style={greenBtn}>Speichern</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Watermark Tile/Pattern Modal (Add/Edit) ── */}
+      {((modalType === 'edit-wm' && modalData.wmType === 'tile') || modalType === 'add-wm-tile') && (
+        <div style={overlayStyle} onClick={closeModal}>
+          <div style={{ ...modalWrap, maxWidth: 750 }} onClick={e => e.stopPropagation()}>
+            <div style={greenHeader}><span>Kachel-Wasserzeichen bearbeiten</span><X size={20} style={{ cursor: 'pointer' }} onClick={closeModal} /></div>
+            <div style={{ ...modalBody, display: 'flex', gap: '2rem' }}>
+              {/* Left: Tile Preview */}
+              <div style={{ flex: '0 0 300px' }}>
+                <div style={{ width: 300, height: 220, borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
+                  <img src="/watermark-sample-bg.png" alt="Vorschau" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {/* Tile pattern overlay */}
+                  {modalData.image && (() => {
+                    const spacing = modalData.tileSpacing ?? 120;
+                    const size = modalData.tileSize ?? 60;
+                    const opacityVal = (modalData.transparency ?? 50) / 100;
+                    const tiles = [];
+                    for (let row = -1; row < Math.ceil(220 / spacing) + 1; row++) {
+                      for (let col = -1; col < Math.ceil(300 / spacing) + 1; col++) {
+                        const x = col * spacing + (row % 2 ? spacing / 2 : 0);
+                        const y = row * spacing;
+                        tiles.push(
+                          <img key={`${row}-${col}`} src={modalData.image} alt="" style={{ position: 'absolute', width: size, height: size, objectFit: 'contain', left: x, top: y, opacity: opacityVal, transform: 'rotate(-15deg)' }} />
+                        );
+                      }
+                    }
+                    return <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>{tiles}</div>;
+                  })()}
+                </div>
+                <button className="file-upload-btn" onClick={() => modalFileRef.current?.click()} style={{ width: '100%', marginTop: '0.5rem' }}>
+                  Emblem / Logo hochladen <ImageIcon size={14} />
+                </button>
+              </div>
+              {/* Right: Controls */}
+              <div style={{ flex: 1 }}>
+                <div className="form-group-st"><label style={{ fontWeight: 600 }}>Name</label><input className="form-input-st" value={modalData.name || ''} onChange={e => setModalData(p => ({ ...p, name: e.target.value }))} /></div>
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Emblem-Grösse</span><span>{modalData.tileSize ?? 60}px</span></div>
+                  <input type="range" min="20" max="120" value={modalData.tileSize ?? 60} onChange={e => setModalData(p => ({ ...p, tileSize: +e.target.value }))} style={{ width: '100%', accentColor: '#4a7c9b' }} />
+                </div>
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Abstand</span><span>{modalData.tileSpacing ?? 120}px</span></div>
+                  <input type="range" min="40" max="200" value={modalData.tileSpacing ?? 120} onChange={e => setModalData(p => ({ ...p, tileSpacing: +e.target.value }))} style={{ width: '100%', accentColor: '#4a7c9b' }} />
+                </div>
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Deckkraft</span><span>{modalData.transparency ?? 50}%</span></div>
+                  <input type="range" min="5" max="100" value={modalData.transparency ?? 50} onChange={e => setModalData(p => ({ ...p, transparency: +e.target.value }))} style={{ width: '100%', accentColor: '#4a7c9b' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                  <button onClick={saveWatermark} style={{ ...greenBtn, background: 'linear-gradient(135deg, #4a7c9b, #3a6a87)' }}>Speichern</button>
                 </div>
               </div>
             </div>
@@ -500,11 +683,33 @@ const MarkenTab = () => {
             <div style={{ ...modalBody, display: 'flex', gap: '2rem' }}>
               {/* Left: Preview */}
               <div style={{ flex: '0 0 280px' }}>
-                <div style={{ width: 280, height: 200, background: '#444', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ width: 280, height: 200, background: '#444', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                   {modalData.image && <img src={modalData.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />}
-                  <span style={{ position: 'relative', color: 'rgba(255,255,255,0.75)', fontSize: 20, fontWeight: 700, textAlign: 'center', padding: '0 1rem', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                    {modalData.text || 'Mein Wasserzeichen'}
-                  </span>
+                  {(() => {
+                    const pos = modalData.position || 'mitte';
+                    const posMap = {
+                      'oben-links': { top: '8%', left: '8%' },
+                      'oben-mitte': { top: '8%', left: '50%', transform: 'translateX(-50%)' },
+                      'oben-rechts': { top: '8%', right: '8%' },
+                      'mitte-links': { top: '50%', left: '8%', transform: 'translateY(-50%)' },
+                      'mitte': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
+                      'mitte-rechts': { top: '50%', right: '8%', transform: 'translateY(-50%)' },
+                      'unten-links': { bottom: '8%', left: '8%' },
+                      'unten-mitte': { bottom: '8%', left: '50%', transform: 'translateX(-50%)' },
+                      'unten-rechts': { bottom: '8%', right: '8%' },
+                    };
+                    const fontStr = modalData.font || 'Open Sans, 64px, weiß';
+                    const [fontName, fontSizeStr] = fontStr.split(',').map(s => s.trim());
+                    const fontPx = parseInt(fontSizeStr) || 64;
+                    // Scale: 64px → 20px, 48px → 15px, 32px → 10px in preview
+                    const previewFontSize = Math.round(fontPx * 0.31);
+                    const fontColor = fontStr.includes('schwarz') ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+                    return (
+                      <span style={{ position: 'absolute', color: fontColor, fontFamily: `'${fontName}', sans-serif`, fontSize: previewFontSize, fontWeight: 700, textAlign: 'center', textShadow: '0 2px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', opacity: (modalData.transparency ?? 50) / 100, transition: 'all 0.15s', ...posMap[pos] }}>
+                        {modalData.text || 'Mein Wasserzeichen'}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               {/* Right: Controls */}
@@ -524,6 +729,10 @@ const MarkenTab = () => {
                     <option>Roboto, 48px, weiß</option>
                     <option>Georgia, 64px, weiß</option>
                   </select>
+                </div>
+                <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}><span>Deckkraft</span><span>{modalData.transparency ?? 50}%</span></div>
+                  <input type="range" min={5} max={100} value={modalData.transparency ?? 50} onChange={e => setModalData(p => ({ ...p, transparency: Number(e.target.value) }))} style={{ width: '100%', accentColor: '#5a8a5c' }} />
                 </div>
                 <div style={{ marginTop: '1rem' }}>
                   <PositionGrid value={modalData.position || 'mitte'} onChange={pos => setModalData(p => ({ ...p, position: pos }))} />
@@ -555,10 +764,51 @@ const defaultPresets = [];
 
 
 const VoreinstellungenTab = () => {
+  const { user } = useAuth();
   const [presets, setPresets] = usePersistedState('settings_presets', defaultPresets);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
   const [brands] = usePersistedState('settings_brands', []);
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+
+  // ── Load presets from Supabase on mount ──
+  const presetsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!user || presetsLoadedRef.current) return;
+    presetsLoadedRef.current = true;
+    (async () => {
+      const { data: dbPresets } = await supabase.from('presets').select('*').eq('user_id', user.id);
+      if (dbPresets?.length > 0) {
+        setPresets(dbPresets.map(p => ({
+          id: p.id, name: p.name, standard: p.is_default,
+          ...(p.settings || {}), ...(p.design || {}), ...(p.tracking || {}),
+          alben: p.albums || [],
+        })));
+      }
+    })();
+  }, [user]);
+
+  // ── Sync presets to Supabase (debounced) ──
+  const presetSyncTimer = useRef(null);
+  const presetSyncSkip = useRef(true);
+  useEffect(() => {
+    if (presetSyncSkip.current) { presetSyncSkip.current = false; return; }
+    if (!user) return;
+    if (presetSyncTimer.current) clearTimeout(presetSyncTimer.current);
+    presetSyncTimer.current = setTimeout(async () => {
+      try {
+        await supabase.from('presets').delete().eq('user_id', user.id);
+        if (presets.length > 0) {
+          await supabase.from('presets').insert(presets.map(p => ({
+            user_id: user.id, name: p.name, is_default: p.standard || false,
+            settings: { marke: p.marke, domain: p.domain, wasserzeichen: p.wasserzeichen, sprache: p.sprache, mitteilung: p.mitteilung, sortierung: p.sortierung, ablauf: p.ablauf, tags: p.tags, download: p.download, downloadPin: p.downloadPin, appHinweis: p.appHinweis, teilen: p.teilen, kommentar: p.kommentar, zeigeDateinamen: p.zeigeDateinamen },
+            design: { vorlage: p.vorlage, schriftart: p.schriftart, primaerfarbe: p.primaerfarbe, sekundaerfarbe: p.sekundaerfarbe, bildabstand: p.bildabstand, bilddarstellung: p.bilddarstellung },
+            tracking: { gaCode: p.gaCode, gtmId: p.gtmId, fbPixel: p.fbPixel },
+            albums: p.alben || [],
+          })));
+        }
+      } catch (err) { console.error('[Settings] Preset sync error:', err); }
+    }, 1500);
+  }, [presets]);
   const [modal, setModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
 

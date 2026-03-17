@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { GalleryProvider } from './contexts/GalleryContext';
 import MainLayout from './components/layout/MainLayout';
 import DashboardPage from './pages/DashboardPage';
 import GalleriesPage from './pages/GalleriesPage';
@@ -94,7 +95,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <GalleryProvider>
+          <AppContent />
+        </GalleryProvider>
       </AuthProvider>
     </Router>
   );

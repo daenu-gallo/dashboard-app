@@ -85,23 +85,28 @@ export function usePersistedState(key, defaultValue) {
   const selfUpdate = useRef(false);
 
   // Save to both localStorage (sync cache) and IndexedDB (reliable)
+  // Side effects (persist + dispatch) are deferred via queueMicrotask
+  // so they never run during React's render phase.
   const setPersistedState = useCallback((valueOrUpdater) => {
     setState(prev => {
       const newValue = typeof valueOrUpdater === 'function' ? valueOrUpdater(prev) : valueOrUpdater;
-      // Save to IndexedDB (large data safe)
-      idbSet(key, newValue).catch(e => {
-        console.error(`[usePersistedState] IndexedDB save failed for "${key}":`, e);
+      // Defer all side effects to avoid setState-during-render errors
+      queueMicrotask(() => {
+        // Save to IndexedDB (large data safe)
+        idbSet(key, newValue).catch(e => {
+          console.error(`[usePersistedState] IndexedDB save failed for "${key}":`, e);
+        });
+        // Try localStorage too (fast sync cache, may fail for large data)
+        try {
+          localStorage.setItem(key, JSON.stringify(newValue));
+        } catch (e) {
+          // Quota exceeded for localStorage is OK – IndexedDB has it
+        }
+        // Dispatch custom event so OTHER hooks with same key re-read
+        selfUpdate.current = true;
+        window.dispatchEvent(new CustomEvent('persisted-state-change', { detail: { key, value: newValue } }));
+        selfUpdate.current = false;
       });
-      // Try localStorage too (fast sync cache, may fail for large data)
-      try {
-        localStorage.setItem(key, JSON.stringify(newValue));
-      } catch (e) {
-        // Quota exceeded for localStorage is OK – IndexedDB has it
-      }
-      // Dispatch custom event so OTHER hooks with same key re-read
-      selfUpdate.current = true;
-      window.dispatchEvent(new CustomEvent('persisted-state-change', { detail: { key, value: newValue } }));
-      selfUpdate.current = false;
       return newValue;
     });
   }, [key]);

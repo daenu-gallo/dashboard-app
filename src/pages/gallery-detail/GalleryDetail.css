@@ -836,6 +836,37 @@
   color: var(--text-primary, #333);
 }
 
+.album-form-toggle-row .album-toggle {
+  width: 38px;
+  height: 22px;
+  background: #ccc;
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.album-form-toggle-row .album-toggle .album-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.album-form-toggle-row .album-toggle.on {
+  background: var(--color-primary, #528c68);
+}
+
+.album-form-toggle-row .album-toggle.on .album-toggle-knob {
+  transform: translateX(16px);
+}
+
 .album-add-submit-btn {
   width: 100%;
   padding: 0.6rem;

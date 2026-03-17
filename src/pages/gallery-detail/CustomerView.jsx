@@ -2,33 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
 import './CustomerView.css';
-
-// Hardcoded gallery titles for lookup
-const galleryTitles = [
-  'vorschau-hochzeit',
-  'SV Strättligen',
-  'Hochzeit Edith & Thomas',
-];
 
 const toSlug = (title) => title.toLowerCase()
   .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
   .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-
-const getGalleryTitleBySlug = (slug) => {
-  const hardcoded = galleryTitles.find(t => toSlug(t) === slug);
-  if (hardcoded) return hardcoded;
-  try {
-    const stored = localStorage.getItem('galleries_list_v2');
-    if (stored) {
-      const list = JSON.parse(stored);
-      const found = list.find(g => toSlug(g.title) === slug);
-      if (found) return found.title;
-    }
-  } catch (e) {}
-  return slug;
-};
 
 // Translation strings
 const translations = {
@@ -89,10 +69,37 @@ const translations = {
 const CustomerView = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const galleryKey = getGalleryTitleBySlug(slug);
 
-  // Read persisted settings and toggles
-  const [settings] = usePersistedState(`gallery_${galleryKey}_settings`, {
+  // ── Load gallery from Supabase ──
+  const [supaGallery, setSupaGallery] = useState(null);
+  const [supaLoading, setSupaLoading] = useState(true);
+  const [supaBrand, setSupaBrand] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Fetch gallery by slug (public, no auth needed)
+        const { data: gallery } = await supabase
+          .from('galleries').select('*').eq('slug', slug).maybeSingle();
+        if (gallery) {
+          setSupaGallery(gallery);
+          // Fetch brand if gallery has a user_id
+          if (gallery.user_id) {
+            const { data: brands } = await supabase
+              .from('brands').select('*').eq('user_id', gallery.user_id).eq('active', true).limit(1);
+            if (brands?.[0]) setSupaBrand(brands[0]);
+          }
+        }
+      } catch (err) { console.error('[CustomerView] Supabase load error:', err); }
+      setSupaLoading(false);
+    })();
+  }, [slug]);
+
+  // Gallery key for localStorage fallback (images/albums)
+  const galleryKey = supaGallery?.title || slug;
+
+  // Read persisted settings and toggles (fallback / images still use localStorage)
+  const [localSettings] = usePersistedState(`gallery_${galleryKey}_settings`, {
     titel: galleryKey,
     domain: '',
     domainpfad: toSlug(galleryKey),
@@ -103,7 +110,7 @@ const CustomerView = () => {
     shootingdatum: '',
   });
 
-  const [toggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
+  const [localToggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
     appHinweis: true,
     teilen: true,
     kommentarfunktion: false,
@@ -113,7 +120,21 @@ const CustomerView = () => {
     wasserzeichen: false,
   });
 
-  // Sync real data from BilderTab
+  // Merge: Supabase data takes priority over localStorage
+  const settings = supaGallery ? {
+    titel: supaGallery.title || localSettings.titel,
+    domain: supaGallery.domain || localSettings.domain,
+    domainpfad: supaGallery.domain_path || localSettings.domainpfad,
+    passwort: supaGallery.password || localSettings.passwort,
+    sprache: supaGallery.language || localSettings.sprache,
+    mitteilung: supaGallery.message || localSettings.mitteilung,
+    downloadPinCode: supaGallery.toggles?.downloadPinCode || localSettings.downloadPinCode,
+    shootingdatum: supaGallery.shooting_date || localSettings.shootingdatum,
+  } : localSettings;
+
+  const toggles = supaGallery?.toggles ? { ...localToggles, ...supaGallery.toggles } : localToggles;
+
+  // Sync real data from BilderTab (still localStorage until NAS migration)
   const [albums] = usePersistedState(`gallery_${galleryKey}_albums`, []);
   const [albumNames] = usePersistedState(`gallery_${galleryKey}_albumNames`, {});
   const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
@@ -127,26 +148,123 @@ const CustomerView = () => {
   const [datenschutzList] = usePersistedState('settings_datenschutz_v2', [
     { id: 1, name: '', url: '', content: '' },
   ]);
-  const impressumUrl = impressumList[0]?.url || '#';
-  const datenschutzUrl = datenschutzList[0]?.url || '#';
+  const impressumUrl = impressumList[0]?.url || impressumList[0]?.content || '#';
+  const datenschutzUrl = datenschutzList[0]?.url || datenschutzList[0]?.content || '#';
 
-  // Brand name from settings
-  const [brands] = usePersistedState('settings_brands', [
+  // Brand: prefer Supabase, fall back to localStorage
+  const [localBrands] = usePersistedState('settings_brands', [
     { id: 1, name: '', active: true, logo: null },
   ]);
-  const activeBrand = brands.find(b => b.active) || brands[0] || { name: '' };
+  const activeBrand = supaBrand || localBrands.find(b => b.active) || localBrands[0] || { name: '' };
   const brandName = activeBrand.name;
 
-  // Global brand settings (logos, contact, social)
+  // Global brand settings (logos, contact, social) - still localStorage for now
   const [globalBrand] = usePersistedState('global_brand_settings', {});
 
-  // Design settings
-  const [designTemplate] = usePersistedState(`gallery_${galleryKey}_design_template`, 'atelier');
-  const [designPrimary] = usePersistedState(`gallery_${galleryKey}_design_primaryColor`, '#f0f0f4');
-  const [designSecondary] = usePersistedState(`gallery_${galleryKey}_design_secondaryColor`, '#1a1a1a');
-  const [designFont] = usePersistedState(`gallery_${galleryKey}_design_font`, 'Inter');
-  const [designSpacing] = usePersistedState(`gallery_${galleryKey}_design_spacing`, 'klein');
-  const [designDisplay] = usePersistedState(`gallery_${galleryKey}_design_display`, 'standard');
+  // Watermarks from settings
+  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  const selectedWm = watermarks.find(wm => String(wm.id) === String(toggles.selectedWatermarkId)) || null;
+
+  // Dynamic watermark overlay component with hierarchy:
+  // Album-level watermark → Gallery-level watermark → none
+  const WatermarkOverlay = ({ className, variant, albumIdx }) => {
+    // Hierarchy: check album-level first, then gallery-level
+    const albumWmEnabled = albumIdx != null && !!albumToggles[albumIdx]?.watermark;
+    const galleryWmEnabled = !!toggles.wasserzeichen;
+    const isEnabled = albumWmEnabled || galleryWmEnabled;
+    if (!isEnabled) return null;
+
+    // Resolve watermark: album-level override → gallery-level → null
+    const albumWmId = albumIdx != null ? albumToggles[albumIdx]?.watermarkId : null;
+    const galleryWmId = toggles.selectedWatermarkId;
+    const resolvedId = albumWmId || galleryWmId;
+    const wm = resolvedId ? watermarks.find(w => String(w.id) === String(resolvedId)) : null;
+
+    if (!wm) return <span className={className}>{brandName || 'Wasserzeichen'}</span>;
+
+    const posMap = {
+      'oben-links': { top: '6%', left: '6%' },
+      'oben-mitte': { top: '6%', left: '50%', transform: 'translateX(-50%)' },
+      'oben-rechts': { top: '6%', right: '6%' },
+      'mitte-links': { top: '50%', left: '6%', transform: 'translateY(-50%)' },
+      'mitte': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
+      'mitte-rechts': { top: '50%', right: '6%', transform: 'translateY(-50%)' },
+      'unten-links': { bottom: '6%', left: '6%' },
+      'unten-mitte': { bottom: '6%', left: '50%', transform: 'translateX(-50%)' },
+      'unten-rechts': { bottom: '6%', right: '6%' },
+    };
+    const opacityVal = (wm.transparency ?? 50) / 100;
+    const pos = wm.position || 'mitte';
+
+    if (wm.wmType === 'image' && wm.image) {
+      const scaleVal = (wm.scale ?? 100) / 100;
+      return (
+        <img src={wm.image} alt="" style={{
+          position: 'absolute', maxWidth: '35%', maxHeight: '35%', objectFit: 'contain',
+          opacity: opacityVal, pointerEvents: 'none', zIndex: 5,
+          transform: (posMap[pos]?.transform || '') + ` scale(${scaleVal})`,
+          ...posMap[pos],
+        }} />
+      );
+    }
+
+    if (wm.wmType === 'text') {
+      const fontStr = wm.font || 'Open Sans, 64px, weiß';
+      const [fontName, fontSizeStr] = fontStr.split(',').map(s => s.trim());
+      const fontPx = parseInt(fontSizeStr) || 64;
+      const scaledSize = variant === 'lightbox' ? fontPx * 0.6 : variant === 'hero' ? fontPx * 0.5 : fontPx * 0.25;
+      const fontColor = fontStr.includes('schwarz') ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+      return (
+        <span style={{
+          position: 'absolute', fontFamily: `'${fontName}', sans-serif`, fontSize: scaledSize,
+          fontWeight: 700, color: fontColor, opacity: opacityVal, pointerEvents: 'none', zIndex: 5,
+          textShadow: '0 2px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+          ...posMap[pos],
+        }}>
+          {wm.text || wm.name}
+        </span>
+      );
+    }
+
+    if (wm.wmType === 'tile' && wm.image) {
+      const spacing = wm.tileSpacing ?? 120;
+      const size = wm.tileSize ?? 60;
+      const containerH = variant === 'lightbox' ? 600 : variant === 'hero' ? 400 : 250;
+      const containerW = variant === 'lightbox' ? 900 : variant === 'hero' ? 800 : 350;
+      const tiles = [];
+      for (let row = -1; row < Math.ceil(containerH / spacing) + 1; row++) {
+        for (let col = -1; col < Math.ceil(containerW / spacing) + 1; col++) {
+          const x = col * spacing + (row % 2 ? spacing / 2 : 0);
+          const y = row * spacing;
+          tiles.push(
+            <img key={`${row}-${col}`} src={wm.image} alt="" style={{
+              position: 'absolute', width: size, height: size, objectFit: 'contain',
+              left: x, top: y, opacity: opacityVal, transform: 'rotate(-15deg)', pointerEvents: 'none',
+            }} />
+          );
+        }
+      }
+      return <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 5, pointerEvents: 'none' }}>{tiles}</div>;
+    }
+
+    // Fallback
+    return <span className={className}>{wm.text || wm.name || `${brandName}.ch`}</span>;
+  };
+
+  // Design: prefer Supabase gallery.design, fall back to localStorage
+  const [localDesignTemplate] = usePersistedState(`gallery_${galleryKey}_design_template`, 'atelier');
+  const [localDesignPrimary] = usePersistedState(`gallery_${galleryKey}_design_primaryColor`, '#f0f0f4');
+  const [localDesignSecondary] = usePersistedState(`gallery_${galleryKey}_design_secondaryColor`, '#1a1a1a');
+  const [localDesignFont] = usePersistedState(`gallery_${galleryKey}_design_font`, 'Inter');
+  const [localDesignSpacing] = usePersistedState(`gallery_${galleryKey}_design_spacing`, 'klein');
+  const [localDesignDisplay] = usePersistedState(`gallery_${galleryKey}_design_display`, 'standard');
+
+  const designTemplate = supaGallery?.design?.vorlage || localDesignTemplate;
+  const designPrimary = supaGallery?.design?.primaerfarbe || localDesignPrimary;
+  const designSecondary = supaGallery?.design?.sekundaerfarbe || localDesignSecondary;
+  const designFont = supaGallery?.design?.schriftart || localDesignFont;
+  const designSpacing = supaGallery?.design?.bildabstand || localDesignSpacing;
+  const designDisplay = supaGallery?.design?.bilddarstellung || localDesignDisplay;
 
   // Load Google Font
   React.useEffect(() => {
@@ -809,7 +927,7 @@ const CustomerView = () => {
                     </p>
                   )}
                   <div className="cv-hero-line" />
-                  {toggles.wasserzeichen && <span className="cv-hero-watermark">{brandName}.ch</span>}
+                  <WatermarkOverlay className="cv-hero-watermark" variant="hero" />
                 </div>
               ))}
             </div>
@@ -925,7 +1043,7 @@ const CustomerView = () => {
                         </span>
                       )}
                       {(!!albumToggles[aIdx]?.watermark || toggles.wasserzeichen) && (
-                        <span className="cv-photo-watermark">{brandName}.ch</span>
+                        <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
                       )}
                     </div>
                   );
@@ -959,7 +1077,7 @@ const CustomerView = () => {
                     <img src={photo.src} alt={photo.name || ''} />
                     <span className="cv-photo-heart-badge">♥</span>
                     {toggles.wasserzeichen && (
-                      <span className="cv-photo-watermark">{brandName}.ch</span>
+                      <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
                     )}
                   </div>
                 ))}
@@ -1063,10 +1181,10 @@ const CustomerView = () => {
           </div>
           <div className="cv-footer-contact">
             <h4>Kontakt</h4>
-            <p><strong>{globalBrand.firmenname || brandName}</strong></p>
-            <p>{globalBrand.telefon || '+41796662009'}</p>
-            <p>{globalBrand.email || `info@${brandName.toLowerCase()}.ch`}</p>
-            <p>{globalBrand.webseite || `https://www.${brandName.toLowerCase()}.ch`}</p>
+            <p><strong>{globalBrand.firmenname || brandName || 'Mein Studio'}</strong></p>
+            <p>{globalBrand.telefon || ''}</p>
+            {(globalBrand.email || brandName) && <p>{globalBrand.email || (brandName ? `info@${brandName.toLowerCase()}.ch` : '')}</p>}
+            {(globalBrand.webseite || brandName) && <p>{globalBrand.webseite || (brandName ? `https://www.${brandName.toLowerCase()}.ch` : '')}</p>}
           </div>
           <div className="cv-footer-social">
             <h4>Social Media</h4>
@@ -1114,7 +1232,7 @@ const CustomerView = () => {
           <div className="cv-lightbox-image" onClick={(e) => e.stopPropagation()}>
             <img src={lightboxPhotos[lightboxIndex]?.src} alt={lightboxPhotos[lightboxIndex]?.name || ''} />
             {toggles.wasserzeichen && (
-              <span className="cv-lightbox-watermark">{brandName}.ch</span>
+              <WatermarkOverlay className="cv-lightbox-watermark" variant="lightbox" />
             )}
           </div>
           <div className="cv-lightbox-actions" onClick={(e) => e.stopPropagation()}>
