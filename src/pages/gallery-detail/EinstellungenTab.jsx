@@ -278,7 +278,6 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
     { key: 'dateienamen', label: 'Zeige Dateinamen' },
     { key: 'download', label: 'Download' },
     { key: 'downloadPin', label: 'Download PIN' },
-    { key: 'wasserzeichen', label: 'Wasserzeichen ✓' },
   ];
 
   return (
@@ -429,28 +428,37 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
                   onClick={() => toggle(item.key)}
                 />
               </div>
-              {item.key === 'wasserzeichen' && toggles.wasserzeichen && watermarks.length > 0 && (
-                <div style={{ marginLeft: '1rem', marginBottom: '0.25rem' }}>
-                  <select
-                    className="form-select"
-                    style={{ fontSize: '0.85rem', padding: '0.35rem 0.5rem' }}
-                    value={toggles.selectedWatermarkId || ''}
-                    onChange={e => {
-                      setToggles(prev => ({ ...prev, selectedWatermarkId: e.target.value }));
-                      triggerSaveToast();
-                    }}
-                  >
-                    <option value="">Wasserzeichen wählen...</option>
-                    {watermarks.map(wm => (
-                      <option key={wm.id} value={wm.id}>
-                        {wm.name} ({wm.wmType === 'tile' ? 'Kachel' : wm.wmType === 'text' ? 'Text' : 'Bild'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+
             </React.Fragment>
           ))}
+
+          {/* Wasserzeichen dropdown – always visible, controls wasserzeichen toggle automatically */}
+          {watermarks.length > 0 && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <span className="toggle-label" style={{ fontWeight: 600, fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>Wasserzeichen</span>
+              <select
+                className="form-select"
+                style={{ fontSize: '0.85rem', padding: '0.35rem 0.5rem', width: '100%' }}
+                value={toggles.selectedWatermarkId || ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  setToggles(prev => ({
+                    ...prev,
+                    selectedWatermarkId: val,
+                    wasserzeichen: !!val, // auto ON/OFF
+                  }));
+                  triggerSaveToast();
+                }}
+              >
+                <option value="">Kein Wasserzeichen</option>
+                {watermarks.map(wm => (
+                  <option key={wm.id} value={wm.id}>
+                    {wm.name} ({wm.wmType === 'tile' ? 'Kachel' : wm.wmType === 'text' ? 'Text' : 'Bild'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
