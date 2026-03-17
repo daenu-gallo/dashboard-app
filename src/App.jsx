@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GalleryProvider } from './contexts/GalleryContext';
 import MainLayout from './components/layout/MainLayout';
 import CookieConsent from './components/CookieConsent';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 
 // ── Lazy-loaded pages (code splitting) ──
@@ -94,11 +95,13 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <GalleryProvider>
-          <AppContent />
-        </GalleryProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <GalleryProvider>
+            <AppContent />
+          </GalleryProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </Router>
   );
 }
