@@ -611,10 +611,26 @@ const BilderTab = ({ gallery, onCountsChange, onAppIconChange }) => {
   };
 
   // Set image as App-Icon (gallery avatar thumbnail, NOT favicon)
+  // Resize to small thumbnail to avoid localStorage quota issues
   const setAppIcon = (imgSrc) => {
     if (!imgSrc) return;
-    setAppIconSrc(imgSrc);
-    if (onAppIconChange) onAppIconChange(imgSrc);
+    const img = new Image();
+    img.onload = () => {
+      const size = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      // Center-crop to square
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      const thumbSrc = canvas.toDataURL('image/jpeg', 0.8);
+      setAppIconSrc(thumbSrc);
+      if (onAppIconChange) onAppIconChange(thumbSrc);
+    };
+    img.src = imgSrc;
   };
 
   const setAlbumTitelbild = (albumIdx, img) => {
