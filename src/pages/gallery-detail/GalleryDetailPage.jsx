@@ -56,7 +56,7 @@ const GalleryDetailPage = () => {
       case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} />;
       case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
-      case 'statistiken': return <StatistikenTab />;
+      case 'statistiken': return <StatistikenTab galleryId={gallery.id} />;
       case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={{}} appIconSrc={appIconSrc} />;
       default: return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
     }
