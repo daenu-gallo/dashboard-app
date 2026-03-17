@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useMetaTags } from '../../hooks/useMetaTags';
+import { useTrackView } from '../../hooks/useTrackView';
 import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
 import './CustomerView.css';
@@ -155,6 +156,9 @@ const CustomerView = () => {
 
   // Gallery key for localStorage fallback (images/albums)
   const galleryKey = supaGallery?.title || slug;
+
+  // Track gallery page view (anonymous, non-blocking)
+  useTrackView(supaGallery?.id);
 
   // Settings directly from Supabase (no localStorage fallback needed)
   const settings = supaGallery ? {

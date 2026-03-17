@@ -3,13 +3,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Image as ImageIcon, CalendarDays, ExternalLink, TrendingUp } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp } from 'lucide-react';
 import './Dashboard.css';
 
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ galleries: 0, albums: 0, brands: 0, presets: 0 });
+  const [stats, setStats] = useState({ galleries: 0, albums: 0, views: 0, presets: 0 });
   const [recentGalleries, setRecentGalleries] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,10 +27,13 @@ const DashboardPage = () => {
         const { count: albumCount } = await supabase
           .from('albums').select('*', { count: 'exact', head: true });
 
-        // Brand count
-        const { count: brandCount } = await supabase
-          .from('brands').select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+        // Gallery views count (graceful fallback if table doesn't exist)
+        let viewCount = 0;
+        try {
+          const { count } = await supabase
+            .from('gallery_views').select('*', { count: 'exact', head: true });
+          viewCount = count || 0;
+        } catch { /* table might not exist yet */ }
 
         // Preset count
         const { count: presetCount } = await supabase
@@ -40,7 +43,7 @@ const DashboardPage = () => {
         setStats({
           galleries: galleryCount || 0,
           albums: albumCount || 0,
-          brands: brandCount || 0,
+          views: viewCount,
           presets: presetCount || 0,
         });
 
@@ -120,11 +123,11 @@ const DashboardPage = () => {
         </div>
         <div className="stat-item">
           <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-            <ImageIcon size={20} />
+            <Eye size={20} />
           </div>
           <div>
-            <div className="stat-value">{stats.brands} Marken</div>
-            <div className="stat-label">Konfiguriert</div>
+            <div className="stat-value">{stats.views} Aufrufe</div>
+            <div className="stat-label">Gesamt</div>
           </div>
         </div>
         <div className="stat-item">
