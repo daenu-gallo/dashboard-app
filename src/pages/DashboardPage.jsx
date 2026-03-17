@@ -1,68 +1,232 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
+import { Camera, FolderOpen, Image as ImageIcon, CalendarDays, ExternalLink, TrendingUp } from 'lucide-react';
 import './Dashboard.css';
 
-// Fresh website - no data yet
-const data = [];
-
 const DashboardPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({ galleries: 0, albums: 0, brands: 0, presets: 0 });
+  const [recentGalleries, setRecentGalleries] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadStats = async () => {
+      try {
+        // Gallery count
+        const { count: galleryCount } = await supabase
+          .from('galleries').select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        // Album count
+        const { count: albumCount } = await supabase
+          .from('albums').select('*', { count: 'exact', head: true });
+
+        // Brand count
+        const { count: brandCount } = await supabase
+          .from('brands').select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        // Preset count
+        const { count: presetCount } = await supabase
+          .from('presets').select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        setStats({
+          galleries: galleryCount || 0,
+          albums: albumCount || 0,
+          brands: brandCount || 0,
+          presets: presetCount || 0,
+        });
+
+        // Recent galleries (last 5)
+        const { data: recent } = await supabase
+          .from('galleries').select('title, slug, created_at, shooting_date')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        setRecentGalleries(recent || []);
+
+        // Chart: Galleries created per month (last 6 months)
+        const { data: allGalleries } = await supabase
+          .from('galleries').select('created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
+
+        if (allGalleries && allGalleries.length > 0) {
+          const months = {};
+          const now = new Date();
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = d.toLocaleDateString('de-CH', { month: 'short', year: '2-digit' });
+            months[key] = 0;
+          }
+          allGalleries.forEach(g => {
+            const d = new Date(g.created_at);
+            const key = d.toLocaleDateString('de-CH', { month: 'short', year: '2-digit' });
+            if (key in months) months[key]++;
+          });
+          setChartData(Object.entries(months).map(([name, count]) => ({ name, galerien: count })));
+        }
+      } catch (err) {
+        console.error('[Dashboard] Stats load error:', err);
+      }
+      setLoading(false);
+    };
+    loadStats();
+  }, [user]);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#999' }}>
+          Lade Dashboard...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-page">
+      {/* Stats Cards */}
       <div className="stats-header card">
         <div className="stat-item active">
-          <div className="stat-value">0 Seitenaufrufe</div>
-          <div className="stat-indicator blue"></div>
+          <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+            <Camera size={20} />
+          </div>
+          <div>
+            <div className="stat-value">{stats.galleries} Galerien</div>
+            <div className="stat-label">Erstellt</div>
+          </div>
         </div>
         <div className="stat-item">
-          <div className="stat-value">0 Geteilt</div>
-          <div className="stat-indicator green"></div>
+          <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
+            <FolderOpen size={20} />
+          </div>
+          <div>
+            <div className="stat-value">{stats.albums} Alben</div>
+            <div className="stat-label">Gesamt</div>
+          </div>
         </div>
         <div className="stat-item">
-          <div className="stat-value">0 Apps Installiert</div>
-          <div className="stat-indicator red"></div>
+          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+            <ImageIcon size={20} />
+          </div>
+          <div>
+            <div className="stat-value">{stats.brands} Marken</div>
+            <div className="stat-label">Konfiguriert</div>
+          </div>
         </div>
         <div className="stat-item">
-          <div className="stat-value">0 Downloads</div>
-          <div className="stat-indicator yellow"></div>
+          <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.1)', color: '#eab308' }}>
+            <TrendingUp size={20} />
+          </div>
+          <div>
+            <div className="stat-value">{stats.presets} Presets</div>
+            <div className="stat-label">Vorlagen</div>
+          </div>
         </div>
       </div>
 
+      {/* Chart */}
       <div className="chart-container card">
-        <h3 className="chart-title">Statistiken</h3>
+        <h3 className="chart-title">Galerien pro Monat</h3>
         <div className="chart-wrapper">
-          {data.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 350, color: '#999', fontSize: '0.9rem' }}>
+          {chartData.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 250, color: '#999', fontSize: '0.9rem' }}>
               Noch keine Daten vorhanden
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart
-                data={data}
-                margin={{ top: 20, right: 30, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis 
-                  dataKey="name" 
-                  tick={{ fontSize: 10, fill: '#6B7280' }} 
-                  axisLine={{ stroke: '#E5E7EB' }}
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={chartData} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: '#888' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   tickLine={false}
                 />
-                <YAxis 
-                  tick={{ fontSize: 10, fill: '#6B7280' }} 
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#888' }}
                   axisLine={false}
                   tickLine={false}
-                  tickCount={6}
+                  allowDecimals={false}
                 />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                <Tooltip
+                  contentStyle={{
+                    background: '#1e1e2e',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    color: '#fff',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  }}
                 />
-                <Line type="linear" dataKey="views" stroke="#3b82f6" strokeWidth={1.5} dot={false} />
-                <Line type="linear" dataKey="shared" stroke="#22c55e" strokeWidth={1.5} dot={false} />
-                <Line type="linear" dataKey="apps" stroke="#ef4444" strokeWidth={1.5} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="galerien"
+                  stroke="#528c68"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: '#528c68', stroke: '#1e1e2e', strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      {/* Recent Galleries */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <h3 className="chart-title" style={{ marginBottom: '1rem' }}>Letzte Galerien</h3>
+        {recentGalleries.length === 0 ? (
+          <div style={{ color: '#999', fontSize: '0.9rem', padding: '1rem 0' }}>
+            Noch keine Galerien erstellt. Erstelle deine erste Galerie über das + in der Topbar!
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {recentGalleries.map((g, i) => (
+              <div
+                key={i}
+                onClick={() => navigate(`/galleries/${g.slug}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.75rem 1rem',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Camera size={16} style={{ color: '#528c68' }} />
+                  <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{g.title}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#888' }}>
+                    <CalendarDays size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
+                    {formatDate(g.created_at)}
+                  </span>
+                  <ExternalLink size={14} style={{ color: '#666' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
