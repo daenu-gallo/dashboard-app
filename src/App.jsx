@@ -6,6 +6,7 @@ import MainLayout from './components/layout/MainLayout';
 import CookieConsent from './components/CookieConsent';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // ── Lazy-loaded pages (code splitting) ──
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
@@ -57,6 +58,7 @@ const AdminLayout = () => (
 
 function AppContent() {
   useBrandFavicon();
+  useKeyboardShortcuts();
 
   return (
     <>
