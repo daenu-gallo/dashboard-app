@@ -96,11 +96,13 @@ export function usePersistedState(key, defaultValue) {
         idbSet(key, newValue).catch(e => {
           console.error(`[usePersistedState] IndexedDB save failed for "${key}":`, e);
         });
-        // Try localStorage too (fast sync cache, may fail for large data)
+        // Try localStorage – remove first to free quota for large values (e.g. base64 images)
         try {
+          localStorage.removeItem(key);
           localStorage.setItem(key, JSON.stringify(newValue));
         } catch (e) {
-          // Quota exceeded for localStorage is OK – IndexedDB has it
+          // Quota still exceeded – IndexedDB has the correct value
+          try { localStorage.removeItem(key); } catch (_) {}
         }
         // Dispatch custom event so OTHER hooks with same key re-read
         selfUpdate.current = true;
