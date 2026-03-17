@@ -10,32 +10,33 @@ const legalContent = {
     icon: FileText,
     sections: [
       {
-        heading: 'Angaben gemäss Schweizer Recht (OR Art. 959a)',
-        content: `**Firmenname:** Fotohahn GmbH
-**Handelsregisternummer:** CHE-XXX.XXX.XXX
-**Geschäftsführer:** Daniel Gallo
-
-**Adresse:**
-Fotohahn GmbH
-Musterstrasse 1
-3600 Thun
+        heading: 'Kontakt-Adresse',
+        content: `**Fotohahn**
+Blümlisalpstrasse 62
+3627 Heimberg
 Schweiz
+
+**Vertretungsberechtigte Person:** Daniel Gallo
 
 **Kontakt:**
 E-Mail: info@fotohahn.ch
-Telefon: +41 XX XXX XX XX
-
-**UID-Nummer:** CHE-XXX.XXX.XXX MWST`,
+Telefon: +41 79 666 20 09`,
       },
       {
         heading: 'Haftungsausschluss',
-        content: `Der Autor übernimmt keine Gewähr für die Richtigkeit, Genauigkeit, Aktualität, Zuverlässigkeit und Vollständigkeit der Informationen.
+        content: `Der Autor übernimmt keinerlei Gewähr hinsichtlich der inhaltlichen Richtigkeit, Genauigkeit, Aktualität, Zuverlässigkeit und Vollständigkeit der Informationen.
 
-Haftungsansprüche gegen den Autor wegen Schäden materieller oder immaterieller Art, die aus dem Zugriff oder der Nutzung bzw. Nichtnutzung der veröffentlichten Informationen, durch Missbrauch der Verbindung oder durch technische Störungen entstanden sind, werden ausgeschlossen.`,
+Haftungsansprüche gegen den Autor wegen Schäden materieller oder immaterieller Art, welche aus dem Zugriff oder der Nutzung bzw. Nichtnutzung der veröffentlichten Informationen, durch Missbrauch der Verbindung oder durch technische Störungen entstanden sind, werden ausgeschlossen.
+
+Alle Angebote sind unverbindlich. Der Autor behält es sich ausdrücklich vor, Teile der Seiten oder das gesamte Angebot ohne besondere Ankündigung zu verändern, zu ergänzen, zu löschen oder die Veröffentlichung zeitweise oder endgültig einzustellen.`,
       },
       {
         heading: 'Urheberrechte',
-        content: `Die Urheber- und alle anderen Rechte an Inhalten, Bildern, Fotos oder anderen Dateien auf dieser Website gehören ausschliesslich der Fotohahn GmbH oder den speziell genannten Rechteinhabern. Für die Reproduktion jeglicher Elemente ist die schriftliche Zustimmung des Urheberrechtsträgers im Voraus einzuholen.`,
+        content: `Die Urheber- und alle anderen Rechte an Inhalten, Bildern, Fotos oder anderen Dateien auf dieser Website gehören ausschliesslich Fotohahn oder den speziell genannten Rechteinhabern. Für die Reproduktion jeglicher Elemente ist die schriftliche Zustimmung des Urheberrechtsträgers im Voraus einzuholen.`,
+      },
+      {
+        heading: 'Haftungsausschluss für Links',
+        content: `Verweise und Links auf Webseiten Dritter liegen ausserhalb unseres Verantwortungsbereichs. Es wird jegliche Verantwortung für solche Webseiten abgelehnt. Der Zugriff und die Nutzung solcher Webseiten erfolgen auf eigene Gefahr des jeweiligen Nutzers.`,
       },
     ],
   },
@@ -45,13 +46,17 @@ Haftungsansprüche gegen den Autor wegen Schäden materieller oder immaterieller
     sections: [
       {
         heading: 'Verantwortliche Stelle',
-        content: `Verantwortlich für die Datenbearbeitung im Sinne der Datenschutzgesetzgebung ist:
+        content: `Verantwortlich für die Datenbearbeitungen, die wir hier beschreiben, ist:
 
-**Fotohahn GmbH**
-Musterstrasse 1
-3600 Thun
+**Fotohahn**
+Blümlisalpstrasse 62
+3627 Heimberg
 Schweiz
-info@fotohahn.ch`,
+
+**E-Mail:** info@fotohahn.ch
+**Telefon:** +41 79 666 20 09
+
+**Vertreter nach Art. 27 DSGVO:** Daniel Gallo`,
       },
       {
         heading: 'Datenerfassung auf unserer Website',
@@ -103,7 +108,7 @@ Kontaktieren Sie uns unter info@fotohahn.ch für Anfragen zu Ihren Datenschutzre
     sections: [
       {
         heading: '1. Geltungsbereich',
-        content: `Diese Allgemeinen Geschäftsbedingungen gelten für die Nutzung der Galerie-Plattform von Fotohahn GmbH. Mit der Registrierung akzeptieren Sie diese AGB.`,
+        content: `Diese Allgemeinen Geschäftsbedingungen gelten für die Nutzung der Galerie-Plattform von Fotohahn (Blümlisalpstrasse 62, 3627 Heimberg). Mit der Registrierung akzeptieren Sie diese AGB.`,
       },
       {
         heading: '2. Leistungsumfang',
@@ -124,7 +129,7 @@ Kontaktieren Sie uns unter info@fotohahn.ch für Anfragen zu Ihren Datenschutzre
       },
       {
         heading: '4. Haftung',
-        content: `Fotohahn GmbH haftet nicht für:
+        content: `Fotohahn haftet nicht für:
 - Datenverlust durch höhere Gewalt oder technische Störungen
 - Schäden durch Fehlbedienung des Nutzers
 - Inhalte, die vom Nutzer hochgeladen werden
@@ -137,7 +142,7 @@ Die Haftung ist in jedem Fall auf den Betrag des bezahlten Abonnements beschrän
       },
       {
         heading: '6. Anwendbares Recht',
-        content: `Es gilt Schweizer Recht. Gerichtsstand ist Thun, Schweiz.`,
+        content: `Es gilt Schweizer Recht. Gerichtsstand ist Thun, Kanton Bern, Schweiz.`,
       },
     ],
   },
