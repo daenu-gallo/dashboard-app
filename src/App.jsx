@@ -6,6 +6,7 @@ import MainLayout from './components/layout/MainLayout';
 import CookieConsent from './components/CookieConsent';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './contexts/ToastContext';
+import { BrandProvider } from './contexts/BrandContext';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -100,11 +101,13 @@ function App() {
     <Router>
       <ErrorBoundary>
         <AuthProvider>
-          <GalleryProvider>
-            <ToastProvider>
-              <AppContent />
-            </ToastProvider>
-          </GalleryProvider>
+          <BrandProvider>
+            <GalleryProvider>
+              <ToastProvider>
+                <AppContent />
+              </ToastProvider>
+            </GalleryProvider>
+          </BrandProvider>
         </AuthProvider>
       </ErrorBoundary>
     </Router>
