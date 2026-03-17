@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
 import './CustomerView.css';
@@ -131,6 +132,18 @@ const CustomerView = () => {
   // Images/videos still from localStorage until NAS migration
   const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
   const [uploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
+
+  // \u2500\u2500 SEO: Dynamic Open Graph meta tags for sharing \u2500\u2500
+  const totalPhotos = Object.values(uploadedImages).reduce((sum, imgs) => sum + imgs.length, 0);
+  const firstImage = Object.values(uploadedImages).find(a => a?.length > 0)?.[0]?.src || null;
+  useMetaTags({
+    title: settings.titel ? `${settings.titel} | Fotogalerie` : 'Fotogalerie',
+    description: `${totalPhotos} Fotos${brandName ? ` von ${brandName}` : ''}. Galerie ansehen und Bilder herunterladen.`,
+    image: firstImage,
+    url: typeof window !== 'undefined' ? window.location.href : '',
+    type: 'website',
+    siteName: brandName || 'Fotohahn Gallery',
+  });
 
   // Legal links from Eigene Domains settings
   const [impressumList] = usePersistedState('settings_impressum_v2', [
