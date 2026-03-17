@@ -1,33 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, X, Check, Info } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
-import { useGalleries } from '../../contexts/GalleryContext';
 
-const EinstellungenTab = ({ gallery, supabaseGallery }) => {
+const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const galleryKey = gallery?.title || 'default';
-  // Track the most recent title saved to the gallery list for reliable lookups
-  const lastSavedTitle = useRef(galleryKey);
   const [brands] = usePersistedState('settings_brands', []);
   const [globalBrand] = usePersistedState('global_brand_settings', {});
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
   const [presets] = usePersistedState('settings_presets', []);
-  const { updateGallery } = useGalleries();
 
-  // Find the standard (default) preset and use its toggle settings
-  const standardPreset = presets.find(p => p.standard) || {};
-
-  const [toggles, setToggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
-    appHinweis: standardPreset.appHinweis !== undefined ? standardPreset.appHinweis !== false : true,
-    teilen: standardPreset.teilen !== undefined ? standardPreset.teilen !== false : true,
-    kommentarfunktion: standardPreset.kommentar !== undefined ? standardPreset.kommentar !== false : false,
-    dateienamen: standardPreset.zeigeDateinamen || false,
-    download: standardPreset.download !== undefined ? standardPreset.download !== false : true,
-    downloadPin: standardPreset.downloadPin || false,
-    wasserzeichen: !!standardPreset.wasserzeichen,
-    selectedWatermarkId: standardPreset.wasserzeichen || '',
+  // ── Initialize from Supabase data ──
+  const sbToggles = supabaseGallery?.toggles || {};
+  const [toggles, setToggles] = useState({
+    appHinweis: sbToggles.appHinweis !== undefined ? sbToggles.appHinweis : true,
+    teilen: sbToggles.teilen !== undefined ? sbToggles.teilen : true,
+    kommentarfunktion: sbToggles.kommentarfunktion !== undefined ? sbToggles.kommentarfunktion : false,
+    dateienamen: sbToggles.dateienamen || false,
+    download: sbToggles.download !== undefined ? sbToggles.download : true,
+    downloadPin: sbToggles.downloadPin || false,
+    wasserzeichen: !!sbToggles.wasserzeichen,
+    selectedWatermarkId: sbToggles.selectedWatermarkId || '',
   });
 
-  // Album-level toggles for sync
+  // Album-level toggles (still localStorage until BilderTab migration)
   const [albumToggles, setAlbumToggles] = usePersistedState(`gallery_${galleryKey}_albumToggles`, {});
 
   // Save toast
@@ -44,23 +39,23 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
     saveToastTimer.current = setTimeout(() => setShowSaveToast(false), 3000);
   };
 
-  const [formData, setFormData] = usePersistedState(`gallery_${galleryKey}_settings`, {
-    titel: gallery?.title || '',
-    interneBezeichnung: '',
-    shootingdatum: '',
-    ablaufdatum: '',
-    passwort: '',
-    marke: '',
-    sprache: 'Deutsch',
-    domain: '',
-    domainpfad: (gallery?.title || '').toLowerCase()
-      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-      .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
-    mitteilung: '',
+  const [formData, setFormData] = useState({
+    titel: supabaseGallery?.title || gallery?.title || '',
+    interneBezeichnung: supabaseGallery?.internal_name || '',
+    shootingdatum: supabaseGallery?.shooting_date || '',
+    ablaufdatum: supabaseGallery?.expiry_date || '',
+    passwort: supabaseGallery?.password || '',
+    marke: supabaseGallery?.brand || '',
+    sprache: supabaseGallery?.language || 'Deutsch',
+    domain: supabaseGallery?.domain || '',
+    domainpfad: supabaseGallery?.domain_path || supabaseGallery?.slug || '',
+    mitteilung: supabaseGallery?.message || '',
+    mitteilungSichtbarkeit: supabaseGallery?.message_visibility || 'Alle',
+    downloadPinCode: supabaseGallery?.download_pin_code || '',
   });
 
-  // Tags persisted state (separate for easy lookup in gallery overview)
-  const [tags, setTags] = usePersistedState(`gallery_${galleryKey}_tags`, []);
+  // Tags from Supabase
+  const [tags, setTags] = useState(supabaseGallery?.tags || []);
   const [tagInput, setTagInput] = useState('');
 
   // ── Sync changes to Supabase (debounced) ──
@@ -138,11 +133,6 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
     }
   };
 
-  // Sync title to parent on mount and whenever formData changes
-  useEffect(() => {
-    // no-op, kept for consistency
-  }, [formData.titel, formData.domainpfad, formData.domain]);
-
   const generatePin = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let pin = '';
@@ -182,76 +172,14 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
     triggerSaveToast();
   };
 
-  // Local title buffer to prevent keystroke loss from usePersistedState re-renders
-  const [localTitle, setLocalTitle] = useState(formData.titel || '');
-  const localTitleTimer = useRef(null);
-
-  // Keep local title in sync when formData changes externally
-  useEffect(() => {
-    setLocalTitle(formData.titel || '');
-  }, [formData.titel]);
-
+  // Title change handler – updates formData directly (no localStorage sync needed)
   const handleTitleChange = (value) => {
-    setLocalTitle(value);
-    // Debounce the sync to formData
-    if (localTitleTimer.current) clearTimeout(localTitleTimer.current);
-    localTitleTimer.current = setTimeout(() => {
-      updateField('titel', value);
-    }, 600);
+    updateField('titel', value);
   };
 
   const handleTitleBlur = () => {
-    if (localTitleTimer.current) clearTimeout(localTitleTimer.current);
-    updateField('titel', localTitle);
+    // No-op – Supabase sync handles persistence via debounce
   };
-
-  // Debounced title sync timer
-  const titleSyncTimer = useRef(null);
-
-  // Sync title changes to galleries_list_v2 and localStorage (debounced)
-  useEffect(() => {
-    if (!formData.titel || formData.titel === galleryKey) return;
-    if (titleSyncTimer.current) clearTimeout(titleSyncTimer.current);
-    titleSyncTimer.current = setTimeout(() => {
-      const value = formData.titel;
-      try {
-        const stored = localStorage.getItem('galleries_list_v2');
-        const list = stored ? JSON.parse(stored) : [];
-        const idx = list.findIndex(g =>
-          g.title === galleryKey ||
-          g.title === lastSavedTitle.current
-        );
-        if (idx !== -1) {
-          list[idx].title = value;
-        } else {
-          list.push({
-            id: Date.now(),
-            title: value,
-            name: '',
-            views: 0, shared: 0, zip: 0, single: 0,
-            shop: false, lastView: '-', lastEdit: '-',
-            created: new Date().toLocaleDateString('de-DE'),
-            color: '#528c68',
-          });
-        }
-        localStorage.setItem('galleries_list_v2', JSON.stringify(list));
-        try {
-          const dbReq = indexedDB.open('fotohahn_db', 1);
-          dbReq.onsuccess = () => {
-            const db = dbReq.result;
-            const tx = db.transaction('persisted_state', 'readwrite');
-            tx.objectStore('persisted_state').put(list, 'galleries_list_v2');
-          };
-        } catch (e) {}
-        lastSavedTitle.current = value;
-        window.dispatchEvent(new CustomEvent('persisted-state-change', { detail: { key: 'galleries_list_v2' } }));
-      } catch (e) {}
-      // Copy settings and toggles under the new gallery key
-      localStorage.setItem(`gallery_${value}_settings`, JSON.stringify(formData));
-      localStorage.setItem(`gallery_${value}_toggles`, JSON.stringify(toggles));
-    }, 500);
-    return () => { if (titleSyncTimer.current) clearTimeout(titleSyncTimer.current); };
-  }, [formData.titel]);
 
   const updateField = (field, value) => {
     const updates = { [field]: value };
@@ -297,7 +225,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery }) => {
       <div className="form-section">
         <div className="form-group">
           <div className="form-label">Titel <Settings size={14} className="settings-icon" /></div>
-          <input className="form-input" value={localTitle} onChange={e => handleTitleChange(e.target.value)} onBlur={handleTitleBlur} />
+          <input className="form-input" value={formData.titel} onChange={e => handleTitleChange(e.target.value)} onBlur={handleTitleBlur} />
         </div>
 
         <div className="form-group">

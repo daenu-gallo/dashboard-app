@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { RotateCcw, Edit2, ChevronLeft, ChevronRight, ExternalLink, Monitor, Smartphone, HelpCircle } from 'lucide-react';
-import { usePersistedState } from '../../hooks/usePersistedState';
+
 
 // ── Template Definitions ──
 const TEMPLATES = [
@@ -75,19 +75,46 @@ const DISPLAY_OPTIONS = [
   { value: 'kacheln', label: 'Kacheln' },
 ];
 
-const DesignTab = ({ gallery }) => {
+const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const galleryKey = gallery?.title || 'default';
 
-  // ── Persisted Design State ──
-  const [selectedTemplate, setSelectedTemplate] = usePersistedState(`gallery_${galleryKey}_design_template`, 'atelier');
-  const [primaryColor, setPrimaryColor] = usePersistedState(`gallery_${galleryKey}_design_primaryColor`, '#f0f0f4');
-  const [secondaryColor, setSecondaryColor] = usePersistedState(`gallery_${galleryKey}_design_secondaryColor`, '#1a1a1a');
-  const [font, setFont] = usePersistedState(`gallery_${galleryKey}_design_font`, 'Inter');
-  const [spacing, setSpacing] = usePersistedState(`gallery_${galleryKey}_design_spacing`, 'klein');
-  const [displayMode, setDisplayMode] = usePersistedState(`gallery_${galleryKey}_design_display`, 'standard');
+  // ── Initialize from Supabase design JSONB ──
+  const sbDesign = supabaseGallery?.design || {};
+  const [selectedTemplate, setSelectedTemplate] = useState(sbDesign.template || 'atelier');
+  const [primaryColor, setPrimaryColor] = useState(sbDesign.primaryColor || '#f0f0f4');
+  const [secondaryColor, setSecondaryColor] = useState(sbDesign.secondaryColor || '#1a1a1a');
+  const [font, setFont] = useState(sbDesign.font || 'Inter');
+  const [spacing, setSpacing] = useState(sbDesign.spacing || 'klein');
+  const [displayMode, setDisplayMode] = useState(sbDesign.display || 'standard');
+
+  // ── Sync design changes to Supabase (debounced) ──
+  const syncTimer = useRef(null);
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!supabaseGallery?.id || !updateGallery) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
+      try {
+        await updateGallery(supabaseGallery.id, {
+          design: {
+            template: selectedTemplate,
+            primaryColor,
+            secondaryColor,
+            font,
+            spacing,
+            display: displayMode,
+          },
+        });
+      } catch (err) {
+        console.error('[DesignTab] Supabase sync error:', err);
+      }
+    }, 1500);
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
+  }, [selectedTemplate, primaryColor, secondaryColor, font, spacing, displayMode]);
 
   // ── Local UI State ──
-  const [previewMode, setPreviewMode] = useState('desktop'); // desktop | mobile
+  const [previewMode, setPreviewMode] = useState('desktop');
   const [showPrimaryPicker, setShowPrimaryPicker] = useState(false);
   const [showSecondaryPicker, setShowSecondaryPicker] = useState(false);
   const [carouselOffset, setCarouselOffset] = useState(0);
