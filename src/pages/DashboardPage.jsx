@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock } from 'lucide-react';
 import './Dashboard.css';
 
 const DashboardPage = () => {
@@ -11,8 +11,18 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ galleries: 0, albums: 0, views: 0, presets: 0 });
   const [recentGalleries, setRecentGalleries] = useState([]);
+  const [recentViews, setRecentViews] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 6) return 'Gute Nacht';
+    if (hour < 12) return 'Guten Morgen';
+    if (hour < 18) return 'Guten Tag';
+    return 'Guten Abend';
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -55,6 +65,16 @@ const DashboardPage = () => {
           .limit(5);
         setRecentGalleries(recent || []);
 
+        // Recent views (last 10) – join with galleries for title
+        try {
+          const { data: views } = await supabase
+            .from('gallery_views')
+            .select('viewed_at, gallery_id, galleries(title, slug)')
+            .order('viewed_at', { ascending: false })
+            .limit(10);
+          setRecentViews(views || []);
+        } catch { /* table might not exist */ }
+
         // Chart: Galleries created per month (last 6 months)
         const { data: allGalleries } = await supabase
           .from('galleries').select('created_at')
@@ -89,6 +109,18 @@ const DashboardPage = () => {
     return new Date(dateStr).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return '—';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Gerade eben';
+    if (mins < 60) return `vor ${mins} Min.`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `vor ${hours} Std.`;
+    const days = Math.floor(hours / 24);
+    return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
+  };
+
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -101,6 +133,16 @@ const DashboardPage = () => {
 
   return (
     <div className="dashboard-page">
+      {/* Greeting */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+          {getGreeting()}, {user?.email?.split('@')[0] || 'Fotograf'} 👋
+        </h1>
+        <p style={{ color: '#888', fontSize: '0.85rem', margin: '0.3rem 0 0' }}>
+          Hier ist dein Überblick für heute.
+        </p>
+      </div>
+
       {/* Stats Cards */}
       <div className="stats-header card">
         <div className="stat-item active">
@@ -141,49 +183,93 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="chart-container card">
-        <h3 className="chart-title">Galerien pro Monat</h3>
-        <div className="chart-wrapper">
-          {chartData.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 250, color: '#999', fontSize: '0.9rem' }}>
-              Noch keine Daten vorhanden
+      {/* Two-column layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        {/* Chart */}
+        <div className="chart-container card">
+          <h3 className="chart-title">Galerien pro Monat</h3>
+          <div className="chart-wrapper">
+            {chartData.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 250, color: '#999', fontSize: '0.9rem' }}>
+                Noch keine Daten vorhanden
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: '#888' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#888' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1e1e2e',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 8,
+                      color: '#fff',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="galerien"
+                    stroke="#528c68"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#528c68', stroke: '#1e1e2e', strokeWidth: 2 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Views */}
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <h3 className="chart-title" style={{ marginBottom: '1rem' }}>
+            <Eye size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+            Letzte Aufrufe
+          </h3>
+          {recentViews.length === 0 ? (
+            <div style={{ color: '#999', fontSize: '0.9rem', padding: '1rem 0' }}>
+              Noch keine Aufrufe. Teile einen Galerie-Link mit deinen Kunden!
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: '#888' }}
-                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#888' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: '#1e1e2e',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    color: '#fff',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {recentViews.map((v, i) => (
+                <div
+                  key={i}
+                  onClick={() => v.galleries?.slug && navigate(`/galleries/${v.galleries.slug}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.6rem 0.8rem', background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 8, cursor: 'pointer', transition: 'background 0.2s',
+                    border: '1px solid rgba(255,255,255,0.05)',
                   }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="galerien"
-                  stroke="#528c68"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: '#528c68', stroke: '#1e1e2e', strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Eye size={14} style={{ color: '#ef4444', opacity: 0.7 }} />
+                    <span style={{ fontWeight: 500, fontSize: '0.8rem' }}>
+                      {v.galleries?.title || 'Unbekannte Galerie'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#888', whiteSpace: 'nowrap' }}>
+                    <Clock size={10} style={{ marginRight: 3, verticalAlign: -1 }} />
+                    {formatTimeAgo(v.viewed_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
