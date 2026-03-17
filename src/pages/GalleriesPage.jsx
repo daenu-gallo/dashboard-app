@@ -107,6 +107,12 @@ const GalleriesPage = () => {
           const first = parsed[0] || parsed;
           if (first?.titelbild?.src) { thumbSrc = first.titelbild.src; break; }
         }
+        // Fallback: appIcon
+        const appIcon = localStorage.getItem(`gallery_${key}_appIcon`);
+        if (appIcon) {
+          try { const parsed = JSON.parse(appIcon); if (typeof parsed === 'string' && parsed.startsWith('data:')) { thumbSrc = parsed; break; } } catch (_) {}
+          if (typeof appIcon === 'string' && appIcon.startsWith('data:')) { thumbSrc = appIcon; break; }
+        }
         // Fallback: first uploaded image
         const imgs = localStorage.getItem(`gallery_${key}_images`);
         if (imgs) {
