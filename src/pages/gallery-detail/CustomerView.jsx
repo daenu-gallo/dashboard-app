@@ -197,21 +197,12 @@ const CustomerView = () => {
     siteName: brandName || 'Fotohahn Gallery',
   });
 
-  // Legal links from Eigene Domains settings
-  const [impressumList] = usePersistedState('settings_impressum_v2', [
-    { id: 1, name: '', url: '', content: '' },
-  ]);
-  const [datenschutzList] = usePersistedState('settings_datenschutz_v2', [
-    { id: 1, name: '', url: '', content: '' },
-  ]);
-  const impressumUrl = impressumList[0]?.url || impressumList[0]?.content || '#';
-  const datenschutzUrl = datenschutzList[0]?.url || datenschutzList[0]?.content || '#';
+  // Legal links – use internal routes
+  const impressumUrl = '/legal/impressum';
+  const datenschutzUrl = '/legal/datenschutz';
 
-  // Brand: prefer Supabase, fall back to localStorage
-  const [localBrands] = usePersistedState('settings_brands', [
-    { id: 1, name: '', active: true, logo: null },
-  ]);
-  const activeBrand = supaBrand || localBrands.find(b => b.active) || localBrands[0] || { name: '' };
+  // Brand: use Supabase data
+  const activeBrand = supaBrand || { name: '' };
   const brandName = activeBrand.name;
 
   // Global brand settings (logos, contact, social) - still localStorage for now
@@ -1260,9 +1251,9 @@ const CustomerView = () => {
           </div>
         </div>
         <div className="cv-footer-bottom">
-          <a href={impressumUrl} target="_blank" rel="noreferrer">Impressum</a>
+          <a href={impressumUrl}>Impressum</a>
           <span>|</span>
-          <a href={datenschutzUrl} target="_blank" rel="noreferrer">Datenschutz</a>
+          <a href={datenschutzUrl}>Datenschutz</a>
           <span>|</span>
           <a href="#">Reset</a>
         </div>
