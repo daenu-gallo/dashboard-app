@@ -100,7 +100,8 @@ export function usePersistedState(key, defaultValue) {
         try {
           localStorage.setItem(key, JSON.stringify(newValue));
         } catch (e) {
-          // Quota exceeded for localStorage is OK – IndexedDB has it
+          // Quota exceeded – remove stale value so next load uses IndexedDB only
+          try { localStorage.removeItem(key); } catch (_) {}
         }
         // Dispatch custom event so OTHER hooks with same key re-read
         selfUpdate.current = true;
