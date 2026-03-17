@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw } from 'lucide-react';
-import { usePersistedState } from '../hooks/usePersistedState';
+import { useBrand } from '../contexts/BrandContext';
+import { useSupabaseSetting } from '../hooks/useSupabaseSetting';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import './Settings.css';
@@ -46,23 +47,7 @@ const PositionGrid = ({ value, onChange }) => (
 /* ── Brand Settings Modal (Kontaktinformationen / Logos / Social Media) ── */
 const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
   const [activeSubTab, setActiveSubTab] = useState('kontakt');
-  const [globalSettings, setGlobalSettings] = usePersistedState('global_brand_settings', {
-    firmenname: '',
-    webseite: '',
-    email: '',
-    telefon: '',
-    logoDark: null,
-    logoDarkName: '',
-    logoLight: null,
-    logoLightName: '',
-    teamBild: null,
-    teamBildName: '',
-    facebook: '',
-    instagram: '',
-    twitter: '',
-    pinterest: '',
-    youtube: '',
-  });
+  const { globalBrand: globalSettings, setGlobalBrand: setGlobalSettings } = useBrand();
 
   const logoDarkRef = useRef(null);
   const logoLightRef = useRef(null);
@@ -1152,7 +1137,7 @@ const VoreinstellungenTab = () => {
 
 /* ——— Tab: Steuerinformationen ——— */
 const SteuerTab = () => {
-  const [steuerData, setSteuerData] = usePersistedState('settings_steuer', {
+  const [steuerData, setSteuerData] = useSupabaseSetting('settings_steuer', {
     kleinunternehmer: true,
     waehrung: 'Schweizer Franken',
     umsatzsteuerId: '-',
@@ -1202,7 +1187,7 @@ const SteuerTab = () => {
 
 /* ——— Tab: Mitteilungen ——— */
 const MitteilungenTab = () => {
-  const [mittData, setMittData] = usePersistedState('settings_mitteilungen', {
+  const [mittData, setMittData] = useSupabaseSetting('settings_mitteilungen', {
     titel: '',
     mitteilung: '',
     bild: null,
@@ -1311,9 +1296,9 @@ const MitteilungenTab = () => {
 
 /* ——— Tab: Eigene Domains ——— */
 const DomainsTab = () => {
-  const [domains, setDomains] = usePersistedState('settings_domains', []);
-  const [impressumList, setImpressumList] = usePersistedState('settings_impressum_v2', []);
-  const [datenschutzList, setDatenschutzList] = usePersistedState('settings_datenschutz_v2', []);
+  const [domains, setDomains] = useSupabaseSetting('settings_domains', []);
+  const [impressumList, setImpressumList] = useSupabaseSetting('settings_impressum_v2', []);
+  const [datenschutzList, setDatenschutzList] = useSupabaseSetting('settings_datenschutz_v2', []);
   const [legalModal, setLegalModal] = useState(null); // { type: 'impressum'|'datenschutz', mode: 'add'|'edit', data: {...} }
 
   const [domainModal, setDomainModal] = useState(null); // { name: '' }
@@ -1494,7 +1479,7 @@ const DomainsTab = () => {
 
 /* ——— Tab: Sprache ——— */
 const SpracheTab = () => {
-  const [sprache, setSprache] = usePersistedState('settings_sprache', 'Deutsch');
+  const [sprache, setSprache] = useSupabaseSetting('settings_sprache', 'Deutsch');
   const [saved, setSaved] = useState(false);
 
   const handleChange = (e) => {
@@ -1522,7 +1507,7 @@ const SpracheTab = () => {
 
 /* ——— Main Settings Page ——— */
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = usePersistedState('settings_active_tab', 'marken');
+  const [activeTab, setActiveTab] = useState('marken');
 
   const renderTab = () => {
     switch (activeTab) {
