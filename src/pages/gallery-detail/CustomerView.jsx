@@ -70,8 +70,9 @@ const CustomerView = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
 
-  // ── Load gallery from Supabase ──
+  // ── Load gallery + albums from Supabase ──
   const [supaGallery, setSupaGallery] = useState(null);
+  const [supaAlbums, setSupaAlbums] = useState([]);
   const [supaLoading, setSupaLoading] = useState(true);
   const [supaBrand, setSupaBrand] = useState(null);
 
@@ -83,6 +84,10 @@ const CustomerView = () => {
           .from('galleries').select('*').eq('slug', slug).maybeSingle();
         if (gallery) {
           setSupaGallery(gallery);
+          // Fetch albums for this gallery
+          const { data: albumData } = await supabase
+            .from('albums').select('*').eq('gallery_id', gallery.id).order('sort_order', { ascending: true });
+          if (albumData) setSupaAlbums(albumData);
           // Fetch brand if gallery has a user_id
           if (gallery.user_id) {
             const { data: brands } = await supabase
@@ -98,48 +103,34 @@ const CustomerView = () => {
   // Gallery key for localStorage fallback (images/albums)
   const galleryKey = supaGallery?.title || slug;
 
-  // Read persisted settings and toggles (fallback / images still use localStorage)
-  const [localSettings] = usePersistedState(`gallery_${galleryKey}_settings`, {
-    titel: galleryKey,
-    domain: '',
-    domainpfad: toSlug(galleryKey),
-    passwort: '',
-    sprache: 'Deutsch',
-    mitteilung: '',
-    downloadPinCode: '',
-    shootingdatum: '',
-  });
-
-  const [localToggles] = usePersistedState(`gallery_${galleryKey}_toggles`, {
-    appHinweis: true,
-    teilen: true,
-    kommentarfunktion: false,
-    dateienamen: false,
-    download: true,
-    downloadPin: false,
-    wasserzeichen: false,
-  });
-
-  // Merge: Supabase data takes priority over localStorage
+  // Settings directly from Supabase (no localStorage fallback needed)
   const settings = supaGallery ? {
-    titel: supaGallery.title || localSettings.titel,
-    domain: supaGallery.domain || localSettings.domain,
-    domainpfad: supaGallery.domain_path || localSettings.domainpfad,
-    passwort: supaGallery.password || localSettings.passwort,
-    sprache: supaGallery.language || localSettings.sprache,
-    mitteilung: supaGallery.message || localSettings.mitteilung,
-    downloadPinCode: supaGallery.toggles?.downloadPinCode || localSettings.downloadPinCode,
-    shootingdatum: supaGallery.shooting_date || localSettings.shootingdatum,
-  } : localSettings;
+    titel: supaGallery.title || slug,
+    domain: supaGallery.domain || '',
+    domainpfad: supaGallery.domain_path || slug,
+    passwort: supaGallery.password || '',
+    sprache: supaGallery.language || 'Deutsch',
+    mitteilung: supaGallery.message || '',
+    downloadPinCode: supaGallery.download_pin_code || '',
+    shootingdatum: supaGallery.shooting_date || '',
+  } : {
+    titel: slug, domain: '', domainpfad: toSlug(slug), passwort: '',
+    sprache: 'Deutsch', mitteilung: '', downloadPinCode: '', shootingdatum: '',
+  };
 
-  const toggles = supaGallery?.toggles ? { ...localToggles, ...supaGallery.toggles } : localToggles;
+  const toggles = supaGallery?.toggles || {
+    appHinweis: true, teilen: true, kommentarfunktion: false,
+    dateienamen: false, download: true, downloadPin: false, wasserzeichen: false,
+  };
 
-  // Sync real data from BilderTab (still localStorage until NAS migration)
-  const [albums] = usePersistedState(`gallery_${galleryKey}_albums`, []);
-  const [albumNames] = usePersistedState(`gallery_${galleryKey}_albumNames`, {});
+  // Albums from Supabase
+  const albums = supaAlbums.map(a => ({ name: a.name, count: 0, previewCount: 2, totalPhotos: 2 }));
+  const albumNames = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.name }), {});
+  const albumToggles = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.toggles || {} }), {});
+
+  // Images/videos still from localStorage until NAS migration
   const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
   const [uploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
-  const [albumToggles] = usePersistedState(`gallery_${galleryKey}_albumToggles`, {});
 
   // Legal links from Eigene Domains settings
   const [impressumList] = usePersistedState('settings_impressum_v2', [
