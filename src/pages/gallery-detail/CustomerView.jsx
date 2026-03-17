@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useBrand } from '../../contexts/BrandContext';
 import { useMetaTags } from '../../hooks/useMetaTags';
 import { useTrackView } from '../../hooks/useTrackView';
 import { supabase } from '../../lib/supabaseClient';
@@ -211,7 +212,7 @@ const CustomerView = () => {
   const brandName = activeBrand.name;
 
   // Global brand settings (logos, contact, social) - still localStorage for now
-  const [globalBrand] = usePersistedState('global_brand_settings', {});
+  const { globalBrand } = useBrand();
 
   // Watermarks from settings
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
