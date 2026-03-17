@@ -4,6 +4,46 @@ import './CookieConsent.css';
 
 const CONSENT_KEY = 'cookie_consent_v1';
 
+/**
+ * Google Consent Mode V2
+ * Sets default consent to denied, updates on user choice.
+ * https://developers.google.com/tag-platform/security/guides/consent
+ */
+const updateGoogleConsent = (categories) => {
+  if (typeof window.gtag !== 'function') return;
+  window.gtag('consent', 'update', {
+    analytics_storage: categories.statistics ? 'granted' : 'denied',
+    ad_storage: categories.marketing ? 'granted' : 'denied',
+    ad_user_data: categories.marketing ? 'granted' : 'denied',
+    ad_personalization: categories.marketing ? 'granted' : 'denied',
+    functionality_storage: 'granted',
+    security_storage: 'granted',
+  });
+};
+
+// Initialize default consent (denied) before any tags fire
+if (typeof window !== 'undefined') {
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function() { window.dataLayer.push(arguments); };
+  window.gtag('consent', 'default', {
+    analytics_storage: 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    functionality_storage: 'granted',
+    security_storage: 'granted',
+    wait_for_update: 500,
+  });
+  // Check if consent was previously given → update immediately
+  try {
+    const stored = localStorage.getItem('cookie_consent_v1');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.categories) updateGoogleConsent(parsed.categories);
+    }
+  } catch {}
+}
+
 const CATEGORIES = [
   {
     id: 'necessary',
@@ -80,6 +120,8 @@ const CookieConsent = () => {
     };
     localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
     setVisible(false);
+    // Google Consent Mode V2: update consent state
+    updateGoogleConsent(cats);
     // Dispatch event so other components can react
     window.dispatchEvent(new CustomEvent('cookie-consent-update', { detail: consent }));
   };
@@ -128,7 +170,7 @@ const CookieConsent = () => {
           Wir verwenden Cookies und ähnliche Technologien, um dir ein optimales Erlebnis zu bieten. 
           Du kannst wählen, welche Kategorien du zulassen möchtest. 
           Weitere Informationen findest du in unserer{' '}
-          <a href="/datenschutz" className="cookie-link">Datenschutzerklärung</a>.
+          <a href="/legal/datenschutz" className="cookie-link">Datenschutzerklärung</a>.
         </p>
 
         {/* Category toggles (collapsed by default) */}

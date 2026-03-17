@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import LegalPage from './pages/LegalPage';
 import CookieConsent from './components/CookieConsent';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 
@@ -72,6 +73,7 @@ function AppContent() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/legal/:type" element={<LegalPage />} />
 
         {/* Protected admin pages with shared layout */}
         <Route element={

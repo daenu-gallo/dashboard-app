@@ -141,9 +141,9 @@ const RegisterPage = () => {
         )}
 
         <div className="login-footer">
-          <a href="https://fotohahn.ch/impressum" target="_blank" rel="noopener noreferrer">Impressum</a>
-          <span className="login-footer-sep">|</span>
-          <a href="https://fotohahn.ch/datenschutzerklaerung-von-fotohahn-ch/" target="_blank" rel="noopener noreferrer">Datenschutz</a>
+          <a href="/legal/impressum">Impressum</a>
+          <span>·</span>
+          <a href="/legal/datenschutz">Datenschutz</a>
           <span className="login-footer-sep">|</span>
           <a href="https://fotohahn.ch/kontaktaufnahme-hochzeitsfotograf-thun-bern/" target="_blank" rel="noopener noreferrer">Kontakt</a>
         </div>

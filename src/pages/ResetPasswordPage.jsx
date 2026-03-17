@@ -120,9 +120,9 @@ const ResetPasswordPage = () => {
         )}
 
         <div className="login-footer">
-          <a href="#">Impressum</a>
-          <span className="login-footer-sep">|</span>
-          <a href="#">Datenschutz</a>
+          <a href="/legal/impressum">Impressum</a>
+          <span>·</span>
+          <a href="/legal/datenschutz">Datenschutz</a>
           <span className="login-footer-sep">|</span>
           <a href="#">Kontakt</a>
         </div>
