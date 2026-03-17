@@ -6,6 +6,7 @@ import { useMetaTags } from '../../hooks/useMetaTags';
 import { useTrackView } from '../../hooks/useTrackView';
 import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
+import NotFoundPage from '../NotFoundPage';
 import './CustomerView.css';
 
 const toSlug = (title) => title.toLowerCase()
@@ -345,8 +346,13 @@ const CustomerView = () => {
   };
 
   // Language
-  const lang = settings.sprache === 'English' ? 'English' : 'Deutsch';
+  const lang = settings.sprache === 'English' ? 'English' : settings.sprache === 'Français' ? 'Français' : settings.sprache === 'Italiano' ? 'Italiano' : 'Deutsch';
   const t = translations[lang];
+
+  // 404: Gallery not found
+  if (!supaLoading && !supaGallery) {
+    return <NotFoundPage />;
+  }
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
