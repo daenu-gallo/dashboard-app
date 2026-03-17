@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { supabase } from '../../lib/supabaseClient';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
 
 const defaultAlbums = [];
@@ -491,46 +492,121 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
 };
 
 /* ---- Main BilderTab ---- */
-const BilderTab = ({ gallery, onCountsChange, onAppIconChange }) => {
+const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, onAppIconChange }) => {
   const galleryKey = gallery?.title || 'default';
   const [globalBrand] = usePersistedState('global_brand_settings', {});
   const [expandedAlbums, setExpandedAlbums] = usePersistedState(`gallery_${galleryKey}_expanded`, {});
-  const [albumNames, setAlbumNames] = usePersistedState(
-    `gallery_${galleryKey}_albumNames`,
+
+  // ── Albums: Initialize from Supabase, fallback to defaults ──
+  const sbAlbums = supabaseGallery?._loadedAlbums; // will be set via useEffect
+  const [albums, setAlbums] = useState(() => {
+    // Will be overwritten once Supabase data loads
+    return defaultAlbums;
+  });
+  const [albumNames, setAlbumNames] = useState(() =>
     defaultAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.name }), {})
   );
+  const [albumToggles, setAlbumToggles] = useState({});
+  const [albumTexts, setAlbumTexts] = useState({});
+  const [albumsLoaded, setAlbumsLoaded] = useState(false);
+
+  // Load albums from Supabase on mount
+  useEffect(() => {
+    if (!supabaseGallery?.id) return;
+    const loadAlbums = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('albums')
+          .select('*')
+          .eq('gallery_id', supabaseGallery.id)
+          .order('sort_order', { ascending: true });
+        if (error) throw error;
+        if (data && data.length > 0) {
+          const loadedAlbums = data.map(a => ({
+            name: a.name,
+            count: 0,
+            previewCount: 2,
+            totalPhotos: 2,
+            _supabaseId: a.id, // Keep Supabase ID for CRUD
+          }));
+          setAlbums(loadedAlbums);
+          const names = {};
+          const toggles = {};
+          const texts = {};
+          data.forEach((a, idx) => {
+            names[idx] = a.name;
+            if (a.toggles) {
+              toggles[idx] = a.toggles;
+              if (a.toggles._text) texts[idx] = a.toggles._text;
+            }
+          });
+          setAlbumNames(names);
+          setAlbumToggles(toggles);
+          setAlbumTexts(texts);
+        }
+        setAlbumsLoaded(true);
+      } catch (err) {
+        console.error('[BilderTab] Error loading albums:', err);
+        setAlbumsLoaded(true);
+      }
+    };
+    loadAlbums();
+  }, [supabaseGallery?.id]);
+
+  // Sync album changes back to Supabase (debounced)
+  const albumSyncTimer = useRef(null);
+  const albumSyncFirstRender = useRef(true);
+  useEffect(() => {
+    if (albumSyncFirstRender.current) { albumSyncFirstRender.current = false; return; }
+    if (!supabaseGallery?.id || !albumsLoaded) return;
+    if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current);
+    albumSyncTimer.current = setTimeout(async () => {
+      try {
+        // Delete all existing albums for this gallery and re-insert
+        await supabase.from('albums').delete().eq('gallery_id', supabaseGallery.id);
+        if (albums.length > 0) {
+          const albumsToInsert = albums.map((a, idx) => ({
+            gallery_id: supabaseGallery.id,
+            name: albumNames[idx] || a.name,
+            sort_order: idx,
+            toggles: {
+              ...(albumToggles[idx] || {}),
+              _text: albumTexts[idx] || undefined,
+            },
+          }));
+          await supabase.from('albums').insert(albumsToInsert);
+        }
+      } catch (err) {
+        console.error('[BilderTab] Album sync error:', err);
+      }
+    }, 2000);
+    return () => { if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current); };
+  }, [albums, albumNames, albumToggles, albumTexts, albumsLoaded]);
+
+  // ── Media: Still in localStorage until NAS migration ──
   const [uploadedImages, setUploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
   const [uploadedVideos, setUploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
   const [videoModalAlbum, setVideoModalAlbum] = useState(null);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
-  const [albums, setAlbums] = usePersistedState(`gallery_${galleryKey}_albums`, defaultAlbums);
   const [titleImages, setTitleImages] = usePersistedState(`gallery_${galleryKey}_titleImages`, {});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = usePersistedState(`gallery_${galleryKey}_filter`, []);
   const fileInputRefs = useRef({});
   const videoInputRef = useRef(null);
-  const [confirmDeleteAlbum, setConfirmDeleteAlbum] = useState(null); // index of album pending delete
+  const [confirmDeleteAlbum, setConfirmDeleteAlbum] = useState(null);
   const confirmDeleteAlbumTimer = useRef(null);
 
-  // Upload progress state: { albumName, total, completed }
+  // Upload progress state
   const [uploadProgress, setUploadProgress] = useState(null);
-
-  // Album header toggles (visibility, download, watermark)
-  const [albumToggles, setAlbumToggles] = usePersistedState(`gallery_${galleryKey}_albumToggles`, {});
   const [selectedAlbums, setSelectedAlbums] = useState({});
-
-  // Galerie Text for customers per album
-  const [albumTexts, setAlbumTexts] = usePersistedState(`gallery_${galleryKey}_albumTexts`, {});
   const [textModalAlbum, setTextModalAlbum] = useState(null);
   const [eyeOverlayAlbum, setEyeOverlayAlbum] = useState(null);
 
-  // Read watermark settings for applying to images (same key as SettingsPage)
+  // Read watermark settings
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
-
-  // Watermark modal state: { albumIdx, imgIdx, photoSrc }
   const [watermarkModalTarget, setWatermarkModalTarget] = useState(null);
 
-  // App-Icon persisted state
+  // App-Icon persisted state (localStorage until NAS)
   const [appIconSrc, setAppIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
 
   // Apply watermark to an image using a specific watermark index
