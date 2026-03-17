@@ -302,6 +302,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
             <option>Deutsch</option>
             <option>English</option>
             <option>Français</option>
+            <option>Italiano</option>
           </select>
         </div>
 
