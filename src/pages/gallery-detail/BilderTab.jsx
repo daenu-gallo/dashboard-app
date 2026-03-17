@@ -1072,6 +1072,14 @@ const BilderTab = ({ gallery, onCountsChange, onAppIconChange }) => {
                         Object.keys(n).forEach(k => { const ki = Number(k); reindexed[ki > idx ? ki - 1 : ki] = n[k]; });
                         return reindexed;
                       });
+                      // Clear app icon if this was the last album
+                      setAlbums(currentAlbums => {
+                        if (currentAlbums.length === 0) {
+                          setAppIconSrc(null);
+                          if (onAppIconChange) onAppIconChange(null);
+                        }
+                        return currentAlbums;
+                      });
                     } else {
                       // First click — show confirmation for 3 seconds
                       setConfirmDeleteAlbum(idx);
