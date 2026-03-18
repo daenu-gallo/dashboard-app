@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+const DISMISSED_KEY = 'announcement_dismissed_at';
+
 /**
  * useVersionCheck – polls app_config every 60s for version changes.
  * On version change → auto-reloads the page (no popup).
  * Also returns the current announcement (if any).
+ * Dismissed announcements stay hidden until a new one is sent.
  */
 export const useVersionCheck = () => {
   const [announcement, setAnnouncement] = useState(null);
@@ -44,15 +47,23 @@ export const useVersionCheck = () => {
           }
         }
 
-        // Announcement
+        // Announcement (with persistent dismiss)
         if (config.announcement && config.announcement.trim()) {
-          setAnnouncement({
-            message: config.announcement,
-            type: config.announcement_type || 'info',
-            timestamp: config.announcement_at || data.updated_at,
-          });
+          const announcementTimestamp = config.announcement_at || data.updated_at;
+          const dismissedAt = localStorage.getItem(DISMISSED_KEY);
+
+          // Show only if not dismissed, or if announcement is newer than dismissal
+          if (!dismissedAt || new Date(announcementTimestamp) > new Date(dismissedAt)) {
+            setAnnouncement({
+              message: config.announcement,
+              type: config.announcement_type || 'info',
+              timestamp: announcementTimestamp,
+            });
+          }
         } else {
           setAnnouncement(null);
+          // Clean up dismissed state when announcement is removed
+          localStorage.removeItem(DISMISSED_KEY);
         }
       } catch (err) {
         console.error('[VersionCheck] Poll error:', err);
@@ -70,7 +81,12 @@ export const useVersionCheck = () => {
     };
   }, []);
 
-  const dismissAnnouncement = () => setAnnouncement(null);
+  const dismissAnnouncement = () => {
+    if (announcement?.timestamp) {
+      localStorage.setItem(DISMISSED_KEY, announcement.timestamp);
+    }
+    setAnnouncement(null);
+  };
 
   return { announcement, dismissAnnouncement };
 };
