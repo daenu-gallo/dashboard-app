@@ -16,7 +16,21 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// Debug: Log env vars on startup
+console.log('🔧 Environment variables:');
+console.log(`   PORT=${PORT}`);
+console.log(`   NAS_BASE_PATH=${NAS_BASE}`);
+console.log(`   SUPABASE_URL=${SUPABASE_URL ? SUPABASE_URL.substring(0, 30) + '...' : '❌ NOT SET'}`);
+console.log(`   SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_KEY ? '✅ SET' : '❌ NOT SET'}`);
+console.log(`   SUPABASE_JWT_SECRET=${JWT_SECRET ? '✅ SET' : '❌ NOT SET'}`);
+
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  console.log('✅ Supabase client created');
+} else {
+  console.error('⚠️  Supabase credentials missing! API will start but uploads won\'t work.');
+}
 
 const app = express();
 app.use(cors());
@@ -340,8 +354,17 @@ app.put('/api/images/reorder', authenticate, async (req, res) => {
 // ── GET /api/health ──
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'ok',
+    status: supabase ? 'ok' : 'degraded',
     nasAvailable: existsSync(NAS_BASE),
+    nasPath: NAS_BASE,
+    supabaseConnected: !!supabase,
+    envVars: {
+      SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
+      SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING',
+      SUPABASE_JWT_SECRET: JWT_SECRET ? 'SET' : 'MISSING',
+      NAS_BASE_PATH: NAS_BASE,
+      PORT: PORT,
+    },
     timestamp: new Date().toISOString(),
   });
 });
