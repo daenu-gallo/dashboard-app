@@ -16,7 +16,7 @@ COPY . .
 # (Coolify env var passthrough doesn't work reliably for public repo apps)
 ENV PORT=3200
 ENV NAS_BASE_PATH=/mnt/nas/onlinegalerie
-ENV SUPABASE_URL=http://debian.orca-mirfak.ts.net:3100
+ENV SUPABASE_URL=http://192.168.249.79:3100
 ENV SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY5Nzk4MCwiZXhwIjo0OTI5MzcxNTgwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.XfBJBnLaBiDlMaBUNPaWc1pCH2N6s4_vaEjraI15xxQ
 
 EXPOSE 3200
