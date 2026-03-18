@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS images (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  gallery_id UUID NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
+  gallery_id BIGINT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
   album_index INT NOT NULL DEFAULT 0,
   filename TEXT NOT NULL,
   original_url TEXT NOT NULL,
