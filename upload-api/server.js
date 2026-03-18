@@ -40,18 +40,27 @@ app.use(express.json());
 const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
+    console.error('❌ Auth: Missing or invalid Authorization header');
     return res.status(401).json({ error: 'Missing or invalid token' });
   }
   const token = authHeader.slice(7);
+  console.log(`🔐 Auth: Verifying token (${token.substring(0, 20)}...) via ${SUPABASE_URL}`);
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error) {
+      console.error('❌ Auth: Supabase returned error:', JSON.stringify(error));
+      return res.status(401).json({ error: 'Invalid token', details: error.message });
     }
-    req.user = user;
+    if (!data?.user) {
+      console.error('❌ Auth: No user returned from Supabase');
+      return res.status(401).json({ error: 'Invalid token', details: 'No user found' });
+    }
+    console.log(`✅ Auth: User verified: ${data.user.email}`);
+    req.user = data.user;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Auth failed' });
+    console.error('❌ Auth: Exception:', err.message, err.stack);
+    return res.status(401).json({ error: 'Auth failed', details: err.message });
   }
 };
 
