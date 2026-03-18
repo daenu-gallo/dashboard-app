@@ -15,7 +15,8 @@ COPY . .
 # Write Supabase environment variables for Vite build
 # Note: ANON_KEY is a public client-side key (safe to include)
 RUN echo "VITE_SUPABASE_URL=http://debian.orca-mirfak.ts.net:3100" > .env && \
-    echo "VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY1MDU4MCwiZXhwIjo0OTI5MzI0MTgwLCJyb2xlIjoiYW5vbiJ9.zCzfuAvw6YzM91m0v42pZ2VHp9tnaBVlttAfroSgVxI" >> .env
+    echo "VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY5Nzk4MCwiZXhwIjo0OTI5MzcxNTgwLCJyb2xlIjoiYW5vbiJ9.jW01UhBOuPYmOA497gUagDCnRJYutEKYvBzT0uc50sY" >> .env && \
+    echo "VITE_UPLOAD_API_URL=http://debian.orca-mirfak.ts.net:3200" >> .env
 
 # Build the app
 RUN npm run build
