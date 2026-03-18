@@ -12,16 +12,12 @@ RUN npm install --production
 
 COPY . .
 
-# Environment variables (defaults, can be overridden by Coolify)
+# Bake environment variables into the image
+# (Coolify env var passthrough doesn't work reliably for public repo apps)
 ENV PORT=3200
 ENV NAS_BASE_PATH=/mnt/nas/onlinegalerie
-
-# Write .env file for dotenv (Coolify env var passthrough fallback)
-ARG SUPABASE_URL
-ARG SUPABASE_SERVICE_ROLE_KEY
-ARG SUPABASE_JWT_SECRET
-RUN echo "PORT=3200" > .env && \
-    echo "NAS_BASE_PATH=/mnt/nas/onlinegalerie" >> .env
+ENV SUPABASE_URL=http://debian.orca-mirfak.ts.net:3100
+ENV SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY5Nzk4MCwiZXhwIjo0OTI5MzcxNTgwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.XfBJBnLaBiDlMaBUNPaWc1pCH2N6s4_vaEjraI15xxQ
 
 EXPOSE 3200
 CMD ["node", "server.js"]
