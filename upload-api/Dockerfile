@@ -12,13 +12,13 @@ RUN npm install --production
 
 COPY . .
 
-# Bake environment variables into the image
-# (Coolify env var passthrough doesn't work reliably for public repo apps)
+# Environment variables - set via Coolify "Environment Variables" with "Is Literal" checked!
+# Do NOT hardcode secrets here - the repo is on GitHub!
 ENV PORT=3200
 ENV NAS_BASE_PATH=/mnt/nas/onlinegalerie
 ENV SUPABASE_URL=http://192.168.249.79:3100
-ENV SUPABASE_SERVICE_ROLE_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY5Nzk4MCwiZXhwIjo0OTI5MzcxNTgwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.cpMQKU4EBO4Z5Qb-YVCOkI3rU9s3lcNFYUapzlmMpjg
-ENV SUPABASE_JWT_SECRET=Yr1KkOFlwtEMlvVMYIeqIfAsfVwKfTy1
+ENV SUPABASE_SERVICE_ROLE_KEY=MUST_BE_SET_IN_COOLIFY
+ENV SUPABASE_JWT_SECRET=MUST_BE_SET_IN_COOLIFY
 
 EXPOSE 3200
 CMD ["node", "server.js"]
