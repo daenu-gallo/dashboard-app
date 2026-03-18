@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useGalleryImages } from '../../hooks/useGalleryImages';
 import { useBrand } from '../../contexts/BrandContext';
 import { supabase } from '../../lib/supabaseClient';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
@@ -584,12 +585,26 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     return () => { if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current); };
   }, [albums, albumNames, albumToggles, albumTexts, albumsLoaded]);
 
-  // ── Media: Still in localStorage until NAS migration ──
-  const [uploadedImages, setUploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
+  // ── Media: Images from NAS via Upload-API ──
+  const galleryId = supabaseGallery?.id;
+  const {
+    images: uploadedImages,
+    titleImages: nasaTitleImages,
+    appIconUrl,
+    loading: imagesLoading,
+    uploadProgress: apiUploadProgress,
+    uploadImages,
+    deleteImage: apiDeleteImage,
+    setTitleImage: apiSetTitleImage,
+    setMobileTitleImage: apiSetMobileTitleImage,
+    setAppIcon: apiSetAppIcon,
+    refreshImages,
+  } = useGalleryImages(galleryId);
+
+  // Videos still in localStorage (embeds / YouTube URLs, not large files)
   const [uploadedVideos, setUploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
   const [videoModalAlbum, setVideoModalAlbum] = useState(null);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
-  const [titleImages, setTitleImages] = usePersistedState(`gallery_${galleryKey}_titleImages`, {});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = usePersistedState(`gallery_${galleryKey}_filter`, []);
   const fileInputRefs = useRef({});
@@ -606,9 +621,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   // Read watermark settings
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
   const [watermarkModalTarget, setWatermarkModalTarget] = useState(null);
-
-  // App-Icon persisted state (localStorage until NAS)
-  const [appIconSrc, setAppIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
 
   // Apply watermark to an image using a specific watermark index
   const applyWatermarkWithIndex = (wmIdx) => {
@@ -687,41 +699,24 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     baseImg.src = img.src;
   };
 
-  // Set image as App-Icon (gallery avatar thumbnail, NOT favicon)
-  // Resize to small thumbnail to avoid localStorage quota issues
-  const setAppIcon = (imgSrc) => {
-    if (!imgSrc) return;
-    const img = new Image();
-    img.onload = () => {
-      const size = 200;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      // Center-crop to square
-      const min = Math.min(img.width, img.height);
-      const sx = (img.width - min) / 2;
-      const sy = (img.height - min) / 2;
-      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
-      const thumbSrc = canvas.toDataURL('image/jpeg', 0.8);
-      setAppIconSrc(thumbSrc);
-      if (onAppIconChange) onAppIconChange(thumbSrc);
-    };
-    img.src = imgSrc;
+  // Set image as App-Icon via Upload-API
+  const setAppIcon = (imageId) => {
+    if (!imageId) return;
+    apiSetAppIcon(imageId);
+    // Notify parent about appIcon change
+    if (onAppIconChange) {
+      // Find the image to get its thumb URL
+      const found = Object.values(uploadedImages).flat().find(i => i.id === imageId);
+      onAppIconChange(found?.thumbSrc || null);
+    }
   };
 
   const setAlbumTitelbild = (albumIdx, img) => {
-    setTitleImages(prev => ({
-      ...prev,
-      [albumIdx]: { ...(prev[albumIdx] || {}), titelbild: img }
-    }));
+    if (img?.id) apiSetTitleImage(img.id);
   };
 
   const setAlbumMobileTitelbild = (albumIdx, img) => {
-    setTitleImages(prev => ({
-      ...prev,
-      [albumIdx]: { ...(prev[albumIdx] || {}), mobile: img }
-    }));
+    if (img?.id) apiSetMobileTitleImage(img.id);
   };
 
   const handleAddAlbum = ({ name, asFirst }) => {
@@ -753,15 +748,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     const currentDir = sortDirection[albumIdx] || 'asc';
     const newDir = currentDir === 'asc' ? 'desc' : 'asc';
     setSortDirection(prev => ({ ...prev, [albumIdx]: newDir }));
-    setUploadedImages(prev => {
-      const imgs = prev[albumIdx] || [];
-      const sorted = [...imgs].sort((a, b) => {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        return newDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-      });
-      return { ...prev, [albumIdx]: sorted };
-    });
+    // Sort is visual only — reorder is persisted via drag-and-drop later
+    // For now, just toggle the direction indicator
   };
 
   // Report dynamic counts to parent
@@ -781,20 +769,10 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
       [newAlbums[fromIdx], newAlbums[toIdx]] = [newAlbums[toIdx], newAlbums[fromIdx]];
       return newAlbums;
     });
-    // Also swap uploaded images/videos/title images/names
-    setUploadedImages(prev => {
-      const n = { ...prev };
-      [n[fromIdx], n[toIdx]] = [n[toIdx] || [], n[fromIdx] || []];
-      return n;
-    });
+    // Also swap videos/names (images are from Supabase, keyed by album_index which follows album order)
     setUploadedVideos(prev => {
       const n = { ...prev };
       [n[fromIdx], n[toIdx]] = [n[toIdx] || [], n[fromIdx] || []];
-      return n;
-    });
-    setTitleImages(prev => {
-      const n = { ...prev };
-      [n[fromIdx], n[toIdx]] = [n[toIdx], n[fromIdx]];
       return n;
     });
     setAlbumNames(prev => {
@@ -815,61 +793,25 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const handleAddImages = (albumIdx) => {
     const albumName = albumNames[albumIdx] || albums[albumIdx]?.name || `Album ${albumIdx + 1}`;
 
-    // Compress image to max width and JPEG quality to prevent localStorage overflow
-    const compressImage = (dataUrl, maxWidth = 1200, quality = 0.7) => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width;
-          let h = img.height;
-          if (w > maxWidth) {
-            h = Math.round((h * maxWidth) / w);
-            w = maxWidth;
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = () => resolve(dataUrl); // fallback to original
-        img.src = dataUrl;
-      });
-    };
-
     if (!fileInputRefs.current[albumIdx]) {
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
       input.accept = 'image/*';
       input.style.display = 'none';
-      input.addEventListener('change', (e) => {
+      input.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
           // Show upload progress popup
           setUploadProgress({ albumName, total: files.length, completed: 0 });
           // Auto-expand the album so images are visible immediately
           setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
-          let completed = 0;
-          // Read each file individually so it appears immediately
-          files.forEach(file => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              // Store original quality — no compression
-              const newImage = { src: reader.result, name: file.name };
-              setUploadedImages(prev => ({
-                ...prev,
-                [albumIdx]: [...(prev[albumIdx] || []), newImage],
-              }));
-              completed++;
-              setUploadProgress(prev => prev ? { ...prev, completed } : null);
-              if (completed === files.length) {
-                setTimeout(() => setUploadProgress(null), 2500);
-              }
-            };
-            reader.readAsDataURL(file);
-          });
+
+          // Upload via API — files go directly to NAS, no base64 conversion
+          await uploadImages(albumIdx, files);
+
+          setUploadProgress({ albumName, total: files.length, completed: files.length });
+          setTimeout(() => setUploadProgress(null), 2500);
         }
         input.value = '';
       });
@@ -880,11 +822,10 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   };
 
   const removeImage = (albumIdx, imgIdx) => {
-    setUploadedImages(prev => {
-      const images = [...(prev[albumIdx] || [])];
-      images.splice(imgIdx, 1);
-      return { ...prev, [albumIdx]: images };
-    });
+    const img = uploadedImages[albumIdx]?.[imgIdx];
+    if (img?.id) {
+      apiDeleteImage(albumIdx, img.id);
+    }
   };
 
   // Video: upload local
@@ -1135,19 +1076,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                       if (confirmDeleteAlbumTimer.current) clearTimeout(confirmDeleteAlbumTimer.current);
                       setConfirmDeleteAlbum(null);
                       setAlbums(prev => prev.filter((_, i) => i !== idx));
-                      setUploadedImages(prev => {
-                        const n = { ...prev }; delete n[idx];
-                        const reindexed = {};
-                        Object.keys(n).forEach(k => { const ki = Number(k); reindexed[ki > idx ? ki - 1 : ki] = n[k]; });
-                        return reindexed;
-                      });
+                      // Images are from Supabase — they'll reload after album sync
+                      refreshImages();
                       setUploadedVideos(prev => {
-                        const n = { ...prev }; delete n[idx];
-                        const reindexed = {};
-                        Object.keys(n).forEach(k => { const ki = Number(k); reindexed[ki > idx ? ki - 1 : ki] = n[k]; });
-                        return reindexed;
-                      });
-                      setTitleImages(prev => {
                         const n = { ...prev }; delete n[idx];
                         const reindexed = {};
                         Object.keys(n).forEach(k => { const ki = Number(k); reindexed[ki > idx ? ki - 1 : ki] = n[k]; });
@@ -1223,31 +1154,35 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               {/* Tile 1: Titelbild */}
               <PhotoCard
                 key="titelbild"
-                src={titleImages[idx]?.titelbild?.src}
-                filename={titleImages[idx]?.titelbild?.name || 'Titelbild'}
+                src={nasaTitleImages[idx]?.titelbild || null}
+                filename={'Titelbild'}
                 colorIdx={idx * 7}
                 position={0}
-                onDelete={() => setTitleImages(prev => {
-                  const updated = { ...(prev[idx] || {}) };
-                  delete updated.titelbild;
-                  return { ...prev, [idx]: updated };
-                })}
-                onSetAppIcon={() => titleImages[idx]?.titelbild?.src && setAppIcon(titleImages[idx].titelbild.src)}
+                onDelete={() => {
+                  const titleImg = (uploadedImages[idx] || []).find(i => i.isTitleImage);
+                  if (titleImg?.id) apiSetTitleImage(titleImg.id); // toggle off
+                }}
+                onSetAppIcon={() => {
+                  const titleImg = (uploadedImages[idx] || []).find(i => i.isTitleImage);
+                  if (titleImg?.id) setAppIcon(titleImg.id);
+                }}
                 onApplyWatermark={() => {}}
               />
               {/* Tile 2: Mobile Titelbild */}
               <PhotoCard
                 key="mobile-titelbild"
-                src={titleImages[idx]?.mobile?.src}
-                filename={titleImages[idx]?.mobile?.name || 'Mobile Titelbild'}
+                src={nasaTitleImages[idx]?.mobile || null}
+                filename={'Mobile Titelbild'}
                 colorIdx={idx * 7 + 1}
                 position={1}
-                onDelete={() => setTitleImages(prev => {
-                  const updated = { ...(prev[idx] || {}) };
-                  delete updated.mobile;
-                  return { ...prev, [idx]: updated };
-                })}
-                onSetAppIcon={() => titleImages[idx]?.mobile?.src && setAppIcon(titleImages[idx].mobile.src)}
+                onDelete={() => {
+                  const mobileImg = (uploadedImages[idx] || []).find(i => i.isMobileTitle);
+                  if (mobileImg?.id) apiSetMobileTitleImage(mobileImg.id); // toggle off
+                }}
+                onSetAppIcon={() => {
+                  const mobileImg = (uploadedImages[idx] || []).find(i => i.isMobileTitle);
+                  if (mobileImg?.id) setAppIcon(mobileImg.id);
+                }}
                 onApplyWatermark={() => {}}
               />
 
@@ -1285,15 +1220,15 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               <div className="album-grid-expanded">
                 {albumImages.map((img, imgIdx) => (
                   <PhotoCard
-                    key={`uploaded-${imgIdx}`}
-                    src={img.src}
+                    key={img.id || `uploaded-${imgIdx}`}
+                    src={img.thumbSrc || img.src}
                     filename={img.name}
                     colorIdx={0}
                     onDelete={() => removeImage(idx, imgIdx)}
                     position={2 + imgIdx}
                     onSetTitelbild={() => setAlbumTitelbild(idx, img)}
                     onSetMobileTitelbild={() => setAlbumMobileTitelbild(idx, img)}
-                    onSetAppIcon={() => setAppIcon(img.src)}
+                    onSetAppIcon={() => img.id && setAppIcon(img.id)}
                     onApplyWatermark={() => setWatermarkModalTarget({ albumIdx: idx, imgIdx, photoSrc: img.src })}
                     showWatermark={!!albumToggles[idx]?.watermark}
                     watermarkText={albumToggles[idx]?.watermarkName || globalBrand.firmenname || ''}

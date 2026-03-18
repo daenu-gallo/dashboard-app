@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Tag, Edit3, ExternalLink, Mail, Trash2, LayoutGrid, List, Eye, Share2, Download, Image as ImageIcon, Heart } from 'lucide-react';
 import { useGalleries, toSlug } from '../contexts/GalleryContext';
+import { supabase } from '../lib/supabaseClient';
 import './Galleries.css';
+
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
 
 const GalleriesPage = () => {
   const navigate = useNavigate();
@@ -94,36 +97,36 @@ const GalleriesPage = () => {
     );
   };
 
-  // Gallery card image - try to load the title image from localStorage
+  // Gallery card image - load thumbnail from Supabase images table
+  const [galleryThumbs, setGalleryThumbs] = useState({});
+
+  useEffect(() => {
+    if (galleries.length === 0) return;
+    (async () => {
+      // Fetch first image (or app icon) for each gallery
+      const ids = galleries.map(g => g.id);
+      const { data } = await supabase
+        .from('images')
+        .select('gallery_id, thumb_url, is_app_icon, sort_order')
+        .in('gallery_id', ids)
+        .order('is_app_icon', { ascending: false })
+        .order('sort_order', { ascending: true });
+      if (data) {
+        const thumbMap = {};
+        data.forEach(img => {
+          // Keep first found (app_icon if exists, otherwise first by sort_order)
+          if (!thumbMap[img.gallery_id]) {
+            thumbMap[img.gallery_id] = UPLOAD_API + img.thumb_url;
+          }
+        });
+        setGalleryThumbs(thumbMap);
+      }
+    })();
+  }, [galleries]);
+
   const GalleryCardImage = ({ gallery, className, children }) => {
     const slug = gallery.slug;
-    const title = gallery.title || slug;
-    let thumbSrc = null;
-    try {
-      // Try title key first (BilderTab uses gallery.title), then slug
-      for (const key of [title, slug]) {
-        if (thumbSrc) break;
-        const stored = localStorage.getItem(`gallery_${key}_titleImages`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          const first = parsed[0] || parsed;
-          if (first?.titelbild?.src) { thumbSrc = first.titelbild.src; break; }
-        }
-        // Fallback: appIcon
-        const appIcon = localStorage.getItem(`gallery_${key}_appIcon`);
-        if (appIcon) {
-          try { const parsed = JSON.parse(appIcon); if (typeof parsed === 'string' && parsed.startsWith('data:')) { thumbSrc = parsed; break; } } catch (_) {}
-          if (typeof appIcon === 'string' && appIcon.startsWith('data:')) { thumbSrc = appIcon; break; }
-        }
-        // Fallback: first uploaded image
-        const imgs = localStorage.getItem(`gallery_${key}_images`);
-        if (imgs) {
-          const parsed = JSON.parse(imgs);
-          const firstAlbum = parsed[0] || parsed[Object.keys(parsed)[0]];
-          if (Array.isArray(firstAlbum) && firstAlbum[0]?.src) { thumbSrc = firstAlbum[0].src; break; }
-        }
-      }
-    } catch (e) {}
+    const thumbSrc = galleryThumbs[gallery.id] || null;
     return (
       <Link to={`/galleries/${slug}`} className={className || 'gallery-card-image'} style={{
         background: thumbSrc ? 'transparent' : '#e8e8e8',

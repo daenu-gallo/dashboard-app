@@ -9,7 +9,7 @@ import StatistikenTab from './StatistikenTab';
 
 import VerschickenTab from './VerschickenTab';
 import { useGalleries } from '../../contexts/GalleryContext';
-import { usePersistedState } from '../../hooks/usePersistedState';
+import { supabase } from '../../lib/supabaseClient';
 import './GalleryDetail.css';
 
 const tabs = [
@@ -30,13 +30,28 @@ const GalleryDetailPage = () => {
   const gallery = getGalleryBySlug(slug);
   const [dynamicCounts, setDynamicCounts] = useState({ albums: 0, photos: 0 });
 
-  // Gallery key for sub-components that still use localStorage (BilderTab, DesignTab, etc.)
-  // These will be migrated in a later step
+  // Gallery key for sub-components
   const galleryKey = gallery?.title || slug;
 
-  // Read uploaded images for avatar thumbnail (still from localStorage until NAS migration)
-  const [appIconSrc] = usePersistedState(`gallery_${galleryKey}_appIcon`, null);
+  // Load app icon from Supabase images table
+  const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+  const [appIconSrc, setAppIconSrc] = useState(null);
   const [overrideIcon, setOverrideIcon] = useState(null);
+
+  useEffect(() => {
+    if (!gallery?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('images')
+        .select('thumb_url')
+        .eq('gallery_id', gallery.id)
+        .eq('is_app_icon', true)
+        .limit(1);
+      if (data?.[0]?.thumb_url) {
+        setAppIconSrc(UPLOAD_API + data[0].thumb_url);
+      }
+    })();
+  }, [gallery?.id]);
 
   const avatarSrc = overrideIcon || appIconSrc || null;
 

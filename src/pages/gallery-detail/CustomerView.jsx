@@ -10,6 +10,8 @@ import JSZip from 'jszip';
 import NotFoundPage from '../NotFoundPage';
 import './CustomerView.css';
 
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+
 const toSlug = (title) => title.toLowerCase()
   .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
   .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
@@ -156,7 +158,7 @@ const CustomerView = () => {
     })();
   }, [slug]);
 
-  // Gallery key for localStorage fallback (images/albums)
+  // Gallery key for localStorage fallback (videos only)
   const galleryKey = supaGallery?.title || slug;
 
   // Track gallery page view (anonymous, non-blocking)
@@ -187,8 +189,34 @@ const CustomerView = () => {
   const albumNames = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.name }), {});
   const albumToggles = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.toggles || {} }), {});
 
-  // Images/videos still from localStorage until NAS migration
-  const [uploadedImages] = usePersistedState(`gallery_${galleryKey}_images`, {});
+  // ── Images from Supabase images table (NAS storage) ──
+  const [uploadedImages, setUploadedImages] = useState({});
+  useEffect(() => {
+    if (!supaGallery?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('images')
+        .select('*')
+        .eq('gallery_id', supaGallery.id)
+        .order('sort_order', { ascending: true });
+      if (data) {
+        const grouped = {};
+        data.forEach(img => {
+          const idx = img.album_index;
+          if (!grouped[idx]) grouped[idx] = [];
+          grouped[idx].push({
+            src: UPLOAD_API + img.original_url,
+            thumbSrc: UPLOAD_API + img.thumb_url,
+            name: img.filename,
+            id: img.id,
+          });
+        });
+        setUploadedImages(grouped);
+      }
+    })();
+  }, [supaGallery?.id]);
+
+  // Videos still from localStorage (embeds/YouTube URLs)
   const [uploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
 
   // \u2500\u2500 SEO: Dynamic Open Graph meta tags for sharing \u2500\u2500
@@ -304,20 +332,14 @@ const CustomerView = () => {
     return <span className={className}>{wm.text || wm.name || `${brandName}.ch`}</span>;
   };
 
-  // Design: prefer Supabase gallery.design, fall back to localStorage
-  const [localDesignTemplate] = usePersistedState(`gallery_${galleryKey}_design_template`, 'atelier');
-  const [localDesignPrimary] = usePersistedState(`gallery_${galleryKey}_design_primaryColor`, '#f0f0f4');
-  const [localDesignSecondary] = usePersistedState(`gallery_${galleryKey}_design_secondaryColor`, '#1a1a1a');
-  const [localDesignFont] = usePersistedState(`gallery_${galleryKey}_design_font`, 'Inter');
-  const [localDesignSpacing] = usePersistedState(`gallery_${galleryKey}_design_spacing`, 'klein');
-  const [localDesignDisplay] = usePersistedState(`gallery_${galleryKey}_design_display`, 'standard');
-
-  const designTemplate = supaGallery?.design?.vorlage || localDesignTemplate;
-  const designPrimary = supaGallery?.design?.primaerfarbe || localDesignPrimary;
-  const designSecondary = supaGallery?.design?.sekundaerfarbe || localDesignSecondary;
-  const designFont = supaGallery?.design?.schriftart || localDesignFont;
-  const designSpacing = supaGallery?.design?.bildabstand || localDesignSpacing;
-  const designDisplay = supaGallery?.design?.bilddarstellung || localDesignDisplay;
+  // Design: from Supabase gallery.design (DesignTab syncs there already)
+  const sbDesign = supaGallery?.design || {};
+  const designTemplate = sbDesign.template || sbDesign.vorlage || 'atelier';
+  const designPrimary = sbDesign.primaryColor || sbDesign.primaerfarbe || '#f0f0f4';
+  const designSecondary = sbDesign.secondaryColor || sbDesign.sekundaerfarbe || '#1a1a1a';
+  const designFont = sbDesign.font || sbDesign.schriftart || 'Inter';
+  const designSpacing = sbDesign.spacing || sbDesign.bildabstand || 'klein';
+  const designDisplay = sbDesign.display || sbDesign.bilddarstellung || 'standard';
 
   // Load Google Font
   React.useEffect(() => {
@@ -540,13 +562,19 @@ const CustomerView = () => {
     if (!images || images.length === 0) return;
 
     const zip = new JSZip();
-    images.forEach((img, idx) => {
-      const parts = img.src.split(',');
-      const base64 = parts[1];
-      const ext = img.src.match(/image\/([\w+]+)/)?.[1] || 'jpg';
-      const name = img.name || `IMG_${String(idx + 1).padStart(4, '0')}.${ext === 'jpeg' ? 'jpg' : ext}`;
-      zip.file(name, base64, { base64: true });
-    });
+
+    // Fetch images from URLs (NAS) and add to ZIP
+    for (let idx = 0; idx < images.length; idx++) {
+      const img = images[idx];
+      const name = img.name || `IMG_${String(idx + 1).padStart(4, '0')}.jpg`;
+      try {
+        const response = await fetch(img.src);
+        const blob = await response.blob();
+        zip.file(name, blob);
+      } catch (err) {
+        console.warn(`[ZIP] Failed to fetch image ${name}:`, err);
+      }
+    }
 
     const blob = await zip.generateAsync({ type: 'blob' });
     const filename = (zipName || galleryKey || 'Galerie') + '.zip';
