@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
@@ -15,6 +17,9 @@ const NAS_BASE = process.env.NAS_BASE_PATH || '/mnt/nas/onlinegalerie';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
 // Debug: Log env vars on startup
 console.log('🔧 Environment variables:');
@@ -33,7 +38,39 @@ if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
 }
 
 const app = express();
-app.use(cors());
+
+// ── Security Middleware ──
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, health checks)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`⚠️ CORS: Blocked request from origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// ── Rate Limiting ──
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 100,                  // max. 100 Requests pro IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,                   // max. 20 Uploads pro IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Upload limit reached, please try again later.' },
+});
+app.use(generalLimiter);
+
 app.use(express.json());
 
 // ── JWT Auth Middleware ──
@@ -89,7 +126,7 @@ const buildNasPath = (userId, gallerySlug, albumIndex) => {
 
 // ── POST /api/upload/:galleryId/:albumIndex ──
 // Upload multiple images, generate thumbnails, save to NAS, insert into Supabase
-app.post('/api/upload/:galleryId/:albumIndex', authenticate, upload.array('images', 100), async (req, res) => {
+app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, upload.array('images', 100), async (req, res) => {
   const { galleryId, albumIndex } = req.params;
   const userId = req.user.id;
 
