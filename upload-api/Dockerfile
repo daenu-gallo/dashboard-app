@@ -13,13 +13,13 @@ RUN npm install --production
 COPY . .
 
 # Environment variables - set via Coolify "Environment Variables" with "Is Literal" checked!
-# Do NOT hardcode secrets here - the repo is on GitHub!
+# Non-secret defaults are set here, secrets MUST be set in Coolify
 ENV PORT=3200
 ENV NAS_BASE_PATH=/mnt/nas/onlinegalerie
-ENV SUPABASE_URL=MUST_BE_SET_IN_COOLIFY
+ENV SUPABASE_URL=http://192.168.249.79:3100
 ENV SUPABASE_SERVICE_ROLE_KEY=MUST_BE_SET_IN_COOLIFY
 ENV SUPABASE_JWT_SECRET=MUST_BE_SET_IN_COOLIFY
-ENV ALLOWED_ORIGINS=MUST_BE_SET_IN_COOLIFY
+ENV ALLOWED_ORIGINS=http://debian.orca-mirfak.ts.net,https://admin.fotohahn.ch,https://galerie.fotohahn.ch
 
 EXPOSE 3200
 CMD ["node", "server.js"]
