@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Plus, X, Check, Info } from 'lucide-react';
+import { Settings, Plus, X, Check, Info, Eye, EyeOff } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useBrand } from '../../contexts/BrandContext';
 
@@ -31,6 +31,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
 
   // Info popup for "Läuft ab am"
   const [showInfoPopup, setShowInfoPopup] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const infoPopupTimer = useRef(null);
 
   const triggerSaveToast = () => {
@@ -39,12 +40,20 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     saveToastTimer.current = setTimeout(() => setShowSaveToast(false), 3000);
   };
 
+  // Auto-generate password if gallery has none
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pw = '';
+    for (let i = 0; i < 8; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+    return pw;
+  };
+
   const [formData, setFormData] = useState({
     titel: supabaseGallery?.title || gallery?.title || '',
     interneBezeichnung: supabaseGallery?.internal_name || '',
     shootingdatum: supabaseGallery?.shooting_date || '',
     ablaufdatum: supabaseGallery?.expiry_date || '',
-    passwort: supabaseGallery?.password || '',
+    passwort: supabaseGallery?.password || generatePassword(),
     marke: supabaseGallery?.brand || '',
     sprache: supabaseGallery?.language || 'Deutsch',
     domain: supabaseGallery?.domain || '',
@@ -262,7 +271,12 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
 
         <div className="form-group">
           <div className="form-label">Passwort <Settings size={14} className="settings-icon" /></div>
-          <input className="form-input" type="password" value={formData.passwort} onChange={e => updateField('passwort', e.target.value)} />
+          <div style={{ position: 'relative', display: 'flex', gap: '0.5rem' }}>
+            <input className="form-input" style={{ flex: 1, paddingRight: '2.5rem' }} type={showPassword ? 'text' : 'password'} value={formData.passwort} onChange={e => updateField('passwort', e.target.value)} />
+            <button type="button" onClick={() => setShowPassword(p => !p)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: 4 }} title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}>
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
 
         <div className="form-group">
