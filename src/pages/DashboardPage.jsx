@@ -1,19 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import './Dashboard.css';
 
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+
 const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ galleries: 0, albums: 0, views: 0, presets: 0 });
   const [recentGalleries, setRecentGalleries] = useState([]);
   const [recentViews, setRecentViews] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementType, setAnnouncementType] = useState('info');
+  const [announcementSaved, setAnnouncementSaved] = useState(false);
+  const [announcementLoading, setAnnouncementLoading] = useState(false);
+  const [deployStatus, setDeployStatus] = useState({});
+
+  // Check if user is admin
+  useEffect(() => {
+    if (!session?.access_token || !UPLOAD_API) return;
+    fetch(`${UPLOAD_API}/api/admin/check`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin))
+      .catch(() => setIsAdmin(false));
+  }, [session]);
+
+  // Load announcement from app_config
+  useEffect(() => {
+    if (!isAdmin) return;
+    const loadAnnouncement = async () => {
+      const { data } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'app_settings')
+        .maybeSingle();
+      if (data?.value) {
+        let config = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        setAnnouncement(config?.announcement || '');
+        setAnnouncementType(config?.announcement_type || 'info');
+      }
+    };
+    loadAnnouncement();
+  }, [isAdmin]);
+
+  // Save announcement
+  const handleSaveAnnouncement = async () => {
+    setAnnouncementLoading(true);
+    try {
+      const { data: existing } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'app_settings')
+        .maybeSingle();
+
+      let config = {};
+      if (existing?.value) {
+        config = typeof existing.value === 'string' ? JSON.parse(existing.value) : existing.value;
+      }
+      config.announcement = announcement;
+      config.announcement_type = announcementType;
+      config.announcement_at = new Date().toISOString();
+
+      await supabase
+        .from('app_config')
+        .upsert({ key: 'app_settings', value: config }, { onConflict: 'key' });
+
+      setAnnouncementSaved(true);
+      setTimeout(() => setAnnouncementSaved(false), 3000);
+    } catch (err) {
+      console.error('Announcement save error:', err);
+    }
+    setAnnouncementLoading(false);
+  };
+
+  // Trigger deploy
+  const handleDeploy = async (service) => {
+    if (!session?.access_token) return;
+    setDeployStatus(prev => ({ ...prev, [service]: 'loading' }));
+    try {
+      const res = await fetch(`${UPLOAD_API}/api/admin/deploy/${service}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDeployStatus(prev => ({ ...prev, [service]: 'success' }));
+      } else {
+        setDeployStatus(prev => ({ ...prev, [service]: 'error' }));
+        console.error(`Deploy ${service} failed:`, data);
+      }
+    } catch (err) {
+      setDeployStatus(prev => ({ ...prev, [service]: 'error' }));
+      console.error(`Deploy ${service} error:`, err);
+    }
+    setTimeout(() => setDeployStatus(prev => ({ ...prev, [service]: null })), 5000);
+  };
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -119,6 +211,35 @@ const DashboardPage = () => {
     if (hours < 24) return `vor ${hours} Std.`;
     const days = Math.floor(hours / 24);
     return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
+  };
+
+  // Deploy button helper
+  const DeployButton = ({ service, label }) => {
+    const status = deployStatus[service];
+    return (
+      <button
+        onClick={() => handleDeploy(service)}
+        disabled={status === 'loading'}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          padding: '0.6rem 1.2rem', borderRadius: 8, border: 'none',
+          background: status === 'success' ? '#22c55e' : status === 'error' ? '#ef4444' : '#528c68',
+          color: '#fff', fontWeight: 600, cursor: status === 'loading' ? 'wait' : 'pointer',
+          fontSize: '0.85rem', transition: 'all 0.3s', opacity: status === 'loading' ? 0.7 : 1,
+          width: '100%', justifyContent: 'center',
+        }}
+        title={`${label} neu deployen`}
+      >
+        {status === 'loading' ? <Loader size={16} className="spin" /> :
+         status === 'success' ? <CheckCircle size={16} /> :
+         status === 'error' ? <AlertCircle size={16} /> :
+         <RotateCcw size={16} />}
+        {status === 'loading' ? 'Deploying...' :
+         status === 'success' ? 'Gestartet ✓' :
+         status === 'error' ? 'Fehler ✗' :
+         label}
+      </button>
+    );
   };
 
   if (loading) {
@@ -317,6 +438,77 @@ const DashboardPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Admin Section (nur für Admin sichtbar) ── */}
+      {isAdmin && (
+        <div className="card" style={{ padding: '1.25rem', marginTop: '1rem', borderLeft: '3px solid #528c68' }}>
+          <h3 className="chart-title" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Shield size={16} style={{ color: '#528c68' }} />
+            Admin-Bereich
+          </h3>
+
+          {/* Revisionsmeldung */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem', display: 'block', color: '#ccc' }}>
+              Revisionsmeldung (Banner-Text)
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <select
+                value={announcementType}
+                onChange={e => setAnnouncementType(e.target.value)}
+                style={{
+                  padding: '0.5rem', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)',
+                  background: '#1e1e2e', color: '#fff', fontSize: '0.8rem', minWidth: 100,
+                }}
+              >
+                <option value="info">ℹ️ Info</option>
+                <option value="warning">⚠️ Warnung</option>
+                <option value="success">✅ Erfolg</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <textarea
+                value={announcement}
+                onChange={e => setAnnouncement(e.target.value)}
+                placeholder="z.B. Neue Funktion: Bilder können jetzt als ZIP heruntergeladen werden!"
+                rows={2}
+                style={{
+                  flex: 1, padding: '0.6rem 0.8rem', borderRadius: 8,
+                  border: '1px solid rgba(255,255,255,0.1)', background: '#1e1e2e',
+                  color: '#fff', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'inherit',
+                }}
+              />
+              <button
+                onClick={handleSaveAnnouncement}
+                disabled={announcementLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.6rem 1rem', borderRadius: 8, border: 'none',
+                  background: announcementSaved ? '#22c55e' : '#528c68',
+                  color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem',
+                  transition: 'all 0.3s', whiteSpace: 'nowrap',
+                }}
+                title="Revisionsmeldung speichern und an alle Benutzer senden"
+              >
+                {announcementSaved ? <CheckCircle size={14} /> : <Send size={14} />}
+                {announcementSaved ? 'Gespeichert ✓' : 'Senden'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.7rem', color: '#666', marginTop: '0.3rem' }}>
+              Wird als Banner oben auf jeder Seite angezeigt. Leer lassen = kein Banner.
+            </p>
+          </div>
+
+          {/* Deploy Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <DeployButton service="dashboard-app" label="Redeploy Dashboard-App" />
+            <DeployButton service="upload-api" label="Redeploy Upload-API" />
+          </div>
+          <p style={{ fontSize: '0.7rem', color: '#666', marginTop: '0.5rem' }}>
+            Löst einen Coolify-Rebuild aus. Neuester Code wird von GitHub gezogen und neu gebaut.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

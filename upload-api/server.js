@@ -397,6 +397,61 @@ app.put('/api/images/reorder', authenticate, async (req, res) => {
   }
 });
 
+// ── Admin Config ──
+const COOLIFY_TOKEN = process.env.COOLIFY_API_TOKEN;
+const COOLIFY_BASE = process.env.COOLIFY_BASE_URL || 'http://localhost:8000';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'daenu.gallo@bluewin.ch';
+const COOLIFY_UUIDS = {
+  'dashboard-app': process.env.COOLIFY_UUID_DASHBOARD || 'ql9jj8b7paizylbo7cd3pgga',
+  'upload-api': process.env.COOLIFY_UUID_UPLOAD || 'bhdfcbl54jtencddlim5hdfu',
+};
+
+// Admin-only middleware
+const adminOnly = (req, res, next) => {
+  if (req.user?.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+// ── POST /api/admin/deploy/:service ──
+// Triggers Coolify redeploy for dashboard-app or upload-api
+app.post('/api/admin/deploy/:service', authenticate, adminOnly, async (req, res) => {
+  const { service } = req.params;
+  const uuid = COOLIFY_UUIDS[service];
+  if (!uuid) {
+    return res.status(400).json({ error: `Unknown service: ${service}. Use "dashboard-app" or "upload-api"` });
+  }
+  if (!COOLIFY_TOKEN) {
+    return res.status(500).json({ error: 'COOLIFY_API_TOKEN not configured' });
+  }
+
+  try {
+    console.log(`🚀 Admin ${req.user.email} triggered deploy for ${service} (UUID: ${uuid})`);
+    const response = await fetch(`${COOLIFY_BASE}/api/v1/deploy?uuid=${uuid}&force=true`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${COOLIFY_TOKEN}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      console.log(`✅ Deploy triggered for ${service}`);
+      res.json({ success: true, service, message: `Redeploy für ${service} gestartet` });
+    } else {
+      console.error(`❌ Deploy failed for ${service}:`, data);
+      res.status(response.status).json({ error: `Deploy failed: ${data.message || response.statusText}` });
+    }
+  } catch (err) {
+    console.error(`❌ Deploy error for ${service}:`, err.message);
+    res.status(500).json({ error: `Deploy error: ${err.message}` });
+  }
+});
+
+// ── GET /api/admin/check ──
+// Check if current user is admin
+app.get('/api/admin/check', authenticate, (req, res) => {
+  res.json({ isAdmin: req.user?.email === ADMIN_EMAIL });
+});
+
 // ── GET /api/health ──
 app.get('/api/health', (req, res) => {
   res.json({
