@@ -10,13 +10,17 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # Copy source code
-COPY . .
+COPY .  .
+
+# Build args from Coolify (set in Coolify → Environment Variables → Build)
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_UPLOAD_API_URL
 
 # Write Supabase environment variables for Vite build
-# Note: ANON_KEY is a public client-side key (safe to include)
-RUN echo "VITE_SUPABASE_URL=http://debian.orca-mirfak.ts.net:3100" > .env && \
-    echo "VITE_SUPABASE_ANON_KEY=eyJ0eXAiOiAiSldUIiwgImFsZyI6ICJIUzI1NiJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc3MzY5Nzk4MCwgImV4cCI6IDQ5MjkzNzE1ODAsICJyb2xlIjogImFub24ifQ.ACzAXp4dSB2ZZAkY2R2DokthvJ-tDwlEnGHsxi_F5lc" >> .env && \
-    echo "VITE_UPLOAD_API_URL=http://debian.orca-mirfak.ts.net:3200" >> .env
+RUN echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL}" > .env && \
+    echo "VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}" >> .env && \
+    echo "VITE_UPLOAD_API_URL=${VITE_UPLOAD_API_URL}" >> .env
 
 # Build the app
 RUN npm run build
