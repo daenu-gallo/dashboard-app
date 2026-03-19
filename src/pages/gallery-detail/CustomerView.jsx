@@ -124,9 +124,13 @@ const translations = {
   },
 };
 
-const CustomerView = () => {
-  const { slug } = useParams();
-  const navigate = useNavigate();
+const CustomerView = ({ domainMode = null }) => {
+  const { slug: urlSlug } = useParams();
+
+  // ── Resolve gallery slug or custom domain ──
+  // Priority: domainMode > URL slug
+  const [resolvedSlug, setResolvedSlug] = useState(domainMode?.type === 'subdomain' ? domainMode.slug : urlSlug);
+  const [domainLookupDone, setDomainLookupDone] = useState(!domainMode || domainMode.type === 'subdomain');
 
   // ── Load gallery + albums from Supabase ──
   const [supaGallery, setSupaGallery] = useState(null);
@@ -134,7 +138,31 @@ const CustomerView = () => {
   const [supaLoading, setSupaLoading] = useState(true);
   const [supaBrand, setSupaBrand] = useState(null);
 
+  // Custom domain lookup: resolve domain → gallery
   useEffect(() => {
+    if (!domainMode || domainMode.type !== 'custom') return;
+    (async () => {
+      try {
+        const { data: gallery } = await supabase
+          .from('galleries')
+          .select('slug')
+          .eq('custom_domain', domainMode.domain)
+          .maybeSingle();
+        if (gallery) {
+          setResolvedSlug(gallery.slug);
+        }
+      } catch (err) {
+        console.error('[CustomerView] Custom domain lookup error:', err);
+      }
+      setDomainLookupDone(true);
+    })();
+  }, [domainMode]);
+
+  // Use resolvedSlug for everything (could come from URL, subdomain, or domain lookup)
+  const slug = resolvedSlug || urlSlug;
+
+  useEffect(() => {
+    if (!domainLookupDone || !slug) return;
     (async () => {
       try {
         // Fetch gallery by slug (public, no auth needed)
@@ -156,7 +184,7 @@ const CustomerView = () => {
       } catch (err) { console.error('[CustomerView] Supabase load error:', err); }
       setSupaLoading(false);
     })();
-  }, [slug]);
+  }, [slug, domainLookupDone]);
 
   // Gallery key for localStorage fallback (videos only)
   const galleryKey = supaGallery?.title || slug;

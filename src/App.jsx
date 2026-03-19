@@ -58,10 +58,53 @@ const AdminLayout = () => (
   </MainLayout>
 );
 
+// ── Custom Domain Detection ──
+// Configurable: change to 'app.fotohahn.ch' after Scrappbook migration
+const GALLERY_BASE_DOMAIN = import.meta.env.VITE_GALLERY_BASE_DOMAIN || 'galerie.fotohahn.ch';
+const ADMIN_DOMAIN = import.meta.env.VITE_ADMIN_DOMAIN || 'admin.fotohahn.ch';
+
+function getDomainMode() {
+  const hostname = window.location.hostname;
+  // localhost / dev = normal admin mode
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return null;
+  // Admin domain = normal admin mode
+  if (hostname === ADMIN_DOMAIN) return null;
+  // Internal Tailscale hostname = normal admin mode
+  if (hostname.endsWith('.ts.net')) return null;
+  // Subdomain of gallery base: e.g. "kunde1.galerie.fotohahn.ch"
+  if (hostname.endsWith('.' + GALLERY_BASE_DOMAIN)) {
+    const subdomain = hostname.replace('.' + GALLERY_BASE_DOMAIN, '');
+    return { type: 'subdomain', slug: subdomain, domain: hostname };
+  }
+  // Exact gallery base domain: e.g. "galerie.fotohahn.ch" itself
+  if (hostname === GALLERY_BASE_DOMAIN) return null;
+  // Any other domain = custom domain: e.g. "app.kundenfirma.ch"
+  return { type: 'custom', domain: hostname };
+}
+
 function AppContent() {
   useBrandFavicon();
   useKeyboardShortcuts();
 
+  // Check if we're on a custom domain or subdomain
+  const domainMode = getDomainMode();
+
+  // Custom domain or subdomain → render CustomerView directly (no admin routes)
+  if (domainMode) {
+    return (
+      <>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/legal/:type" element={<LegalPage />} />
+            <Route path="*" element={<CustomerView domainMode={domainMode} />} />
+          </Routes>
+        </Suspense>
+        <CookieConsent />
+      </>
+    );
+  }
+
+  // Normal admin mode
   return (
     <>
       <Suspense fallback={<PageLoader />}>
