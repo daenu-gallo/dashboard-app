@@ -138,18 +138,32 @@ const CustomerView = ({ domainMode = null }) => {
   const [supaLoading, setSupaLoading] = useState(true);
   const [supaBrand, setSupaBrand] = useState(null);
 
-  // Custom domain lookup: resolve domain → gallery
+  // Custom domain lookup: resolve domain → brand → user's galleries
   useEffect(() => {
     if (!domainMode || domainMode.type !== 'custom') return;
     (async () => {
       try {
-        const { data: gallery } = await supabase
-          .from('galleries')
-          .select('slug')
-          .eq('custom_domain', domainMode.domain)
+        // Strip 'app.' prefix to find brand website: app.muellerfoto.ch → muellerfoto.ch
+        const brandDomain = domainMode.domain.replace(/^app\./, '');
+        const { data: brand } = await supabase
+          .from('brands')
+          .select('user_id')
+          .eq('website', brandDomain)
+          .eq('active', true)
           .maybeSingle();
-        if (gallery) {
-          setResolvedSlug(gallery.slug);
+        if (brand && urlSlug) {
+          // URL has slug: app.muellerfoto.ch/hochzeit-2025 → load that gallery
+          setResolvedSlug(urlSlug);
+        } else if (brand) {
+          // No slug in URL: app.muellerfoto.ch/ → load first gallery for this user
+          const { data: firstGallery } = await supabase
+            .from('galleries')
+            .select('slug')
+            .eq('user_id', brand.user_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (firstGallery) setResolvedSlug(firstGallery.slug);
         }
       } catch (err) {
         console.error('[CustomerView] Custom domain lookup error:', err);

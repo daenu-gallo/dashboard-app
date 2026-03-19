@@ -225,7 +225,7 @@ const MarkenTab = () => {
     (async () => {
       const { data: dbBrands } = await supabase.from('brands').select('*').eq('user_id', user.id);
       if (dbBrands?.length > 0) {
-        const mapped = dbBrands.map(b => ({ id: b.id, name: b.name, active: b.active, logo: b.logo || null }));
+        const mapped = dbBrands.map(b => ({ id: b.id, name: b.name, active: b.active, logo: b.logo || null, website: b.website || '' }));
         brandLoadedFromDb.current = true;
         queueMicrotask(() => setBrands(mapped));
       }
@@ -241,17 +241,41 @@ const MarkenTab = () => {
   // ── Sync brands to Supabase (debounced) ──
   const brandSyncTimer = useRef(null);
   const brandSyncSkip = useRef(true);
+  const prevBrandWebsites = useRef({});
   useEffect(() => {
     if (brandSyncSkip.current) { brandSyncSkip.current = false; return; }
     if (!user) return;
     if (brandSyncTimer.current) clearTimeout(brandSyncTimer.current);
     brandSyncTimer.current = setTimeout(async () => {
       try {
+        // Detect domain changes before sync
+        for (const b of brands) {
+          const oldWebsite = prevBrandWebsites.current[b.name] || '';
+          const newWebsite = b.website || '';
+          if (newWebsite && newWebsite !== oldWebsite) {
+            // Domain changed → notify admin
+            try {
+              await supabase.from('domain_notifications').insert({
+                user_id: user.id,
+                user_email: user.email,
+                brand_name: b.name,
+                old_domain: oldWebsite || null,
+                new_domain: newWebsite,
+              });
+              console.log(`[Domain] Notification sent: ${b.name} → ${newWebsite}`);
+            } catch (notifyErr) {
+              console.warn('[Domain] Notification insert failed:', notifyErr);
+            }
+          }
+        }
+        // Update prev websites cache
+        prevBrandWebsites.current = brands.reduce((acc, b) => ({ ...acc, [b.name]: b.website || '' }), {});
+
         await supabase.from('brands').delete().eq('user_id', user.id);
         if (brands.length > 0) {
           await supabase.from('brands').insert(brands.map(b => ({
             user_id: user.id, name: b.name, active: b.active !== false,
-            logo: b.logo || null,
+            logo: b.logo || null, website: b.website || null,
           })));
         }
       } catch (err) { console.error('[Settings] Brand sync error:', err); }
@@ -319,18 +343,17 @@ const MarkenTab = () => {
   };
 
   // ── Open modals ──
-  const openAddBrand = () => { setModalType('add-brand'); setModalData({ name: '', image: null }); };
+  const openAddBrand = () => { setModalType('add-brand'); setModalData({ name: '', image: null, website: '' }); };
   const openEditBrand = (b) => { setBrandSettingsBrand(b); };
   const openAddWm = () => { setModalType('add-wm-chooser'); setModalData({}); };
   const openEditWm = (wm) => { setModalType('edit-wm'); setModalData({ ...wm }); };
 
-  // ── Save brand ──
   const saveBrand = () => {
     if (!modalData.name?.trim()) return;
     if (modalType === 'add-brand') {
-      setBrands(prev => [...prev, { id: Date.now(), name: modalData.name.trim(), active: true, logo: modalData.image }]);
+      setBrands(prev => [...prev, { id: Date.now(), name: modalData.name.trim(), active: true, logo: modalData.image, website: modalData.website?.trim() || '' }]);
     } else {
-      setBrands(prev => prev.map(b => b.id === modalData.id ? { ...b, name: modalData.name, logo: modalData.image } : b));
+      setBrands(prev => prev.map(b => b.id === modalData.id ? { ...b, name: modalData.name, logo: modalData.image, website: modalData.website?.trim() || '' } : b));
     }
     setModalType(null);
   };
@@ -527,6 +550,16 @@ const MarkenTab = () => {
                 <label style={{ fontWeight: 600 }}>Logo</label>
                 {modalData.image && <div style={{ marginBottom: 8, textAlign: 'center', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: 8 }}><img src={modalData.image} alt="" style={{ maxWidth: '100%', maxHeight: 100, objectFit: 'contain' }} /></div>}
                 <button className="file-upload-btn" onClick={() => modalFileRef.current?.click()} style={{ width: '100%' }}>Bild hochladen <ImageIcon size={14} /></button>
+              </div>
+              <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
+                <label style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  Website / Domain
+                  <span title="Trage hier deine Firmen-Website ein (z.B. muellerfoto.ch).&#10;Daraus wird automatisch deine Galerie-Domain abgeleitet: app.muellerfoto.ch&#10;&#10;DNS-Anleitung:&#10;Setze bei deinem Domain-Anbieter einen CNAME-Eintrag:&#10;app.deinedomain.ch → CNAME → galerie.fotohahn.ch" style={{ cursor: 'help', color: '#aaa' }}><HelpCircle size={13} /></span>
+                </label>
+                <input className="form-input-st" placeholder="z.B. muellerfoto.ch" value={modalData.website || ''} onChange={e => setModalData(p => ({ ...p, website: e.target.value }))} />
+                {modalData.website && (
+                  <p style={{ fontSize: '0.8rem', color: '#528c68', marginTop: '0.35rem' }}>🌐 Galerie-Domain: <strong>app.{modalData.website.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}</strong></p>
+                )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                 <button onClick={saveBrand} style={greenBtn}>Speichern</button>
@@ -1345,27 +1378,34 @@ const DomainsTab = () => {
   const typeLabel = legalModal?.type === 'impressum' ? 'Impressum' : 'Datenschutzerklärung';
 
 
+  // Derive domain from active brand's website
+  const activeBrand = brands?.find(b => b.active) || brands?.[0];
+  const brandWebsite = activeBrand?.website || '';
+  const derivedDomain = brandWebsite ? `app.${brandWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}` : '';
+
   return (
     <div>
       <div className="settings-section">
         <div className="settings-section-header"><h3>Eigene Domains</h3></div>
-        <table className="settings-table">
-          <thead>
-            <tr><th>Deine Domain</th><th>Ziel Domain</th><th>Impressum</th><th>Datenschutz</th><th>Aktion</th></tr>
-          </thead>
-          <tbody>
-            {domains.map(d => (
-              <tr key={d.id}>
-                <td>{d.domain}</td>
-                <td className="text-sm text-muted">{d.target}</td>
-                <td><select className="form-select-sm" value={d.impressum} onChange={e => setDomains(prev => prev.map(x => x.id === d.id ? { ...x, impressum: e.target.value } : x))}>{impressumList.map(i => <option key={i.id}>{i.name}</option>)}</select></td>
-                <td><select className="form-select-sm" value={d.datenschutz} onChange={e => setDomains(prev => prev.map(x => x.id === d.id ? { ...x, datenschutz: e.target.value } : x))}>{datenschutzList.map(i => <option key={i.id}>{i.name}</option>)}</select></td>
-                <td><button className="icon-btn green" onClick={() => deleteDomain(d.id)} title="Löschen"><Trash2 size={14} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button className="add-link" onClick={addDomain}><Plus size={14} /> Neue Subdomain</button>
+        <div style={{ padding: '1rem 0' }}>
+          {derivedDomain ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontWeight: 600, fontSize: '1.05rem' }}>🌐 {derivedDomain}</span>
+                <span style={{ fontSize: '0.8rem', color: '#888', background: '#f0f0f0', padding: '2px 8px', borderRadius: 4 }}>Abgeleitet von Marke</span>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', lineHeight: 1.6, background: '#f9f9f9', padding: '0.75rem 1rem', borderRadius: 8, border: '1px solid #eee' }}>
+                <strong>Anleitung für den Kunden:</strong><br />
+                Bitte beim Domain-Anbieter folgenden DNS-Eintrag setzen:<br />
+                <code style={{ background: '#e8e8e8', padding: '2px 6px', borderRadius: 3 }}>
+                  {derivedDomain} → CNAME → galerie.fotohahn.ch
+                </code>
+              </div>
+            </div>
+          ) : (
+            <p style={{ color: '#999', fontStyle: 'italic' }}>Bitte trage zuerst eine Website bei deiner Marke ein (Tab "Marken & Wasserzeichen").</p>
+          )}
+        </div>
       </div>
       <div className="settings-two-col" style={{ marginTop: '1.5rem' }}>
         <div className="settings-section">
