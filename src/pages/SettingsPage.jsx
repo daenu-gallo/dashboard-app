@@ -796,7 +796,7 @@ const VoreinstellungenTab = () => {
   const [detailModal, setDetailModal] = useState(null);
 
   const handleDelete = (idx) => setPresets(prev => prev.filter((_, i) => i !== idx));
-  const handleSetStandard = (idx) => setPresets(prev => prev.map((p, i) => ({ ...p, standard: i === idx })));
+  const handleSetStandard = (idx) => setPresets(prev => prev.map((p, i) => ({ ...p, standard: i === idx ? !p.standard : false })));
 
   const openEdit = (idx) => {
     const p = presets[idx];
@@ -825,6 +825,8 @@ const VoreinstellungenTab = () => {
 
   const handleAddSave = () => {
     if (!modal || !modal.name.trim()) return;
+    const nameExists = presets.some(p => p.name.toLowerCase() === modal.name.trim().toLowerCase());
+    if (nameExists) { alert('Eine Voreinstellung mit diesem Namen existiert bereits.'); return; }
     setPresets(prev => [...prev, { name: modal.name.trim(), standard: false }]);
     setModal(null);
   };
@@ -864,7 +866,7 @@ const VoreinstellungenTab = () => {
               <td className="preset-actions">
                 <button className="icon-btn green" onClick={() => openEdit(i)} title="Bearbeiten"><Edit3 size={14} /></button>
                 <button className="icon-btn green" onClick={() => handleDelete(i)} title="Löschen"><Trash2 size={14} /></button>
-                {p.standard ? <span className="preset-check active"><Check size={14} /></span> : <Circle size={14} style={{ color: '#ccc', cursor: 'pointer' }} onClick={() => handleSetStandard(i)} />}
+                {p.standard ? <span className="preset-check active" style={{ cursor: 'pointer' }} onClick={() => handleSetStandard(i)}><Check size={14} /></span> : <Circle size={14} style={{ color: '#ccc', cursor: 'pointer' }} onClick={() => handleSetStandard(i)} />}
               </td>
             </tr>
           ))}
