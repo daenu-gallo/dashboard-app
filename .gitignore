@@ -26,3 +26,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sensible Dokumentation (nur lokal)
+docs/bedienungshandbuch.md
+docs/checkliste.md
