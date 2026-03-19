@@ -24,11 +24,22 @@ const tabs = [
 const GalleryDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { getGalleryBySlug, updateGallery, loading } = useGalleries();
+  const { getGalleryBySlug, updateGallery, loading, galleries } = useGalleries();
   const [activeTab, setActiveTab] = useState('bilder');
   
   const gallery = getGalleryBySlug(slug);
   const [dynamicCounts, setDynamicCounts] = useState({ albums: 0, photos: 0 });
+
+
+
+  // After slug update in sub-component, redirect to new slug
+  const handleUpdateGallery = async (id, updates) => {
+    const result = await updateGallery(id, updates);
+    if (result?.slug && result.slug !== slug) {
+      navigate(`/galleries/${result.slug}`, { replace: true });
+    }
+    return result;
+  };
 
   // Gallery key for sub-components
   const galleryKey = gallery?.title || slug;
@@ -67,13 +78,13 @@ const GalleryDetailPage = () => {
     // They will be migrated in the NAS image phase  
     const legacyGallery = { title: gallery.title, slug: gallery.slug };
     switch (activeTab) {
-      case 'bilder': return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
-      case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} />;
-      case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} />;
+      case 'bilder': return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
+      case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
+      case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
       case 'statistiken': return <StatistikenTab galleryId={gallery.id} />;
       case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={{}} appIconSrc={appIconSrc} />;
-      default: return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={updateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
+      default: return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
     }
   };
 
