@@ -1003,8 +1003,49 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               setTimeout(() => setUploadProgress(null), 2500);
             }}
           >
-            <div className="album-header">
-              <div className="album-header-left">
+            <div className="album-header"
+              draggable
+              onDragStart={e => {
+                if (e.target.closest('.album-name-input') || e.target.closest('select') || e.target.closest('.album-trash-btn')) { e.preventDefault(); return; }
+                e.dataTransfer.setData('albumDragIdx', String(idx));
+                e.currentTarget.closest('.album-section').style.opacity = '0.4';
+              }}
+              onDragEnd={e => { e.currentTarget.closest('.album-section').style.opacity = '1'; }}
+              onDragOver={e => {
+                if (!e.dataTransfer.types.includes('albumDragIdx')) return;
+                e.preventDefault();
+                e.currentTarget.style.borderBottom = '3px solid #4a7c59';
+              }}
+              onDragLeave={e => { e.currentTarget.style.borderBottom = ''; }}
+              onDrop={e => {
+                e.currentTarget.style.borderBottom = '';
+                const from = Number(e.dataTransfer.getData('albumDragIdx'));
+                if (isNaN(from) || from === idx) return;
+                e.preventDefault();
+                // Reorder albums
+                const newAlbums = [...albums];
+                const [moved] = newAlbums.splice(from, 1);
+                newAlbums.splice(idx, 0, moved);
+                setAlbums(newAlbums);
+                // Reindex names, toggles, texts, videos
+                const reindex = (obj) => {
+                  const entries = Object.entries(obj).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0]);
+                  const oldArr = entries.map(([, v]) => v);
+                  const newArr = [...oldArr];
+                  const [movedItem] = newArr.splice(from, 1);
+                  newArr.splice(idx, 0, movedItem);
+                  const result = {};
+                  newArr.forEach((v, i) => { if (v !== undefined) result[i] = v; });
+                  return result;
+                };
+                setAlbumNames(prev => reindex(prev));
+                setAlbumToggles(prev => reindex(prev));
+                setAlbumTexts(prev => reindex(prev));
+                setUploadedVideos(prev => reindex(prev));
+              }}
+            >
+              <div className="album-header-left" style={{ cursor: 'grab' }}>
+                <GripVertical size={14} style={{ color: '#bbb', flexShrink: 0, marginRight: 4 }} />
                 <button
                   className="album-chevron-btn"
                   onClick={() => toggleAlbum(idx)}
@@ -1148,22 +1189,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                   <option>Manuelle Sortierung</option>
                 </select>
                 <div className="album-reorder-btns">
-                  <button
-                    className="album-move-btn"
-                    title="Nach oben"
-                    disabled={idx === 0}
-                    onClick={() => moveAlbum(idx, -1)}
-                  >
-                    <ArrowUp size={13} />
-                  </button>
-                  <button
-                    className="album-move-btn"
-                    title="Nach unten"
-                    disabled={idx === albums.length - 1}
-                    onClick={() => moveAlbum(idx, 1)}
-                  >
-                    <ArrowDown size={13} />
-                  </button>
                   <button
                     className="album-move-btn"
                     title={sortDirection[idx] === 'desc' ? 'Bilder Z→A' : 'Bilder A→Z'}
