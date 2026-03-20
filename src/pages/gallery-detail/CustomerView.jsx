@@ -418,15 +418,7 @@ const CustomerView = ({ domainMode = null }) => {
   const lang = settings.sprache === 'English' ? 'English' : settings.sprache === 'Français' ? 'Français' : settings.sprache === 'Italiano' ? 'Italiano' : 'Deutsch';
   const t = translations[lang];
 
-  // No slug available: show 404 (e.g. galerie.fotohahn.ch without a gallery path)
-  if (!supaLoading && !supaGallery && !slug) {
-    return <NotFoundPage />;
-  }
-
-  // 404: Gallery not found
-  if (!supaLoading && !supaGallery) {
-    return <NotFoundPage />;
-  }
+  // NOTE: Early returns moved AFTER all hooks (see below) to comply with React rules of hooks
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -608,6 +600,14 @@ const CustomerView = ({ domainMode = null }) => {
 
   // Prepare a ZIP and save it using native Save As dialog
   const [zipReady, setZipReady] = useState(null); // { url, filename } — fallback only
+
+  // ── Early returns (must be AFTER all hooks to comply with React rules) ──
+  if (!supaLoading && !supaGallery && !slug) {
+    return <NotFoundPage />;
+  }
+  if (!supaLoading && !supaGallery) {
+    return <NotFoundPage />;
+  }
 
   const prepareZipDownload = async (images, zipName) => {
     if (!images || images.length === 0) return;
