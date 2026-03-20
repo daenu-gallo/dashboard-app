@@ -138,7 +138,7 @@ const authenticate = async (req, res, next) => {
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/tiff', 'image/gif'];
 const upload = multer({
   dest: '/tmp/uploads/',
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB per file
+  limits: { fileSize: 40 * 1024 * 1024 }, // 40MB per file
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIMES.includes(file.mimetype)) {
       cb(null, true);
