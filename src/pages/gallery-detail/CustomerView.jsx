@@ -265,7 +265,11 @@ const CustomerView = ({ domainMode = null }) => {
   // Videos still from localStorage (embeds/YouTube URLs)
   const [uploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
 
-  // \u2500\u2500 SEO: Dynamic Open Graph meta tags for sharing \u2500\u2500
+  // Brand: use Supabase data (must be before useMetaTags which references brandName)
+  const activeBrand = supaBrand || { name: '' };
+  const brandName = activeBrand.name;
+
+  // ── SEO: Dynamic Open Graph meta tags for sharing ──
   const totalPhotos = Object.values(uploadedImages).reduce((sum, imgs) => sum + imgs.length, 0);
   const firstImage = Object.values(uploadedImages).find(a => a?.length > 0)?.[0]?.src || null;
   useMetaTags({
@@ -280,10 +284,6 @@ const CustomerView = ({ domainMode = null }) => {
   // Legal links – use internal routes
   const impressumUrl = '/legal/impressum';
   const datenschutzUrl = '/legal/datenschutz';
-
-  // Brand: use Supabase data
-  const activeBrand = supaBrand || { name: '' };
-  const brandName = activeBrand.name;
 
   // Global brand settings (logos, contact, social) - still localStorage for now
   const { globalBrand } = useBrand();
