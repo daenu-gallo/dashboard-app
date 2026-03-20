@@ -39,8 +39,25 @@ if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
 
 const app = express();
 
+// ── Trust Proxy (behind Cloudflare/Traefik) ──
+// Required for rate limiter to see real client IPs
+app.set('trust proxy', 1);
+
 // ── Security Middleware ──
-app.use(helmet());
+app.use(helmet({
+  hsts: {
+    maxAge: 31536000,        // 1 year
+    includeSubDomains: true,
+  },
+}));
+
+// ── HTTPS Redirect (Defense-in-Depth) ──
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, health checks)
