@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useGalleryImages } from '../../hooks/useGalleryImages';
+import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
 import { supabase } from '../../lib/supabaseClient';
 import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
@@ -619,7 +620,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const [eyeOverlayAlbum, setEyeOverlayAlbum] = useState(null);
 
   // Read watermark settings
-  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  const [watermarks] = useWatermarks();
   const [watermarkModalTarget, setWatermarkModalTarget] = useState(null);
 
   // Apply watermark to an image using a specific watermark index

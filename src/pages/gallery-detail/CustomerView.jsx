@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
 import { useMetaTags } from '../../hooks/useMetaTags';
 import { useTrackView } from '../../hooks/useTrackView';
@@ -208,7 +209,7 @@ const CustomerView = ({ domainMode = null }) => {
             if (settingsRow?.value) {
               setOwnerBrandSettings(settingsRow.value);
             }
-          }
+            }
         }
       } catch (err) { console.error('[CustomerView] Supabase load error:', err); }
       setSupaLoading(false);
@@ -301,8 +302,8 @@ const CustomerView = ({ domainMode = null }) => {
   const { globalBrand: contextBrand } = useBrand();
   const globalBrand = ownerBrandSettings || contextBrand || {};
 
-  // Watermarks from settings
-  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  // Watermarks from Supabase (uses gallery owner's user_id for anonymous visitors)
+  const [watermarks] = useWatermarks(supaGallery?.user_id);
   const selectedWm = watermarks.find(wm => String(wm.id) === String(toggles.selectedWatermarkId)) || null;
 
   // Dynamic watermark overlay component with hierarchy:

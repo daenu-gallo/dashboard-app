@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, X, Check, Info, Eye, EyeOff } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
 
 const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const galleryKey = gallery?.title || 'default';
   const { globalBrand, brands } = useBrand();
-  const [watermarks] = usePersistedState('settings_watermarks_v2', []);
+  const [watermarks] = useWatermarks();
   const [presets] = usePersistedState('settings_presets', []);
 
   // ── Initialize from Supabase data ──
