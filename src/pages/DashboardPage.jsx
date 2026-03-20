@@ -244,7 +244,7 @@ const DashboardPage = () => {
   };
 
   // Brand name for greeting (hook must be before conditional returns)
-  const { activeBrand } = useBrand();
+  const { brands } = useBrand();
 
   if (loading) {
     return (
@@ -256,7 +256,7 @@ const DashboardPage = () => {
     );
   }
 
-  const displayName = activeBrand?.name || user?.email?.split('@')[0] || 'Fotograf';
+  const displayName = brands?.[0]?.name || user?.email?.split('@')[0] || 'Fotograf';
 
   return (
     <div className="dashboard-page">
