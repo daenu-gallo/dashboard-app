@@ -719,7 +719,7 @@ const CustomerView = ({ domainMode = null }) => {
     if (allPhotos.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % allPhotos.length);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [allPhotos.length]);
 
