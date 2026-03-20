@@ -209,7 +209,7 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
       const thumbPath = path.join(thumbDir, thumbFilename);
       await sharp(file.path)
         .rotate()
-        .resize(400, null, { withoutEnlargement: true })
+        .resize(800, null, { withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toFile(thumbPath);
 
