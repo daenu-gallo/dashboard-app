@@ -132,9 +132,13 @@ const Topbar = () => {
           <div className="breadcrumbs">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={crumb}>
-                <span className={index === breadcrumbs.length - 1 ? 'crumb-active' : 'crumb'}>
-                  {crumb}
-                </span>
+                {index < breadcrumbs.length - 1 ? (
+                  <span className="crumb" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+                    {crumb}
+                  </span>
+                ) : (
+                  <span className="crumb-active">{crumb}</span>
+                )}
                 {index < breadcrumbs.length - 1 && <span className="separator">/</span>}
               </React.Fragment>
             ))}
