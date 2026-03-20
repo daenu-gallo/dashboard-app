@@ -601,13 +601,7 @@ const CustomerView = ({ domainMode = null }) => {
   // Prepare a ZIP and save it using native Save As dialog
   const [zipReady, setZipReady] = useState(null); // { url, filename } — fallback only
 
-  // ── Early returns (must be AFTER all hooks to comply with React rules) ──
-  if (!supaLoading && !supaGallery && !slug) {
-    return <NotFoundPage />;
-  }
-  if (!supaLoading && !supaGallery) {
-    return <NotFoundPage />;
-  }
+  // NOTE: 404 early returns moved after ALL hooks (see after scroll animation useEffect)
 
   const prepareZipDownload = async (images, zipName) => {
     if (!images || images.length === 0) return;
@@ -827,6 +821,14 @@ const CustomerView = ({ domainMode = null }) => {
       mutationObserver.disconnect();
     };
   }, []);
+
+  // ── Early returns (MUST be after ALL hooks to comply with React rules of hooks) ──
+  if (!supaLoading && !supaGallery && !slug) {
+    return <NotFoundPage />;
+  }
+  if (!supaLoading && !supaGallery) {
+    return <NotFoundPage />;
+  }
 
   return (
     <div className="customer-view" style={designStyles}>
