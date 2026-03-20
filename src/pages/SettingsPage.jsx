@@ -11,7 +11,7 @@ const settingsTabs = [
   { id: 'voreinstellungen', label: 'Galerie Voreinstellungen' },
   { id: 'steuer', label: 'Steuerinformationen' },
   { id: 'mitteilungen', label: 'Mitteilungen' },
-  { id: 'domains', label: 'Eigene Domains' },
+  // { id: 'domains', label: 'Eigene Domains' }, // deaktiviert — nutzen galerie.fotohahn.ch/{slug}
   { id: 'sprache', label: 'Sprache' },
 ];
 

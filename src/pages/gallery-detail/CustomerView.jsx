@@ -141,6 +141,7 @@ const CustomerView = ({ domainMode = null }) => {
   const [supaAlbums, setSupaAlbums] = useState([]);
   const [supaLoading, setSupaLoading] = useState(true);
   const [supaBrand, setSupaBrand] = useState(null);
+  const [ownerBrandSettings, setOwnerBrandSettings] = useState(null);
 
   // Custom domain lookup: resolve domain → brand → user's galleries
   useEffect(() => {
@@ -197,6 +198,16 @@ const CustomerView = ({ domainMode = null }) => {
             const { data: brands } = await supabase
               .from('brands').select('*').eq('user_id', gallery.user_id).eq('active', true).limit(1);
             if (brands?.[0]) setSupaBrand(brands[0]);
+            // Also fetch global_brand_settings (logos, contact, social media)
+            const { data: settingsRow } = await supabase
+              .from('user_settings')
+              .select('value')
+              .eq('user_id', gallery.user_id)
+              .eq('key', 'global_brand_settings')
+              .maybeSingle();
+            if (settingsRow?.value) {
+              setOwnerBrandSettings(settingsRow.value);
+            }
           }
         }
       } catch (err) { console.error('[CustomerView] Supabase load error:', err); }
@@ -285,8 +296,10 @@ const CustomerView = ({ domainMode = null }) => {
   const impressumUrl = '/legal/impressum';
   const datenschutzUrl = '/legal/datenschutz';
 
-  // Global brand settings (logos, contact, social) - still localStorage for now
-  const { globalBrand } = useBrand();
+  // Global brand settings: use fetched owner settings for anonymous visitors,
+  // fall back to BrandContext for logged-in admin users
+  const { globalBrand: contextBrand } = useBrand();
+  const globalBrand = ownerBrandSettings || contextBrand || {};
 
   // Watermarks from settings
   const [watermarks] = usePersistedState('settings_watermarks_v2', []);
