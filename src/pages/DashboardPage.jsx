@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useBrand } from '../contexts/BrandContext';
 import './Dashboard.css';
 
 const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
@@ -242,6 +243,9 @@ const DashboardPage = () => {
     );
   };
 
+  // Brand name for greeting (hook must be before conditional returns)
+  const { activeBrand } = useBrand();
+
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -252,12 +256,14 @@ const DashboardPage = () => {
     );
   }
 
+  const displayName = activeBrand?.name || user?.email?.split('@')[0] || 'Fotograf';
+
   return (
     <div className="dashboard-page">
       {/* Greeting */}
       <div style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
-          {getGreeting()}, {user?.email?.split('@')[0] || 'Fotograf'} 👋
+          {getGreeting()}, {displayName} 👋
         </h1>
         <p style={{ color: '#888', fontSize: '0.85rem', margin: '0.3rem 0 0' }}>
           Hier ist dein Überblick für heute.
