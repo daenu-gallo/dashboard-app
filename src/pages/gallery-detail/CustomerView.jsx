@@ -221,7 +221,7 @@ const CustomerView = ({ domainMode = null }) => {
     downloadPinCode: supaGallery.download_pin_code || '',
     shootingdatum: supaGallery.shooting_date || '',
   } : {
-    titel: slug, domain: '', domainpfad: toSlug(slug), passwort: '',
+    titel: slug || '', domain: '', domainpfad: toSlug(slug || ''), passwort: '',
     sprache: 'Deutsch', mitteilung: '', downloadPinCode: '', shootingdatum: '',
   };
 
