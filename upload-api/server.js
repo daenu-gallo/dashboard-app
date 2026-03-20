@@ -209,8 +209,8 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
       const thumbPath = path.join(thumbDir, thumbFilename);
       await sharp(file.path)
         .rotate()
-        .resize(800, null, { withoutEnlargement: true })
-        .jpeg({ quality: 80 })
+        .resize(1200, null, { withoutEnlargement: true })
+        .jpeg({ quality: 90 })
         .toFile(thumbPath);
 
       // Calculate file size
