@@ -67,12 +67,17 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
 
   const update = (field, val) => setGlobalSettings(prev => ({ ...prev, [field]: val }));
 
+  // Save feedback state
+  const [saveConfirm, setSaveConfirm] = useState(false);
+
   // Sync brand name to settings_brands when saving
   const handleSave = () => {
     if (setBrands && globalSettings.firmenname) {
       setBrands(prev => prev.map(b => b.id === brand.id ? { ...b, name: globalSettings.firmenname } : b));
     }
-    onSave();
+    // Show save confirmation (don't close modal)
+    setSaveConfirm(true);
+    setTimeout(() => setSaveConfirm(false), 2000);
   };
 
   const subTabs = [
@@ -119,7 +124,7 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
                 <input className="form-input-st" value={globalSettings.email} onChange={e => update('email', e.target.value)} /></div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}><label style={{ fontWeight: 600 }}>Telefonnummer für Kunden (mit Ländervorwahl)</label>
                 <input className="form-input-st" value={globalSettings.telefon} onChange={e => update('telefon', e.target.value)} /></div>
-              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', marginTop: '1.25rem', padding: '0.65rem' }}>Speichern</button>
+              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', marginTop: '1.25rem', padding: '0.65rem' }}>{saveConfirm ? '✓ Gespeichert' : 'Speichern'}</button>
             </div>
           )}
 
@@ -180,7 +185,7 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
                   </div>
                 )}
               </div>
-              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', padding: '0.65rem' }}>Speichern</button>
+              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', padding: '0.65rem' }}>{saveConfirm ? '✓ Gespeichert' : 'Speichern'}</button>
             </div>
           )}
 
@@ -200,7 +205,7 @@ const BrandSettingsModal = ({ brand, onClose, onSave, setBrands }) => {
                 <input className="form-input-st" value={globalSettings.pinterest} onChange={e => update('pinterest', e.target.value)} /></div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}><label style={{ fontWeight: 600 }}>Dein Youtube Account</label>
                 <input className="form-input-st" value={globalSettings.youtube} onChange={e => update('youtube', e.target.value)} /></div>
-              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', marginTop: '1.25rem', padding: '0.65rem' }}>Speichern</button>
+              <button onClick={handleSave} style={{ ...greenBtn, width: '100%', marginTop: '1.25rem', padding: '0.65rem' }}>{saveConfirm ? '✓ Gespeichert' : 'Speichern'}</button>
             </div>
           )}
         </div>
@@ -767,7 +772,7 @@ const MarkenTab = () => {
         <BrandSettingsModal
           brand={brandSettingsBrand}
           onClose={() => setBrandSettingsBrand(null)}
-          onSave={() => setBrandSettingsBrand(null)}
+          onSave={() => { /* save handled inside modal, don't close */ }}
           setBrands={setBrands}
         />
       )}
