@@ -93,6 +93,19 @@ app.use(generalLimiter);
 
 app.use(express.json());
 
+// ── Request logging (security audit trail) ──
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const ip = req.ip || req.connection?.remoteAddress;
+    if (!req.path.startsWith('/api/images/') || req.method !== 'GET') {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} → ${res.statusCode} (${duration}ms) IP:${ip}`);
+    }
+  });
+  next();
+});
+
 // ── JWT Auth Middleware ──
 const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -122,17 +135,54 @@ const authenticate = async (req, res, next) => {
 };
 
 // ── Multer: temp upload to /tmp ──
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/tiff', 'image/gif'];
 const upload = multer({
   dest: '/tmp/uploads/',
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB per file
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (ALLOWED_MIMES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files allowed'), false);
+      cb(new Error(`File type not allowed: ${file.mimetype}. Allowed: JPEG, PNG, WebP, HEIC, TIFF, GIF`), false);
     }
   },
 });
+
+// ── Helper: Validate file is a real image via magic bytes ──
+const MAGIC_BYTES = {
+  'ffd8ff': 'image/jpeg',          // JPEG
+  '89504e47': 'image/png',         // PNG
+  '52494646': 'image/webp',        // WebP (RIFF header)
+  '47494638': 'image/gif',         // GIF
+  '49492a00': 'image/tiff',        // TIFF (little-endian)
+  '4d4d002a': 'image/tiff',        // TIFF (big-endian)
+};
+async function validateImageMagicBytes(filePath) {
+  try {
+    const fd = await fs.open(filePath, 'r');
+    const buf = Buffer.alloc(8);
+    await fd.read(buf, 0, 8, 0);
+    await fd.close();
+    const hex = buf.toString('hex').toLowerCase();
+    for (const [magic, type] of Object.entries(MAGIC_BYTES)) {
+      if (hex.startsWith(magic)) return true;
+    }
+    // HEIC/HEIF: check for 'ftyp' at offset 4
+    if (hex.substring(8, 16) === '66747970') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// ── Helper: Sanitize filename (prevent path traversal) ──
+function sanitizeFilename(name) {
+  return name
+    .replace(/\.\.\//g, '')           // Remove ../ path traversal
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Only safe chars
+    .replace(/_{2,}/g, '_')           // Collapse multiple underscores
+    .substring(0, 200);                // Max length
+}
 
 // ── Helper: Ensure directory exists ──
 const ensureDir = async (dirPath) => {
@@ -184,12 +234,18 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
 
     const results = [];
     for (const file of req.files) {
-      // Generate unique filename
+      // Validate magic bytes (real image check)
+      const isRealImage = await validateImageMagicBytes(file.path);
+      if (!isRealImage) {
+        console.warn(`⚠️ File rejected (invalid magic bytes): ${file.originalname}`);
+        await fs.unlink(file.path).catch(() => {});
+        continue; // Skip this file
+      }
+
+      // Generate unique sanitized filename
       const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
       const hash = crypto.randomBytes(6).toString('hex');
-      const safeName = file.originalname
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .replace(ext, '');
+      const safeName = sanitizeFilename(file.originalname.replace(ext, ''));
       const filename = `${safeName}_${hash}${ext}`;
 
       // Process with sharp
