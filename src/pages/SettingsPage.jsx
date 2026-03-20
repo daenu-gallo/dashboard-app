@@ -940,10 +940,17 @@ const VoreinstellungenTab = () => {
             <div style={greenHeader}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                 <Edit3 size={16} style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => {
-                  const newName = prompt('Galerie-Name ändern:', detailModal.name);
-                  if (newName && newName.trim()) ud('name', newName.trim());
+                  const input = document.getElementById('preset-name-input');
+                  if (input) { input.style.display = 'inline-block'; input.focus(); input.select(); }
                 }} title="Name ändern" />
-                {displayName(detailModal.name)}
+                <span style={{ fontWeight: 500 }}>{displayName(detailModal.name)}</span>
+                <input
+                  id="preset-name-input"
+                  style={{ display: 'none', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 4, color: '#fff', padding: '2px 8px', fontSize: '0.9rem', fontWeight: 500, width: '60%' }}
+                  defaultValue={detailModal.name}
+                  onBlur={e => { const v = e.target.value.trim(); if (v) ud('name', v); e.target.style.display = 'none'; }}
+                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.style.display = 'none'; } }}
+                />
               </span>
               <X size={20} style={{ cursor: 'pointer' }} onClick={() => setDetailModal(null)} />
             </div>
