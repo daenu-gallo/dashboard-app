@@ -418,6 +418,11 @@ const CustomerView = ({ domainMode = null }) => {
   const lang = settings.sprache === 'English' ? 'English' : settings.sprache === 'Français' ? 'Français' : settings.sprache === 'Italiano' ? 'Italiano' : 'Deutsch';
   const t = translations[lang];
 
+  // No slug available: show 404 (e.g. galerie.fotohahn.ch without a gallery path)
+  if (!supaLoading && !supaGallery && !slug) {
+    return <NotFoundPage />;
+  }
+
   // 404: Gallery not found
   if (!supaLoading && !supaGallery) {
     return <NotFoundPage />;
