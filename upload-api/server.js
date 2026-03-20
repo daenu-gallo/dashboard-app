@@ -44,12 +44,18 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ── Security Middleware ──
+// HSTS disabled in helmet — we set it conditionally below for *.fotohahn.ch only
 app.use(helmet({
-  hsts: {
-    maxAge: 31536000,        // 1 year
-    includeSubDomains: true,
-  },
+  hsts: false, // Don't set HSTS globally (breaks Tailscale HTTP access)
 }));
+
+// Conditional HSTS: only for *.fotohahn.ch domains (not Tailscale internal)
+app.use((req, res, next) => {
+  if (req.hostname && req.hostname.endsWith('fotohahn.ch')) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 // Note: HTTPS redirect is handled by Cloudflare "Always Use HTTPS"
 // Do NOT redirect here — Cloudflare Tunnel communicates over HTTP internally
