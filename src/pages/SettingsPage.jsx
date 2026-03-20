@@ -351,11 +351,15 @@ const MarkenTab = () => {
   const saveBrand = () => {
     if (!modalData.name?.trim()) return;
     if (modalType === 'add-brand') {
-      setBrands(prev => [...prev, { id: Date.now(), name: modalData.name.trim(), active: true, logo: modalData.image, website: modalData.website?.trim() || '' }]);
+      const newBrand = { id: Date.now(), name: modalData.name.trim(), active: true, logo: null, website: modalData.website?.trim() || '' };
+      setBrands(prev => [...prev, newBrand]);
+      setModalType(null);
+      // Auto-open Markeneinstellungen after creating
+      setTimeout(() => setBrandSettingsBrand(newBrand), 100);
     } else {
-      setBrands(prev => prev.map(b => b.id === modalData.id ? { ...b, name: modalData.name, logo: modalData.image, website: modalData.website?.trim() || '' } : b));
+      setBrands(prev => prev.map(b => b.id === modalData.id ? { ...b, name: modalData.name, website: modalData.website?.trim() || '' } : b));
+      setModalType(null);
     }
-    setModalType(null);
   };
 
   // ── Save watermark ──
@@ -547,11 +551,6 @@ const MarkenTab = () => {
             <div style={modalBody}>
               <div className="form-group-st"><label style={{ fontWeight: 600 }}>Name</label><input className="form-input-st" value={modalData.name || ''} onChange={e => setModalData(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
-                <label style={{ fontWeight: 600 }}>Logo</label>
-                {modalData.image && <div style={{ marginBottom: 8, textAlign: 'center', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: 8 }}><img src={modalData.image} alt="" style={{ maxWidth: '100%', maxHeight: 100, objectFit: 'contain' }} /></div>}
-                <button className="file-upload-btn" onClick={() => modalFileRef.current?.click()} style={{ width: '100%' }}>Bild hochladen <ImageIcon size={14} /></button>
-              </div>
-              <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
                 <label style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   Website / Domain
                   <span title="Trage hier deine Firmen-Website ein (z.B. muellerfoto.ch).&#10;Daraus wird automatisch deine Galerie-Domain abgeleitet: app.muellerfoto.ch&#10;&#10;DNS-Anleitung:&#10;Setze bei deinem Domain-Anbieter einen CNAME-Eintrag:&#10;app.deinedomain.ch → CNAME → galerie.fotohahn.ch" style={{ cursor: 'help', color: '#aaa' }}><HelpCircle size={13} /></span>
@@ -561,8 +560,9 @@ const MarkenTab = () => {
                   <p style={{ fontSize: '0.8rem', color: '#528c68', marginTop: '0.35rem' }}>🌐 Galerie-Domain: <strong>app.{modalData.website.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}</strong></p>
                 )}
               </div>
+              <p style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.75rem', fontStyle: 'italic' }}>Nach dem Speichern kannst du Logos, Kontaktdaten und Social Media in den Markeneinstellungen ergänzen.</p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button onClick={saveBrand} style={greenBtn}>Speichern</button>
+                <button onClick={saveBrand} style={greenBtn}>Speichern & Einrichten</button>
               </div>
             </div>
           </div>
