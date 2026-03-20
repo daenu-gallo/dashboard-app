@@ -10,6 +10,9 @@ import { BrandProvider } from './contexts/BrandContext';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
+// Direct import for CustomerView (avoid lazy/Suspense issues on gallery domain)
+import CustomerViewDirect from './pages/gallery-detail/CustomerView';
+
 // ── Lazy-loaded pages (code splitting) ──
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const GalleriesPage = React.lazy(() => import('./pages/GalleriesPage'));
@@ -97,7 +100,7 @@ function AppContent() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/legal/:type" element={<LegalPage />} />
-            <Route path="/:slug" element={<CustomerView domainMode={domainMode} />} />
+            <Route path="/:slug" element={<CustomerViewDirect domainMode={domainMode} />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
