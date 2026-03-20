@@ -47,6 +47,7 @@ app.set('trust proxy', 1);
 // HSTS disabled in helmet — we set it conditionally below for *.fotohahn.ch only
 app.use(helmet({
   hsts: false, // Don't set HSTS globally (breaks Tailscale HTTP access)
+  crossOriginResourcePolicy: { policy: 'same-site' }, // Allow admin.fotohahn.ch to load images from api.fotohahn.ch
 }));
 
 // Conditional HSTS: only for *.fotohahn.ch domains (not Tailscale internal)
