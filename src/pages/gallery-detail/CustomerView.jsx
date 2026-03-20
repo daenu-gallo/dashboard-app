@@ -129,8 +129,12 @@ const CustomerView = ({ domainMode = null }) => {
 
   // ── Resolve gallery slug or custom domain ──
   // Priority: domainMode > URL slug
-  const [resolvedSlug, setResolvedSlug] = useState(domainMode?.type === 'subdomain' ? domainMode.slug : urlSlug);
-  const [domainLookupDone, setDomainLookupDone] = useState(!domainMode || domainMode.type === 'subdomain');
+  const [resolvedSlug, setResolvedSlug] = useState(
+    domainMode?.type === 'subdomain' ? domainMode.slug
+    : domainMode?.type === 'gallery-home' ? urlSlug  // galerie.fotohahn.ch/:slug
+    : urlSlug
+  );
+  const [domainLookupDone, setDomainLookupDone] = useState(!domainMode || domainMode.type === 'subdomain' || domainMode.type === 'gallery-home');
 
   // ── Load gallery + albums from Supabase ──
   const [supaGallery, setSupaGallery] = useState(null);

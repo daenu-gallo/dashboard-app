@@ -76,8 +76,8 @@ function getDomainMode() {
     const subdomain = hostname.replace('.' + GALLERY_BASE_DOMAIN, '');
     return { type: 'subdomain', slug: subdomain, domain: hostname };
   }
-  // Exact gallery base domain: e.g. "galerie.fotohahn.ch" itself
-  if (hostname === GALLERY_BASE_DOMAIN) return null;
+  // Exact gallery base domain: e.g. "galerie.fotohahn.ch" itself → gallery mode
+  if (hostname === GALLERY_BASE_DOMAIN) return { type: 'gallery-home', domain: hostname };
   // Any other domain = custom domain: e.g. "app.kundenfirma.ch"
   return { type: 'custom', domain: hostname };
 }

@@ -359,13 +359,53 @@ const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
             <div className="browser-dot yellow" />
             <div className="browser-dot green" />
           </div>
-          <div className={`preview-iframe-container ${previewMode}`}>
-            <iframe
-              ref={iframeRef}
-              src={previewUrl}
-              title="Live Vorschau"
-              className="preview-live-iframe"
-            />
+        <div className={`preview-iframe-container ${previewMode}`}>
+            <div
+              style={{
+                width: '100%', height: '100%', overflow: 'hidden',
+                background: primaryColor, color: secondaryColor,
+                fontFamily: font + ', sans-serif',
+                display: 'flex', flexDirection: 'column',
+              }}
+            >
+              {/* Mock header */}
+              <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${secondaryColor}22` }}>
+                <span style={{ fontWeight: 700, fontSize: '0.85rem', letterSpacing: 1, textTransform: 'uppercase' }}>{galleryKey}</span>
+                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.7rem', opacity: 0.6 }}>
+                  <span>Galerie</span><span>Kontakt</span>
+                </div>
+              </div>
+              {/* Mock hero */}
+              <div style={{
+                height: '40%', background: `linear-gradient(135deg, ${secondaryColor}33, ${secondaryColor}11)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative',
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>{galleryKey}</div>
+                  <div style={{ fontSize: '0.65rem', marginTop: '0.4rem', opacity: 0.5 }}>Fotos von Fotograf</div>
+                </div>
+              </div>
+              {/* Mock image grid */}
+              <div style={{
+                flex: 1, padding: spacing === 'gross' ? '12px' : spacing === 'mittel' ? '8px' : '5px',
+                display: 'grid',
+                gridTemplateColumns: displayMode === 'kacheln' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+                gap: spacing === 'gross' ? '12px' : spacing === 'mittel' ? '8px' : '5px',
+              }}>
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} style={{
+                    background: `${secondaryColor}15`,
+                    borderRadius: 4,
+                    aspectRatio: displayMode === 'kacheln' ? '1' : '3/2',
+                  }} />
+                ))}
+              </div>
+              {/* Mock footer */}
+              <div style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.6rem', opacity: 0.4, borderTop: `1px solid ${secondaryColor}11` }}>
+                Powered by fotohahn.ch
+              </div>
+            </div>
           </div>
         </div>
       </div>
