@@ -977,7 +977,32 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         const totalCount = albumImages.length;
 
         return (
-          <div key={idx} className="album-section" style={albumToggles[idx]?.hidden ? { opacity: 0.5 } : {}}>
+          <div key={idx} className="album-section" style={albumToggles[idx]?.hidden ? { opacity: 0.5 } : {}}
+            onDragOver={e => {
+              // Only handle file drops, not internal drag reorder
+              if (e.dataTransfer.types.includes('Files')) {
+                e.preventDefault();
+                e.currentTarget.style.outline = '2px dashed #4a7c59';
+                e.currentTarget.style.outlineOffset = '-2px';
+              }
+            }}
+            onDragLeave={e => {
+              e.currentTarget.style.outline = 'none';
+            }}
+            onDrop={async e => {
+              e.currentTarget.style.outline = 'none';
+              if (!e.dataTransfer.types.includes('Files')) return;
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+              if (files.length === 0) return;
+              const albumName = albumNames[idx] || albums[idx]?.name || `Album ${idx + 1}`;
+              setUploadProgress({ albumName, total: files.length, completed: 0 });
+              setExpandedAlbums(prev => ({ ...prev, [idx]: true }));
+              await uploadImages(idx, files);
+              setUploadProgress({ albumName, total: files.length, completed: files.length });
+              setTimeout(() => setUploadProgress(null), 2500);
+            }}
+          >
             <div className="album-header">
               <div className="album-header-left">
                 <button

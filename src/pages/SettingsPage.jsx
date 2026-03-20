@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw } from 'lucide-react';
+import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw, GripVertical } from 'lucide-react';
 import { useBrand } from '../contexts/BrandContext';
 import { useSupabaseSetting } from '../hooks/useSupabaseSetting';
 import { supabase } from '../lib/supabaseClient';
@@ -938,7 +938,13 @@ const VoreinstellungenTab = () => {
         <div style={overlayStyle} onClick={() => setDetailModal(null)}>
           <div style={{ ...modalWrap, maxWidth: 820, maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={greenHeader}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Edit3 size={16} />{displayName(detailModal.name)}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                <Edit3 size={16} style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => {
+                  const newName = prompt('Galerie-Name ändern:', detailModal.name);
+                  if (newName && newName.trim()) ud('name', newName.trim());
+                }} title="Name ändern" />
+                {displayName(detailModal.name)}
+              </span>
               <X size={20} style={{ cursor: 'pointer' }} onClick={() => setDetailModal(null)} />
             </div>
             <div style={modalBody}>
@@ -1135,9 +1141,29 @@ const VoreinstellungenTab = () => {
                   {(detailModal.alben || []).length > 0 && (
                     <div style={{ marginTop: '1rem' }}>
                       {detailModal.alben.map((a, i) => (
-                        <div key={i} style={{ padding: '0.5rem', border: '1px solid #eee', borderRadius: 6, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.85rem' }}>{a}</span>
-                          <Trash2 size={14} style={{ color: '#888', cursor: 'pointer' }} onClick={() => ud('alben', detailModal.alben.filter((_, j) => j !== i))} />
+                        <div key={i}
+                          draggable
+                          onDragStart={e => { e.dataTransfer.setData('albumIdx', String(i)); e.currentTarget.style.opacity = '0.5'; }}
+                          onDragEnd={e => { e.currentTarget.style.opacity = '1'; }}
+                          onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#4a7c59'; }}
+                          onDragLeave={e => { e.currentTarget.style.borderColor = '#eee'; }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.currentTarget.style.borderColor = '#eee';
+                            const from = Number(e.dataTransfer.getData('albumIdx'));
+                            if (from === i) return;
+                            const arr = [...(detailModal.alben || [])];
+                            const [moved] = arr.splice(from, 1);
+                            arr.splice(i, 0, moved);
+                            ud('alben', arr);
+                          }}
+                          style={{ padding: '0.5rem 0.75rem', border: '1px solid #eee', borderRadius: 6, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'grab', transition: 'border-color 0.2s' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <GripVertical size={14} style={{ color: '#bbb', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.85rem' }}>{a}</span>
+                          </div>
+                          <Trash2 size={14} style={{ color: '#888', cursor: 'pointer', flexShrink: 0 }} onClick={() => ud('alben', detailModal.alben.filter((_, j) => j !== i))} />
                         </div>
                       ))}
                     </div>
