@@ -312,7 +312,7 @@ const MarkenTab = () => {
   const [modalType, setModalType] = useState(null);
   const [modalData, setModalData] = useState({});
   const [brandSettingsBrand, setBrandSettingsBrand] = useState(null);
-  const [globalBrand] = useState({});
+  const { globalBrand } = useBrand();
   const brandFileRef = useRef({});
   const wmFileRef = useRef({});
   const modalFileRef = useRef(null);
@@ -787,7 +787,7 @@ const defaultPresets = [];
 const VoreinstellungenTab = () => {
   const { user } = useAuth();
   const [presets, setPresets] = useState(defaultPresets);
-  const [globalBrand] = useState({});
+  const { globalBrand } = useBrand();
   const [brands] = useState([]);
   const [watermarks] = useState([]);
 
