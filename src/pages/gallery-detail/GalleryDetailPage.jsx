@@ -130,7 +130,7 @@ const GalleryDetailPage = () => {
           </a>
         </div>
         <div className="gallery-detail-actions">
-          <button className="btn-action btn-green" onClick={() => window.open(`/${slug}`, '_blank')}>
+          <button className="btn-action btn-green" onClick={() => window.open(`https://galerie.fotohahn.ch/${gallery?.slug || slug}`, '_blank')}>
             <Eye size={14} /> Kundenansicht
           </button>
           <button className="btn-action btn-green-outline" onClick={() => setActiveTab('verschicken')}>
