@@ -90,19 +90,21 @@ function AppContent() {
   // Check if we're on a custom domain or subdomain
   const domainMode = getDomainMode();
 
-  // Custom domain or subdomain → render CustomerView directly (no admin routes)
+  // Custom domain or subdomain → render CustomerView with providers (no admin routes)
   if (domainMode) {
     return (
-      <>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/legal/:type" element={<LegalPage />} />
-            <Route path="/:slug" element={<CustomerView domainMode={domainMode} />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
-        <CookieConsent />
-      </>
+      <AuthProvider>
+        <BrandProvider>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/legal/:type" element={<LegalPage />} />
+              <Route path="/:slug" element={<CustomerView domainMode={domainMode} />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+          <CookieConsent />
+        </BrandProvider>
+      </AuthProvider>
     );
   }
 
