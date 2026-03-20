@@ -2,7 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 
-const BrandContext = createContext();
+// Default value ensures useBrand() works outside BrandProvider (e.g. CustomerView on galerie.fotohahn.ch)
+const BrandContext = createContext({
+  globalBrand: {},
+  setGlobalBrand: () => {},
+  brands: [],
+  setBrands: () => {},
+  loading: false,
+});
 
 export const useBrand = () => useContext(BrandContext);
 
