@@ -472,6 +472,47 @@ app.get('/api/admin/check', authenticate, (req, res) => {
   res.json({ isAdmin: req.user?.email === ADMIN_EMAIL });
 });
 
+// ── Cloudflare Cache Purge ──
+const CF_ZONE_ID = process.env.CLOUDFLARE_ZONE_ID || '';
+const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
+
+async function purgeCloudflareCache() {
+  if (!CF_ZONE_ID || !CF_API_TOKEN) {
+    console.log('⚠️  Cloudflare cache purge skipped (CLOUDFLARE_ZONE_ID or CLOUDFLARE_API_TOKEN not set)');
+    return { skipped: true };
+  }
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ purge_everything: true }),
+    });
+    const data = await response.json();
+    if (data.success) {
+      console.log('✅ Cloudflare cache purged successfully');
+      return { success: true };
+    } else {
+      console.error('❌ Cloudflare cache purge failed:', data.errors);
+      return { success: false, errors: data.errors };
+    }
+  } catch (err) {
+    console.error('❌ Cloudflare cache purge error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// Admin endpoint for manual cache purge
+app.post('/api/admin/purge-cache', authenticate, async (req, res) => {
+  if (req.user?.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  const result = await purgeCloudflareCache();
+  res.json(result);
+});
+
 // ── GET /api/health ──
 app.get('/api/health', (req, res) => {
   res.json({
@@ -483,6 +524,8 @@ app.get('/api/health', (req, res) => {
       SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
       SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING',
       SUPABASE_JWT_SECRET: JWT_SECRET ? 'SET' : 'MISSING',
+      CLOUDFLARE_ZONE_ID: CF_ZONE_ID ? 'SET' : 'NOT SET',
+      CLOUDFLARE_API_TOKEN: CF_API_TOKEN ? 'SET' : 'NOT SET',
       NAS_BASE_PATH: NAS_BASE,
       PORT: PORT,
     },
@@ -495,4 +538,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
   console.log(`📁 NAS base: ${NAS_BASE}`);
   console.log(`🔗 Supabase: ${SUPABASE_URL}`);
+
+  // Auto-purge Cloudflare cache on startup (= after redeploy)
+  purgeCloudflareCache();
 });
