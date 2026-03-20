@@ -51,13 +51,9 @@ app.use(helmet({
   },
 }));
 
-// ── HTTPS Redirect (Defense-in-Depth) ──
-app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] === 'http') {
-    return res.redirect(301, `https://${req.headers.host}${req.url}`);
-  }
-  next();
-});
+// Note: HTTPS redirect is handled by Cloudflare "Always Use HTTPS"
+// Do NOT redirect here — Cloudflare Tunnel communicates over HTTP internally
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, health checks)
