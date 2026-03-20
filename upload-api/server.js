@@ -419,7 +419,7 @@ app.put('/api/images/reorder', authenticate, async (req, res) => {
 // ── Admin Config ──
 const COOLIFY_TOKEN = process.env.COOLIFY_API_TOKEN;
 const COOLIFY_BASE = process.env.COOLIFY_BASE_URL || 'http://localhost:8000';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'daenu.gallo@bluewin.ch';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'daenu.gallo@gmail.com';
 const COOLIFY_UUIDS = {
   'dashboard-app': process.env.COOLIFY_UUID_DASHBOARD || 'ql9jj8b7paizylbo7cd3pgga',
   'upload-api': process.env.COOLIFY_UUID_UPLOAD || 'bhdfcbl54jtencddlim5hdfu',
