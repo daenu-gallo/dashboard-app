@@ -428,8 +428,14 @@ const CustomerView = ({ domainMode = null }) => {
     fontFamily: designFont + ', sans-serif',
   };
 
-  // Language
-  const lang = settings.sprache === 'English' ? 'English' : settings.sprache === 'Français' ? 'Français' : settings.sprache === 'Italiano' ? 'Italiano' : 'Deutsch';
+  // Language — handle both German dropdown values ('Englisch') and native names ('English')
+  const langMap = {
+    'Deutsch': 'Deutsch',
+    'Englisch': 'English', 'English': 'English',
+    'Französisch': 'Français', 'Français': 'Français',
+    'Italienisch': 'Italiano', 'Italiano': 'Italiano',
+  };
+  const lang = langMap[settings.sprache] || 'Deutsch';
   const t = translations[lang];
 
   // NOTE: Early returns moved AFTER all hooks (see below) to comply with React rules of hooks

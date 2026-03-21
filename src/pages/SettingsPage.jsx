@@ -989,7 +989,7 @@ const VoreinstellungenTab = () => {
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standard Sprache</label>
                       <select className="form-input-st" value={detailModal.sprache} onChange={e => ud('sprache', e.target.value)}>
-                        <option>Deutsch</option><option>Englisch</option><option>Französisch</option>
+                        <option>Deutsch</option><option>English</option><option>Français</option><option>Italiano</option>
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Mitteilung</label>
                       <select className="form-input-st" value={detailModal.mitteilung} onChange={e => ud('mitteilung', e.target.value)}>
