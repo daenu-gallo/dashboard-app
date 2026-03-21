@@ -104,7 +104,7 @@
 | 50 | Hoch | Multi-Tenant | Mehrere Fotografen, eigenes Branding & Subdomain | 🟡 |
 | 51 | Hoch | E-Mail-Versand | Galerien per Mail an Kunden verschicken | 🟡 |
 | 52 | Hoch | Backup-Strategie | Auto-Backups Supabase DB + NAS-Fotos | 🟡 |
-| 53 | Hoch | Upload Fortschrittsbalken | Mehrfach-Upload mit Anzeige „3 von 5" | 🟡 |
+| 53 | Hoch | Upload Fortschrittsbalken | Einzelbild-Upload mit Live-Counter „3 von 5" | 🟢 |
 | 54 | Mittel | Monitoring & Alerts | Uptime-Checks, Crash-Benachrichtigungen | 🟡 |
 | 55 | Mittel | Design-Darstellung übernehmen | Design aus Galerieeinstellungen korrekt anwenden | 🟡 |
 | 56 | Mittel | Text zu Bildern | Beschreibungstext bei Galerie-Bildern | 🟡 |
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  49 / 59  (83%)
-🟡 In Arbeit: 10 / 59  (17%)
+🟢 Erledigt:  50 / 59  (85%)
+🟡 In Arbeit:  9 / 59  (15%)
 🔴 Offen:      0 / 59   (0%)
-████████████████████████████████░░░░░░░  83%
+█████████████████████████████████░░░░░░  85%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen
