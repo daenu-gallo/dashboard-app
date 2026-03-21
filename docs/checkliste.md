@@ -1,7 +1,7 @@
 # Fotohahn Gallery Platform
 ### Projekt-Checkliste seit 16. März 2026
 
-> Letzte Aktualisierung: 21. März 2026, 21:00 Uhr
+> Letzte Aktualisierung: 21. März 2026, 21:27 Uhr
 
 ---
 
@@ -73,7 +73,7 @@
 | 41 | 🟢 | Wasserzeichen aus Supabase | `useWatermarks` Hook lädt tileSpacing/tileSize, RLS für anon aktiv | 21.03. |
 | 42 | 🟢 | Drag & Drop Alben-Reihenfolge | Grip-Handle statt Pfeil-Buttons, in Galerie + Voreinstellungen | 20.03. |
 | 43 | 🟢 | Galerie-Name editierbar | Inline-Input im Modal-Header via Stift-Icon | 20.03. |
-| 44 | 🔴 | Statische Landingpage | Marketing-Seite für Kundenwerbung | – |
+| 44 | 🟢 | Statische Landingpage | SaaS-Marketing auf fotogalerien.fotohahn.ch, Vergleichstabelle | 21.03. |
 
 ---
 
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  49 / 59  (83%)
+🟢 Erledigt:  50 / 59  (85%)
 🟡 In Arbeit:  9 / 59  (15%)
-🔴 Offen:      1 / 59   (2%)
-████████████████████████████████░░░░░░░  83%
+🔴 Offen:      0 / 59   (0%)
+█████████████████████████████████░░░░░░  85%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen
