@@ -847,7 +847,11 @@ const CustomerView = ({ domainMode = null }) => {
   }
 
   return (
-    <div className="customer-view" style={designStyles}>
+    <div
+      className={`customer-view${toggles.bilderschutz ? ' cv-protected' : ''}`}
+      style={designStyles}
+      onContextMenu={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
+    >
       {/* App Install Hint */}
       {showAppHint && toggles.appHinweis && (
         <div className="cv-app-hint">

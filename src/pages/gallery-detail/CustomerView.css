@@ -1801,3 +1801,19 @@
     transition: none;
   }
 }
+
+/* --- Bilderschutz (Image Protection) --- */
+.cv-protected {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cv-protected img {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+.cv-protected .cv-photo {
+  -webkit-touch-callout: none;
+}

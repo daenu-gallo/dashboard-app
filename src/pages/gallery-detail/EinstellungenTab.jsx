@@ -22,6 +22,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     dateienamen: sbToggles.dateienamen || false,
     download: sbToggles.download !== undefined ? sbToggles.download : true,
     downloadPin: sbToggles.downloadPin || false,
+    bilderschutz: !!sbToggles.bilderschutz,
     wasserzeichen: !!sbToggles.wasserzeichen,
     selectedWatermarkId: sbToggles.selectedWatermarkId || '',
   });
@@ -219,6 +220,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     { key: 'dateienamen', label: 'Zeige Dateinamen' },
     { key: 'download', label: 'Download' },
     { key: 'downloadPin', label: 'Download PIN' },
+    { key: 'bilderschutz', label: 'Bilderschutz (kein Rechtsklick)' },
   ];
 
   return (
