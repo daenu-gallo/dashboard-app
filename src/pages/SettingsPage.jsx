@@ -791,6 +791,8 @@ const VoreinstellungenTab = () => {
   const { globalBrand } = useBrand();
   const [brands] = useState([]);
   const [watermarks] = useState([]);
+  const [mitteilungen] = useSupabaseSetting('settings_mitteilungen', []);
+  const mittList = Array.isArray(mitteilungen) ? mitteilungen : [];
 
   // ── Load presets from Supabase on mount ──
   const presetsLoadedRef = useRef(false);
@@ -991,7 +993,8 @@ const VoreinstellungenTab = () => {
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Mitteilung</label>
                       <select className="form-input-st" value={detailModal.mitteilung} onChange={e => ud('mitteilung', e.target.value)}>
-                        <option value="">Bitte auswählen</option>
+                        <option value="">Keine Mitteilung</option>
+                        {mittList.map((m, i) => <option key={i} value={m.titel}>{m.titel}</option>)}
                       </select></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Wähle eine Standardsortierung für Alben</label>
                       <select className="form-input-st" value={detailModal.sortierung} onChange={e => ud('sortierung', e.target.value)}>
@@ -1260,23 +1263,47 @@ const SteuerTab = () => {
 };
 
 /* ——— Tab: Mitteilungen ——— */
+const EMPTY_MITTEILUNG = { titel: '', mitteilung: '', bild: null, bildName: '', buttontext: '', buttonaktion: '', werSoll: 'Alle', wannAnzeigen: '0', wieOftAnzeigen: '1', anzeigenBis: '' };
+
 const MitteilungenTab = () => {
-  const [mittData, setMittData] = useSupabaseSetting('settings_mitteilungen', {
-    titel: '',
-    mitteilung: '',
-    bild: null,
-    bildName: '',
-    buttontext: '',
-    buttonaktion: '',
-    werSoll: 'Alle',
-    wannAnzeigen: '0',
-    wieOftAnzeigen: '1',
-    anzeigenBis: '',
-  });
+  const [mittList, setMittList] = useSupabaseSetting('settings_mitteilungen', []);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const bildInputRef = useRef(null);
 
+  // Auto-migrate old single-object format → array
+  useEffect(() => {
+    if (mittList && !Array.isArray(mittList) && typeof mittList === 'object' && mittList.titel !== undefined) {
+      setMittList([mittList]);
+    }
+  }, [mittList, setMittList]);
+
+  const list = Array.isArray(mittList) ? mittList : [];
+  const current = list[selectedIdx] || EMPTY_MITTEILUNG;
+
   const updateField = (field, value) => {
-    setMittData(prev => ({ ...prev, [field]: value }));
+    setMittList(prev => {
+      const arr = Array.isArray(prev) ? [...prev] : [];
+      if (!arr[selectedIdx]) return prev;
+      arr[selectedIdx] = { ...arr[selectedIdx], [field]: value };
+      return arr;
+    });
+  };
+
+  const addNew = () => {
+    setMittList(prev => {
+      const arr = Array.isArray(prev) ? [...prev] : [];
+      return [...arr, { ...EMPTY_MITTEILUNG, titel: `Mitteilung ${arr.length + 1}` }];
+    });
+    setTimeout(() => setSelectedIdx(list.length), 50);
+  };
+
+  const deleteCurrent = () => {
+    if (list.length === 0) return;
+    setMittList(prev => {
+      const arr = Array.isArray(prev) ? [...prev] : [];
+      return arr.filter((_, i) => i !== selectedIdx);
+    });
+    setSelectedIdx(Math.max(0, selectedIdx - 1));
   };
 
   const handleBildUpload = (e) => {
@@ -1284,7 +1311,8 @@ const MitteilungenTab = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setMittData(prev => ({ ...prev, bild: ev.target.result, bildName: file.name }));
+        updateField('bild', ev.target.result);
+        updateField('bildName', file.name);
       };
       reader.readAsDataURL(file);
     }
@@ -1296,55 +1324,71 @@ const MitteilungenTab = () => {
         <div className="settings-section-header">
           <h3>Mitteilungen</h3>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn-primary-sm">Neu</button>
-            <button className="icon-btn"><Trash2 size={14} /></button>
+            <button className="btn-primary-sm" onClick={addNew}>Neu</button>
+            <button className="icon-btn" onClick={deleteCurrent} disabled={list.length === 0}><Trash2 size={14} /></button>
           </div>
         </div>
-        <div className="form-group-st"><label>Titel</label><input className="form-input-st" value={mittData.titel} onChange={e => updateField('titel', e.target.value)} /></div>
-        <div className="form-group-st"><label>Mitteilung</label><input className="form-input-st" value={mittData.mitteilung} onChange={e => updateField('mitteilung', e.target.value)} /></div>
-        <div className="form-group-st">
-          <label>Bild</label>
-          <input ref={bildInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBildUpload} />
-          <button className="file-upload-btn" onClick={() => bildInputRef.current?.click()}>
-            {mittData.bildName || 'Datei auswählen...'} <ImageIcon size={14} />
-          </button>
-        </div>
-        <div className="form-group-st"><label>Buttontext</label><input className="form-input-st" value={mittData.buttontext} onChange={e => updateField('buttontext', e.target.value)} /></div>
-        <div className="form-group-st">
-          <label>Buttonaktion</label>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span className="badge-warn">Bitte auswählen ▾</span>
-            <span className="text-muted text-sm">https://</span>
-            <input className="form-input-st" value={mittData.buttonaktion} onChange={e => updateField('buttonaktion', e.target.value)} style={{ flex: 1 }} />
+        {list.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem' }}>
+            {list.map((m, i) => (
+              <button key={i} className={i === selectedIdx ? 'btn-primary-sm' : 'btn-outline-sm'} onClick={() => setSelectedIdx(i)} style={{ fontSize: '0.8rem' }}>
+                {m.titel || `#${i + 1}`}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className="form-group-st">
-          <label>Wer soll die Mitteilung sehen?</label>
-          <select className="form-input-st" value={mittData.werSoll} onChange={e => updateField('werSoll', e.target.value)}><option>Alle</option></select>
-        </div>
-        <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <div className="form-group-st" style={{ flex: 1 }}>
-            <label>Wann anzeigen?</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input className="form-input-st" value={mittData.wannAnzeigen} onChange={e => updateField('wannAnzeigen', e.target.value)} style={{ width: 50 }} />
-              <span className="badge-outline">Galerieaufrufen</span>
+        )}
+        {list.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <p>Noch keine Mitteilungen erstellt.</p>
+            <button className="btn-primary-sm" onClick={addNew}>Erste Mitteilung erstellen</button>
+          </div>
+        ) : (
+          <>
+            <div className="form-group-st"><label>Titel</label><input className="form-input-st" value={current.titel} onChange={e => updateField('titel', e.target.value)} /></div>
+            <div className="form-group-st"><label>Mitteilung</label><input className="form-input-st" value={current.mitteilung} onChange={e => updateField('mitteilung', e.target.value)} /></div>
+            <div className="form-group-st">
+              <label>Bild</label>
+              <input ref={bildInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBildUpload} />
+              <button className="file-upload-btn" onClick={() => bildInputRef.current?.click()}>
+                {current.bildName || 'Datei auswählen...'} <ImageIcon size={14} />
+              </button>
             </div>
-          </div>
-          <div className="form-group-st" style={{ flex: 1 }}>
-            <label>Wie oft anzeigen?</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input className="form-input-st" value={mittData.wieOftAnzeigen} onChange={e => updateField('wieOftAnzeigen', e.target.value)} style={{ width: 50 }} />
-              <span className="badge-outline">Mal</span>
+            <div className="form-group-st"><label>Buttontext</label><input className="form-input-st" value={current.buttontext} onChange={e => updateField('buttontext', e.target.value)} /></div>
+            <div className="form-group-st">
+              <label>Buttonaktion</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span className="text-muted text-sm">https://</span>
+                <input className="form-input-st" value={current.buttonaktion} onChange={e => updateField('buttonaktion', e.target.value)} style={{ flex: 1 }} />
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="form-group-st">
-          <label>Mitteilung anzeigen bis</label>
-          <div style={{ position: 'relative' }}>
-            <input className="form-input-st" placeholder="Bitte Datum auswählen" type="date" value={mittData.anzeigenBis} onChange={e => updateField('anzeigenBis', e.target.value)} />
-          </div>
-        </div>
-        <button className="btn-save">Mitteilung aktivieren</button>
+            <div className="form-group-st">
+              <label>Wer soll die Mitteilung sehen?</label>
+              <select className="form-input-st" value={current.werSoll} onChange={e => updateField('werSoll', e.target.value)}><option>Alle</option><option>Hauptkunde</option></select>
+            </div>
+            <div style={{ display: 'flex', gap: '1.5rem' }}>
+              <div className="form-group-st" style={{ flex: 1 }}>
+                <label>Wann anzeigen?</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input className="form-input-st" value={current.wannAnzeigen} onChange={e => updateField('wannAnzeigen', e.target.value)} style={{ width: 50 }} />
+                  <span className="badge-outline">Galerieaufrufen</span>
+                </div>
+              </div>
+              <div className="form-group-st" style={{ flex: 1 }}>
+                <label>Wie oft anzeigen?</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input className="form-input-st" value={current.wieOftAnzeigen} onChange={e => updateField('wieOftAnzeigen', e.target.value)} style={{ width: 50 }} />
+                  <span className="badge-outline">Mal</span>
+                </div>
+              </div>
+            </div>
+            <div className="form-group-st">
+              <label>Mitteilung anzeigen bis</label>
+              <div style={{ position: 'relative' }}>
+                <input className="form-input-st" placeholder="Bitte Datum auswählen" type="date" value={current.anzeigenBis} onChange={e => updateField('anzeigenBis', e.target.value)} />
+              </div>
+            </div>
+          </>
+        )}
       </div>
       <div>
         <div className="settings-section-header">
@@ -1355,10 +1399,10 @@ const MitteilungenTab = () => {
             <div className="phone-notch" />
             <div className="phone-screen">
               <div className="phone-banner">
-                <h4>{mittData.titel}</h4>
-                <p>{mittData.mitteilung}</p>
-                {mittData.bild && <img src={mittData.bild} alt="Mitteilung" style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />}
-                <button className="phone-btn-dark">{mittData.buttontext}</button>
+                <h4>{current.titel}</h4>
+                <p>{current.mitteilung}</p>
+                {current.bild && <img src={current.bild} alt="Mitteilung" style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />}
+                {current.buttontext && <button className="phone-btn-dark">{current.buttontext}</button>}
               </div>
             </div>
           </div>

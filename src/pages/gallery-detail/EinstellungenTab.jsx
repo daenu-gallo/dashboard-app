@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, X, Check, Info, Eye, EyeOff } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useWatermarks } from '../../hooks/useWatermarks';
+import { useSupabaseSetting } from '../../hooks/useSupabaseSetting';
 import { useBrand } from '../../contexts/BrandContext';
 
 const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
@@ -9,6 +10,8 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const { globalBrand, brands } = useBrand();
   const [watermarks] = useWatermarks();
   const [presets] = usePersistedState('settings_presets', []);
+  const [mitteilungen] = useSupabaseSetting('settings_mitteilungen', []);
+  const mittList = Array.isArray(mitteilungen) ? mitteilungen : [];
 
   // ── Initialize from Supabase data ──
   const sbToggles = supabaseGallery?.toggles || {};
@@ -337,12 +340,8 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
         <div className="form-group">
           <div className="form-label">Mitteilung</div>
           <select className="form-select" value={formData.mitteilung} onChange={e => updateField('mitteilung', e.target.value)}>
-            <option value="">Bitte auswählen</option>
-            <option value="Hochzeit">Hochzeit</option>
-            <option value="Fotoshooting">Fotoshooting</option>
-            <option value="Firmenevent">Firmenevent</option>
-            <option value="Produktfotos">Produktfotos</option>
-            <option value="Porträt">Porträt</option>
+            <option value="">Keine Mitteilung</option>
+            {mittList.map((m, i) => <option key={i} value={m.titel}>{m.titel}</option>)}
           </select>
           {formData.mitteilung && (
             <div style={{ marginTop: '0.5rem' }}>
