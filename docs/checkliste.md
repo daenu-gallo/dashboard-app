@@ -1,7 +1,7 @@
 # Fotohahn Gallery Platform
 ### Projekt-Checkliste seit 16. März 2026
 
-> Letzte Aktualisierung: 20. März 2026, 22:10 Uhr
+> Letzte Aktualisierung: 21. März 2026, 21:00 Uhr
 
 ---
 
@@ -70,7 +70,7 @@
 | 38 | 🟢 | Firmenlogo in Markenkarte | `useBrand()` statt leeres `useState({})` | 20.03. |
 | 39 | 🟢 | Revisionsmeldungen funktionieren | `app_config` UNIQUE constraint + RLS Policies | 20.03. |
 | 40 | 🟢 | Brand-Daten in Kundengalerie | `ownerBrandSettings` für anonyme Besucher | 20.03. |
-| 41 | 🟡 | Wasserzeichen aus Supabase | `useWatermarks` Hook lädt aus DB — Darstellung auf Kundengalerie noch nicht korrekt | 20.03. |
+| 41 | 🟢 | Wasserzeichen aus Supabase | `useWatermarks` Hook lädt tileSpacing/tileSize, RLS für anon aktiv | 21.03. |
 | 42 | 🟢 | Drag & Drop Alben-Reihenfolge | Grip-Handle statt Pfeil-Buttons, in Galerie + Voreinstellungen | 20.03. |
 | 43 | 🟢 | Galerie-Name editierbar | Inline-Input im Modal-Header via Stift-Icon | 20.03. |
 | 44 | 🔴 | Statische Landingpage | Marketing-Seite für Kundenwerbung | – |
@@ -92,7 +92,7 @@
 | # | Prio | Bug | Beschreibung | Status |
 |:-:|:----:|-----|--------------|:------:|
 | 48 | Niedrig | Mitteilungen-Dropdown hardcoded | Eigene Mitteilungen aus Einstellungen statt fixe Liste | 🔴 |
-| 49 | Hoch | Wasserzeichen auf Kundengalerie | Werden nicht gerendert trotz Supabase-Daten | 🔴 |
+| 49 | Hoch | Wasserzeichen auf Kundengalerie | Fix: tileSpacing/tileSize in DB sync + RLS anon Policy | 🟢 |
 
 ---
 
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  46 / 59  (78%)
-🟡 In Arbeit: 11 / 59  (19%)
+🟢 Erledigt:  48 / 59  (81%)
+🟡 In Arbeit:  9 / 59  (15%)
 🔴 Offen:      2 / 59   (3%)
-███████████████████████████████░░░░░░░░  78%
+████████████████████████████████░░░░░░░  81%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen
