@@ -91,7 +91,7 @@
 
 | # | Prio | Bug | Beschreibung | Status |
 |:-:|:----:|-----|--------------|:------:|
-| 48 | Niedrig | Mitteilungen-Dropdown hardcoded | Eigene Mitteilungen aus Einstellungen statt fixe Liste | 🔴 |
+| 48 | Niedrig | Mitteilungen-Dropdown hardcoded | Dynamisch aus Einstellungen → Vorlagenliste, Auto-Migration | 🟢 |
 | 49 | Hoch | Wasserzeichen auf Kundengalerie | Fix: tileSpacing/tileSize in DB sync + RLS anon Policy | 🟢 |
 
 ---
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  48 / 59  (81%)
+🟢 Erledigt:  49 / 59  (83%)
 🟡 In Arbeit:  9 / 59  (15%)
-🔴 Offen:      2 / 59   (3%)
-████████████████████████████████░░░░░░░  81%
+🔴 Offen:      1 / 59   (2%)
+████████████████████████████████░░░░░░░  83%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen
