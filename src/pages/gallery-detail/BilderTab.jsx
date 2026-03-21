@@ -1285,8 +1285,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                     onSetMobileTitelbild={() => setAlbumMobileTitelbild(idx, img)}
                     onSetAppIcon={() => img.id && setAppIcon(img.id)}
                     onApplyWatermark={() => setWatermarkModalTarget({ albumIdx: idx, imgIdx, photoSrc: img.src })}
-                    showWatermark={!!albumToggles[idx]?.watermark}
-                    watermarkText={albumToggles[idx]?.watermarkName || globalBrand.firmenname || ''}
+                    showWatermark={!!albumToggles[idx]?.watermark && !!albumToggles[idx]?.watermarkId}
+                    watermarkText={albumToggles[idx]?.watermarkName || ''}
                   />
                 ))}
               </div>
