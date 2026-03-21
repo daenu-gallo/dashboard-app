@@ -1112,10 +1112,23 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                       type="checkbox"
                       className="toggle-switch-input"
                       checked={!!albumToggles[idx]?.watermark}
-                      onChange={() => setAlbumToggles(prev => ({
-                        ...prev,
-                        [idx]: { ...(prev[idx] || {}), watermark: !(prev[idx]?.watermark) }
-                      }))}
+                      onChange={() => {
+                        const wasOn = !!albumToggles[idx]?.watermark;
+                        if (!wasOn && watermarks.length === 0) {
+                          // No watermarks configured — open modal to let user know
+                          setWatermarkModalTarget({ albumIdx: idx, imgIdx: null, photoSrc: null });
+                          return;
+                        }
+                        setAlbumToggles(prev => ({
+                          ...prev,
+                          [idx]: {
+                            ...(prev[idx] || {}),
+                            watermark: !wasOn,
+                            // Clear watermarkId when turning OFF
+                            ...(wasOn ? { watermarkId: undefined, watermarkName: undefined } : {}),
+                          }
+                        }));
+                      }}
                     />
                     <span className="toggle-switch-slider"></span>
                   </label>
