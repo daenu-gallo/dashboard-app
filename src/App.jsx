@@ -25,6 +25,7 @@ const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const LegalPage = React.lazy(() => import('./pages/LegalPage'));
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 // ── Suspense fallback ──
@@ -66,6 +67,7 @@ const AdminLayout = () => (
 // Configurable: change to 'app.fotohahn.ch' after Scrappbook migration
 const GALLERY_BASE_DOMAIN = import.meta.env.VITE_GALLERY_BASE_DOMAIN || 'galerie.fotohahn.ch';
 const ADMIN_DOMAIN = import.meta.env.VITE_ADMIN_DOMAIN || 'admin.fotohahn.ch';
+const LANDING_DOMAIN = import.meta.env.VITE_LANDING_DOMAIN || 'fotogalerien.fotohahn.ch';
 
 function getDomainMode() {
   const hostname = window.location.hostname;
@@ -73,6 +75,8 @@ function getDomainMode() {
   if (hostname === 'localhost' || hostname === '127.0.0.1') return null;
   // Admin domain = normal admin mode
   if (hostname === ADMIN_DOMAIN) return null;
+  // Landing page domain
+  if (hostname === LANDING_DOMAIN) return { type: 'landing', domain: hostname };
   // Internal Tailscale hostname = normal admin mode
   if (hostname.endsWith('.ts.net')) return null;
   // Subdomain of gallery base: e.g. "kunde1.galerie.fotohahn.ch"
@@ -95,6 +99,25 @@ function AppContent() {
 
   // Custom domain or subdomain → render CustomerView (providers already wrapped by App)
   if (domainMode) {
+    // Landing page domain → show marketing page
+    if (domainMode.type === 'landing') {
+      return (
+        <>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/legal/:type" element={<LegalPage />} />
+              <Route path="*" element={<LandingPage />} />
+            </Routes>
+          </Suspense>
+          <CookieConsent />
+        </>
+      );
+    }
+
+    // Gallery subdomain or custom domain → show customer view
     return (
       <>
         <Suspense fallback={<PageLoader />}>
