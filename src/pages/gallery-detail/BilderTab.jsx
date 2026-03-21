@@ -808,8 +808,10 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
           // Auto-expand the album so images are visible immediately
           setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
 
-          // Upload via API — files go directly to NAS, no base64 conversion
-          await uploadImages(albumIdx, files);
+          // Upload via API — files uploaded one by one for progress
+          await uploadImages(albumIdx, files, (completed, total) => {
+            setUploadProgress({ albumName, total, completed });
+          });
 
           setUploadProgress({ albumName, total: files.length, completed: files.length });
           setTimeout(() => setUploadProgress(null), 2500);
@@ -998,7 +1000,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               const albumName = albumNames[idx] || albums[idx]?.name || `Album ${idx + 1}`;
               setUploadProgress({ albumName, total: files.length, completed: 0 });
               setExpandedAlbums(prev => ({ ...prev, [idx]: true }));
-              await uploadImages(idx, files);
+              await uploadImages(idx, files, (completed, total) => {
+                setUploadProgress({ albumName, total, completed });
+              });
               setUploadProgress({ albumName, total: files.length, completed: files.length });
               setTimeout(() => setUploadProgress(null), 2500);
             }}

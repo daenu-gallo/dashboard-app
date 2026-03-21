@@ -75,50 +75,57 @@ export function useGalleryImages(galleryId) {
     return data?.session?.access_token;
   };
 
-  // ── Upload images ──
-  const uploadImages = useCallback(async (albumIndex, files) => {
+  // ── Upload images (one by one for progress tracking) ──
+  const uploadImages = useCallback(async (albumIndex, files, onProgress) => {
     if (!galleryId || !files?.length) return [];
     const token = await getToken();
     if (!token) { console.error('[Upload] No auth token'); return []; }
 
-    const formData = new FormData();
-    for (const file of files) {
-      formData.append('images', file);
-    }
+    const allResults = [];
+    setUploadProgress({ albumIndex, total: files.length, completed: 0 });
 
-    try {
-      setUploadProgress({ albumIndex, total: files.length, completed: 0 });
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const formData = new FormData();
+        formData.append('images', files[i]);
 
-      const response = await fetch(
-        `${UPLOAD_API}/api/upload/${galleryId}/${albumIndex}`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData,
+        const response = await fetch(
+          `${UPLOAD_API}/api/upload/${galleryId}/${albumIndex}`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          console.error(`[Upload] File ${i + 1}/${files.length} failed:`, err.error || response.status);
+          // Continue with next file even on error
+        } else {
+          const result = await response.json();
+          if (result.images) allResults.push(...result.images);
         }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Upload failed (${response.status})`);
+      } catch (err) {
+        console.error(`[Upload] File ${i + 1}/${files.length} error:`, err);
       }
 
-      const result = await response.json();
-
-      // Refresh images from DB
-      await loadImages();
-
-      setUploadProgress(prev => prev ? { ...prev, completed: files.length } : null);
-      setTimeout(() => {
-        if (mountedRef.current) setUploadProgress(null);
-      }, 2500);
-
-      return result.images || [];
-    } catch (err) {
-      console.error('[Upload] Error:', err);
-      if (mountedRef.current) setUploadProgress(null);
-      return [];
+      // Update progress after each file
+      const completed = i + 1;
+      if (mountedRef.current) {
+        setUploadProgress({ albumIndex, total: files.length, completed });
+        if (onProgress) onProgress(completed, files.length);
+      }
     }
+
+    // Refresh images from DB
+    await loadImages();
+
+    setTimeout(() => {
+      if (mountedRef.current) setUploadProgress(null);
+    }, 2500);
+
+    return allResults;
   }, [galleryId, loadImages]);
 
   // ── Delete image ──
