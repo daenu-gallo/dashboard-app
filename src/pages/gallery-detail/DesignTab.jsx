@@ -87,6 +87,20 @@ const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const [spacing, setSpacing] = useState(sbDesign.spacing || 'klein');
   const [displayMode, setDisplayMode] = useState(sbDesign.display || 'standard');
 
+  // ── Sync from Supabase when gallery data arrives after mount ──
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!supabaseGallery?.design || initializedRef.current) return;
+    const d = supabaseGallery.design;
+    initializedRef.current = true;
+    if (d.template) setSelectedTemplate(d.template);
+    if (d.primaryColor) setPrimaryColor(d.primaryColor);
+    if (d.secondaryColor) setSecondaryColor(d.secondaryColor);
+    if (d.font) setFont(d.font);
+    if (d.spacing) setSpacing(d.spacing);
+    if (d.display) setDisplayMode(d.display);
+  }, [supabaseGallery?.design]);
+
   // ── Sync design changes to Supabase (debounced) ──
   const syncTimer = useRef(null);
   const isFirstRender = useRef(true);
