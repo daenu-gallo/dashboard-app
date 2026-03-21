@@ -73,7 +73,7 @@
 | 41 | 🟢 | Wasserzeichen aus Supabase | `useWatermarks` Hook lädt tileSpacing/tileSize, RLS für anon aktiv | 21.03. |
 | 42 | 🟢 | Drag & Drop Alben-Reihenfolge | Grip-Handle statt Pfeil-Buttons, in Galerie + Voreinstellungen | 20.03. |
 | 43 | 🟢 | Galerie-Name editierbar | Inline-Input im Modal-Header via Stift-Icon | 20.03. |
-| 44 | 🟢 | Statische Landingpage | SaaS-Marketing auf fotogalerien.fotohahn.ch, Vergleichstabelle | 21.03. |
+| 44 | 🟡 | Statische Landingpage | Code fertig, Cloudflare Tunnel-Setup noch offen | 21.03. |
 
 ---
 
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  50 / 59  (85%)
-🟡 In Arbeit:  9 / 59  (15%)
+🟢 Erledigt:  49 / 59  (83%)
+🟡 In Arbeit: 10 / 59  (17%)
 🔴 Offen:      0 / 59   (0%)
-█████████████████████████████████░░░░░░  85%
+████████████████████████████████░░░░░░░  83%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen
