@@ -236,7 +236,7 @@ const MarkenTab = () => {
       }
       const { data: dbWm } = await supabase.from('watermarks').select('*').eq('user_id', user.id);
       if (dbWm?.length > 0) {
-        const mapped = dbWm.map(w => ({ id: w.id, name: w.name, wmType: w.wm_type, image: w.image || null, text: w.text || '', font: w.font || '', scale: w.scale ?? 100, transparency: w.transparency ?? 50, position: w.position || 'mitte' }));
+        const mapped = dbWm.map(w => ({ id: w.id, name: w.name, wmType: w.wm_type, image: w.image || null, text: w.text || '', font: w.font || '', scale: w.scale ?? 100, transparency: w.transparency ?? 50, position: w.position || 'mitte', tileSpacing: w.tile_spacing ?? 120, tileSize: w.tile_size ?? 60 }));
         wmLoadedFromDb.current = true;
         queueMicrotask(() => setWatermarks(mapped));
       }
@@ -303,6 +303,7 @@ const MarkenTab = () => {
             position: w.position || 'mitte',
             image: w.image || null, text: w.text || '', font: w.font || '',
             scale: w.scale ?? 100, transparency: w.transparency ?? 50,
+            tile_spacing: w.tileSpacing ?? 120, tile_size: w.tileSize ?? 60,
           })));
         }
       } catch (err) { console.error('[Settings] Watermark sync error:', err); }

@@ -28,6 +28,7 @@ export const useWatermarks = (ownerUserId = null) => {
             position: w.position || 'mitte', image: w.image || null,
             text: w.text || '', font: w.font || '',
             scale: w.scale ?? 100, transparency: w.transparency ?? 50,
+            tileSpacing: w.tile_spacing ?? 120, tileSize: w.tile_size ?? 60,
           })));
         }
       } catch (err) { console.error('[useWatermarks] Error:', err); }
