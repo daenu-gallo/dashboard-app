@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { HelpCircle, Edit3, Trash2, Plus, ImageIcon, Search, Check, Circle, X, Upload, RotateCcw, GripVertical } from 'lucide-react';
 import { useBrand } from '../contexts/BrandContext';
 import { useSupabaseSetting } from '../hooks/useSupabaseSetting';
+import { useWatermarks } from '../hooks/useWatermarks';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import './Settings.css';
@@ -788,9 +789,8 @@ const defaultPresets = [];
 const VoreinstellungenTab = () => {
   const { user } = useAuth();
   const [presets, setPresets] = useState(defaultPresets);
-  const { globalBrand } = useBrand();
-  const [brands] = useState([]);
-  const [watermarks] = useState([]);
+  const { globalBrand, brands } = useBrand();
+  const [watermarks] = useWatermarks();
   const [mitteilungen] = useSupabaseSetting('settings_mitteilungen', []);
   const mittList = Array.isArray(mitteilungen) ? mitteilungen : [];
 
