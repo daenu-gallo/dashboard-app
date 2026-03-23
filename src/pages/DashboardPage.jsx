@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader, DatabaseBackup, HardDrive } from 'lucide-react';
 import { useBrand } from '../contexts/BrandContext';
 import './Dashboard.css';
 
@@ -25,6 +25,12 @@ const DashboardPage = () => {
   const [announcementSaved, setAnnouncementSaved] = useState(false);
   const [announcementLoading, setAnnouncementLoading] = useState(false);
   const [deployStatus, setDeployStatus] = useState({});
+
+  // Backup state
+  const [backupStatus, setBackupStatus] = useState(null); // null | 'loading' | 'success' | 'error'
+  const [backupResult, setBackupResult] = useState(null);
+  const [backups, setBackups] = useState([]);
+  const [backupsLoading, setBackupsLoading] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
@@ -107,6 +113,51 @@ const DashboardPage = () => {
     }
     setTimeout(() => setDeployStatus(prev => ({ ...prev, [service]: null })), 5000);
   };
+
+  // Trigger backup
+  const handleBackup = async () => {
+    if (!session?.access_token) return;
+    setBackupStatus('loading');
+    setBackupResult(null);
+    try {
+      const res = await fetch(`${UPLOAD_API}/api/admin/backup`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBackupStatus('success');
+        setBackupResult(data);
+        loadBackups(); // Refresh list
+      } else {
+        setBackupStatus('error');
+        setBackupResult(data);
+      }
+    } catch (err) {
+      setBackupStatus('error');
+      setBackupResult({ error: err.message });
+    }
+    setTimeout(() => setBackupStatus(null), 8000);
+  };
+
+  // Load backup list
+  const loadBackups = async () => {
+    if (!session?.access_token || !UPLOAD_API) return;
+    setBackupsLoading(true);
+    try {
+      const res = await fetch(`${UPLOAD_API}/api/admin/backups`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      setBackups(data.backups || []);
+    } catch { setBackups([]); }
+    setBackupsLoading(false);
+  };
+
+  // Load backups when admin section is visible
+  useEffect(() => {
+    if (isAdmin) loadBackups();
+  }, [isAdmin]);
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -510,9 +561,78 @@ const DashboardPage = () => {
             <DeployButton service="dashboard-app" label="Redeploy Dashboard-App" />
             <DeployButton service="upload-api" label="Redeploy Upload-API" />
           </div>
-          <p style={{ fontSize: '0.7rem', color: '#666', marginTop: '0.5rem' }}>
+          <p style={{ fontSize: '0.7rem', color: '#666', marginTop: '0.5rem', marginBottom: '1.5rem' }}>
             Löst einen Coolify-Rebuild aus. Neuester Code wird von GitHub gezogen und neu gebaut.
           </p>
+
+          {/* Database Backup */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
+            <label style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ccc' }}>
+              <DatabaseBackup size={16} style={{ color: '#3b82f6' }} />
+              Datenbank-Backups
+            </label>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <button
+                onClick={handleBackup}
+                disabled={backupStatus === 'loading'}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.6rem 1.2rem', borderRadius: 8, border: 'none',
+                  background: backupStatus === 'success' ? '#22c55e' : backupStatus === 'error' ? '#ef4444' : '#3b82f6',
+                  color: '#fff', fontWeight: 600, cursor: backupStatus === 'loading' ? 'wait' : 'pointer',
+                  fontSize: '0.85rem', transition: 'all 0.3s', opacity: backupStatus === 'loading' ? 0.7 : 1,
+                }}
+              >
+                {backupStatus === 'loading' ? <Loader size={16} className="spin" /> :
+                 backupStatus === 'success' ? <CheckCircle size={16} /> :
+                 backupStatus === 'error' ? <AlertCircle size={16} /> :
+                 <HardDrive size={16} />}
+                {backupStatus === 'loading' ? 'Backup läuft...' :
+                 backupStatus === 'success' ? `Gespeichert ✓ (${backupResult?.sizeKb || '?'} KB)` :
+                 backupStatus === 'error' ? 'Fehler ✗' :
+                 'Backup jetzt'}
+              </button>
+              <span style={{ fontSize: '0.7rem', color: '#666' }}>
+                Auto-Backup: täglich 03:00 Uhr
+              </span>
+            </div>
+            {backupStatus === 'error' && backupResult?.error && (
+              <p style={{ fontSize: '0.75rem', color: '#ef4444', margin: '0 0 0.75rem' }}>
+                {backupResult.error}
+              </p>
+            )}
+
+            {/* Backup List */}
+            {backups.length > 0 && (
+              <div style={{
+                background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '0.75rem',
+                maxHeight: 180, overflowY: 'auto',
+              }}>
+                <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Letzte Backups ({backups.length})
+                </div>
+                {backups.slice(0, 10).map((b, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '0.35rem 0',
+                    borderBottom: i < Math.min(backups.length, 10) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: '#aaa', fontFamily: 'monospace' }}>
+                      {b.filename}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: '#666', whiteSpace: 'nowrap', marginLeft: '1rem' }}>
+                      {b.sizeKb} KB · {new Date(b.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {backups.length === 0 && !backupsLoading && (
+              <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
+                Noch keine Backups vorhanden. Klicke "Backup jetzt" oder warte auf das Auto-Backup um 03:00.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
