@@ -27,6 +27,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const LegalPage = React.lazy(() => import('./pages/LegalPage'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
+const GalleryHomePage = React.lazy(() => import('./pages/GalleryHomePage'));
 
 // ── Suspense fallback ──
 const PageLoader = () => (
@@ -123,6 +124,7 @@ function AppContent() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/legal/:type" element={<LegalPage />} />
+            <Route path="/" element={<GalleryHomePage domainMode={domainMode} />} />
             <Route path="/:slug" element={<CustomerViewDirect domainMode={domainMode} />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

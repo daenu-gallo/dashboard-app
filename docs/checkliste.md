@@ -103,7 +103,7 @@
 | 50 | Hoch | Eigene Domains | `galerie.{website}` aus Marke abgeleitet, Domain-Dropdown, GalleryHomePage | 🟢 |
 | 50 | Hoch | Multi-Tenant | Mehrere Fotografen, eigenes Branding & Subdomain | 🟡 |
 | 51 | Hoch | E-Mail-Versand | Galerien per Mail an Kunden verschicken | 🟡 |
-| 52 | Hoch | Backup-Strategie | NAS geschützt ✓ — DB Auto-Backups noch offen | 🟡 |
+| 52 | Hoch | Backup-Strategie | NAS ✓, DB Auto-Backup 03:00 + Admin-Button, 30d Retention | 🟢 23.03. |
 | 53 | Hoch | Upload Fortschrittsbalken | Einzelbild-Upload mit Live-Counter „3 von 5" | 🟢 |
 | 54 | Mittel | Monitoring & Alerts | Uptime-Checks, Crash-Benachrichtigungen | 🟡 |
 | 55 | Mittel | Design-Darstellung übernehmen | CSS-Variablen, Google Font, Spacing + Display in CustomerView | 🟢 |
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  52 / 59  (88%)
-🟡 In Arbeit:  7 / 59  (12%)
+🟢 Erledigt:  53 / 59  (90%)
+🟡 In Arbeit:  6 / 59  (10%)
 🔴 Offen:      0 / 59   (0%)
-██████████████████████████████████░░░░░░  88%
+████████████████████████████████████░░░░  90%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen

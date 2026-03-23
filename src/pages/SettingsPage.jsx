@@ -560,11 +560,11 @@ const MarkenTab = () => {
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
                 <label style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   Website / Domain
-                  <span title="Trage hier deine Firmen-Website ein (z.B. muellerfoto.ch).&#10;Daraus wird automatisch deine Galerie-Domain abgeleitet: app.muellerfoto.ch&#10;&#10;DNS-Anleitung:&#10;Setze bei deinem Domain-Anbieter einen CNAME-Eintrag:&#10;app.deinedomain.ch → CNAME → galerie.fotohahn.ch" style={{ cursor: 'help', color: '#aaa' }}><HelpCircle size={13} /></span>
+                  <span title="Trage hier deine Firmen-Website ein (z.B. muellerfoto.ch).&#10;Daraus wird automatisch deine Galerie-Domain abgeleitet: galerie.muellerfoto.ch&#10;&#10;DNS-Anleitung:&#10;Setze bei deinem Domain-Anbieter einen CNAME-Eintrag:&#10;galerie.deinedomain.ch → CNAME → galerie.fotohahn.ch" style={{ cursor: 'help', color: '#aaa' }}><HelpCircle size={13} /></span>
                 </label>
                 <input className="form-input-st" placeholder="z.B. muellerfoto.ch" value={modalData.website || ''} onChange={e => setModalData(p => ({ ...p, website: e.target.value }))} />
                 {modalData.website && (
-                  <p style={{ fontSize: '0.8rem', color: '#528c68', marginTop: '0.35rem' }}>🌐 Galerie-Domain: <strong>app.{modalData.website.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}</strong></p>
+                  <p style={{ fontSize: '0.8rem', color: '#528c68', marginTop: '0.35rem' }}>🌐 Galerie-Domain: <strong>galerie.{modalData.website.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}</strong></p>
                 )}
               </div>
               <p style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.75rem', fontStyle: 'italic' }}>Nach dem Speichern kannst du Logos, Kontaktdaten und Social Media in den Markeneinstellungen ergänzen.</p>
@@ -1399,7 +1399,6 @@ const MitteilungenTab = () => {
             <div className="phone-notch" />
             <div className="phone-screen">
               <div className="phone-banner">
-                <h4>{current.titel}</h4>
                 <p>{current.mitteilung}</p>
                 {current.bild && <img src={current.bild} alt="Mitteilung" style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />}
                 {current.buttontext && <button className="phone-btn-dark">{current.buttontext}</button>}
@@ -1414,22 +1413,9 @@ const MitteilungenTab = () => {
 
 /* ——— Tab: Eigene Domains ——— */
 const DomainsTab = () => {
-  const [domains, setDomains] = useSupabaseSetting('settings_domains', []);
   const [impressumList, setImpressumList] = useSupabaseSetting('settings_impressum_v2', []);
   const [datenschutzList, setDatenschutzList] = useSupabaseSetting('settings_datenschutz_v2', []);
   const [legalModal, setLegalModal] = useState(null); // { type: 'impressum'|'datenschutz', mode: 'add'|'edit', data: {...} }
-
-  const [domainModal, setDomainModal] = useState(null); // { name: '' }
-
-  const addDomain = () => {
-    setDomainModal({ name: '' });
-  };
-  const handleDomainSave = () => {
-    if (!domainModal || !domainModal.name.trim()) return;
-    setDomains(prev => [...prev, { id: Date.now(), domain: domainModal.name.trim(), target: '', impressum: 'AGB', datenschutz: 'AGB' }]);
-    setDomainModal(null);
-  };
-  const deleteDomain = (id) => setDomains(prev => prev.filter(d => d.id !== id));
 
   const openLegalEdit = (type, item) => {
     setLegalModal({ type, mode: 'edit', data: { ...item } });
@@ -1460,33 +1446,38 @@ const DomainsTab = () => {
 
   const typeLabel = legalModal?.type === 'impressum' ? 'Impressum' : 'Datenschutzerklärung';
 
-
-  // Derive domain from active brand's website
-  const activeBrand = brands?.find(b => b.active) || brands?.[0];
-  const brandWebsite = activeBrand?.website || '';
-  const derivedDomain = brandWebsite ? `app.${brandWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '')}` : '';
+  // Derive domains from ALL brands with a website
+  const derivedDomains = (brands || [])
+    .map(b => {
+      const cleanHost = (b.website || '').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
+      return cleanHost ? { brandName: b.name, domain: `galerie.${cleanHost}` } : null;
+    })
+    .filter(Boolean);
 
   return (
     <div>
       <div className="settings-section">
         <div className="settings-section-header"><h3>Eigene Domains</h3></div>
         <div style={{ padding: '1rem 0' }}>
-          {derivedDomain ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontWeight: 600, fontSize: '1.05rem' }}>🌐 {derivedDomain}</span>
-                <span style={{ fontSize: '0.8rem', color: '#888', background: '#f0f0f0', padding: '2px 8px', borderRadius: 4 }}>Abgeleitet von Marke</span>
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#666', lineHeight: 1.6, background: '#f9f9f9', padding: '0.75rem 1rem', borderRadius: 8, border: '1px solid #eee' }}>
-                <strong>Anleitung für den Kunden:</strong><br />
-                Bitte beim Domain-Anbieter folgenden DNS-Eintrag setzen:<br />
-                <code style={{ background: '#e8e8e8', padding: '2px 6px', borderRadius: 3 }}>
-                  {derivedDomain} → CNAME → galerie.fotohahn.ch
-                </code>
-              </div>
+          {derivedDomains.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {derivedDomains.map((d, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem 1rem', background: '#f9f9f9', borderRadius: 8, border: '1px solid #eee' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontWeight: 600, fontSize: '1.05rem' }}>🌐 {d.domain}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#888', background: '#f0f0f0', padding: '2px 8px', borderRadius: 4 }}>Marke: {d.brandName}</span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#666', lineHeight: 1.6 }}>
+                    <strong>DNS-Eintrag:</strong>{' '}
+                    <code style={{ background: '#e8e8e8', padding: '2px 6px', borderRadius: 3, fontSize: '0.8rem' }}>
+                      {d.domain} → CNAME → galerie.fotohahn.ch
+                    </code>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <p style={{ color: '#999', fontStyle: 'italic' }}>Bitte trage zuerst eine Website bei deiner Marke ein (Tab "Marken & Wasserzeichen").</p>
+            <p style={{ color: '#999', fontStyle: 'italic' }}>Bitte trage zuerst eine Website bei deiner Marke ein (Tab "Marken &amp; Wasserzeichen").</p>
           )}
         </div>
       </div>
@@ -1556,51 +1547,10 @@ const DomainsTab = () => {
           </div>
         </div>
       )}
-
-      {/* ── Domain Modal ── */}
-      {domainModal && (
-        <div style={overlayStyle} onClick={() => setDomainModal(null)}>
-          <div style={{ ...modalWrap, maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-            <div style={greenHeader}>
-              <span>Eigene Domain hinzufügen</span>
-              <X size={20} style={{ cursor: 'pointer' }} onClick={() => setDomainModal(null)} />
-            </div>
-            <div style={modalBody}>
-              <p style={{ fontSize: '0.85rem', color: '#555', marginBottom: '1rem' }}>
-                Trage deine Subdomain ein
-              </p>
-              <div style={{ position: 'relative' }}>
-                <input
-                  className="form-input-st"
-                  placeholder="z.B. app.meinedomain.ch"
-                  value={domainModal.name}
-                  onChange={e => setDomainModal(prev => ({ ...prev, name: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') handleDomainSave(); }}
-                  autoFocus
-                />
-                <HelpCircle size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59', cursor: 'pointer' }} />
-              </div>
-              <button
-                onClick={handleDomainSave}
-                disabled={!domainModal.name.trim()}
-                style={{
-                  ...greenBtn,
-                  width: '100%',
-                  marginTop: '1.25rem',
-                  padding: '0.65rem',
-                  opacity: domainModal.name.trim() ? 1 : 0.5,
-                  cursor: domainModal.name.trim() ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Erstellen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
 
 /* ——— Tab: Sprache ——— */
 const SpracheTab = () => {

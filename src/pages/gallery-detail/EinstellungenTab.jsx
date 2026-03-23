@@ -331,6 +331,11 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
             <div className="form-label">Eigene Domains</div>
             <select className="form-select" style={{ width: '100%' }} value={formData.domain} onChange={e => updateField('domain', e.target.value)}>
               <option value="">Domain wählen</option>
+              {brands.map(b => {
+                const cleanHost = (b.website || '').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
+                const domain = cleanHost ? `galerie.${cleanHost}` : null;
+                return domain ? <option key={b.id} value={domain}>{domain}</option> : null;
+              })}
             </select>
           </div>
           <div style={{ flex: 1 }}>
