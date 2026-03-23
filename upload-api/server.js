@@ -8,8 +8,13 @@ import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs/promises';
 import path from 'path';
-import { existsSync, createReadStream } from 'fs';
+import { existsSync, createReadStream, readdirSync, statSync, unlinkSync } from 'fs';
 import crypto from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import cron from 'node-cron';
+
+const execAsync = promisify(exec);
 
 // ── Config ──
 const PORT = process.env.PORT || 3200;
@@ -589,11 +594,124 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ══════════════════════════════════════════
+// ── Database Auto-Backup System ──
+// ══════════════════════════════════════════
+const DB_HOST = process.env.DB_HOST || 'supabase-db';
+const DB_PORT = process.env.DB_PORT || '5432';
+const DB_USER = process.env.DB_USER || 'postgres';
+const DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
+const BACKUP_DIR = path.join(NAS_BASE, '_backups', 'db');
+const BACKUP_RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
+
+async function runDatabaseBackup() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `supabase_backup_${timestamp}.sql.gz`;
+  const filepath = path.join(BACKUP_DIR, filename);
+
+  console.log(`[Backup] 🗄️  Starte Datenbank-Backup...`);
+  console.log(`[Backup]   Host: ${DB_HOST}:${DB_PORT}`);
+  console.log(`[Backup]   Ziel: ${filepath}`);
+
+  try {
+    // Ensure backup directory exists
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+
+    // Run pg_dump with gzip compression
+    const cmd = `PGPASSWORD="${DB_PASSWORD}" pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres --clean --if-exists --no-owner --no-privileges --disable-triggers 2>/dev/null | gzip > "${filepath}"`;
+    const { stderr } = await execAsync(cmd, { timeout: 120000 }); // 2 min timeout
+
+    if (stderr && !stderr.includes('SET') && !stderr.includes('DROP')) {
+      console.warn(`[Backup] ⚠️  stderr: ${stderr.substring(0, 200)}`);
+    }
+
+    // Validate backup file
+    const stat = await fs.stat(filepath);
+    if (stat.size < 1000) {
+      console.error(`[Backup] ❌ Backup-Datei ist zu klein (${stat.size} Bytes) — möglicherweise fehlerhaft`);
+      return { success: false, error: 'Backup file too small', size: stat.size };
+    }
+
+    const sizeKb = Math.round(stat.size / 1024);
+    console.log(`[Backup] ✅ Backup erfolgreich: ${filename} (${sizeKb} KB)`);
+
+    // Cleanup old backups
+    const deleted = cleanupOldBackups();
+    if (deleted > 0) {
+      console.log(`[Backup] 🗑️  ${deleted} alte Backups gelöscht (älter als ${BACKUP_RETENTION_DAYS} Tage)`);
+    }
+
+    return { success: true, filename, sizeKb, deleted };
+  } catch (err) {
+    console.error(`[Backup] ❌ Fehler:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+function cleanupOldBackups() {
+  try {
+    if (!existsSync(BACKUP_DIR)) return 0;
+    const now = Date.now();
+    const maxAge = BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    let deleted = 0;
+
+    const files = readdirSync(BACKUP_DIR).filter(f => f.startsWith('supabase_backup_') && f.endsWith('.sql.gz'));
+    for (const file of files) {
+      const filepath = path.join(BACKUP_DIR, file);
+      const stat = statSync(filepath);
+      if (now - stat.mtimeMs > maxAge) {
+        unlinkSync(filepath);
+        deleted++;
+      }
+    }
+    return deleted;
+  } catch (err) {
+    console.error(`[Backup] Cleanup-Fehler:`, err.message);
+    return 0;
+  }
+}
+
+function listBackups() {
+  try {
+    if (!existsSync(BACKUP_DIR)) return [];
+    return readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('supabase_backup_') && f.endsWith('.sql.gz'))
+      .map(f => {
+        const stat = statSync(path.join(BACKUP_DIR, f));
+        return { filename: f, sizeKb: Math.round(stat.size / 1024), date: stat.mtime };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  } catch {
+    return [];
+  }
+}
+
+// ── POST /api/admin/backup — Manual backup trigger ──
+app.post('/api/admin/backup', authenticate, adminOnly, async (req, res) => {
+  console.log(`[Backup] 🔧 Manuelles Backup ausgelöst von ${req.user.email}`);
+  const result = await runDatabaseBackup();
+  res.json(result);
+});
+
+// ── GET /api/admin/backups — List all backups ──
+app.get('/api/admin/backups', authenticate, adminOnly, (req, res) => {
+  const backups = listBackups();
+  res.json({ backups, retentionDays: BACKUP_RETENTION_DAYS, backupDir: BACKUP_DIR });
+});
+
+// ── Daily Auto-Backup Cron (03:00 Uhr) ──
+cron.schedule('0 3 * * *', () => {
+  console.log(`[Backup] ⏰ Auto-Backup gestartet (Cron 03:00)`);
+  runDatabaseBackup();
+}, { timezone: 'Europe/Zurich' });
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
   console.log(`📁 NAS base: ${NAS_BASE}`);
   console.log(`🔗 Supabase: ${SUPABASE_URL}`);
+  console.log(`🗄️  DB Backups: täglich 03:00 → ${BACKUP_DIR}`);
+  console.log(`   DB Host: ${DB_HOST}:${DB_PORT}`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();

@@ -149,8 +149,8 @@ const CustomerView = ({ domainMode = null }) => {
     if (!domainMode || domainMode.type !== 'custom') return;
     (async () => {
       try {
-        // Strip 'app.' prefix to find brand website: app.muellerfoto.ch → muellerfoto.ch
-        const brandDomain = domainMode.domain.replace(/^app\./, '');
+        // Strip 'galerie.' or 'app.' prefix to find brand website: galerie.muellerfoto.ch → muellerfoto.ch
+        const brandDomain = domainMode.domain.replace(/^(galerie|app)\./, '');
         const { data: brand } = await supabase
           .from('brands')
           .select('user_id')
@@ -1083,6 +1083,7 @@ const CustomerView = ({ domainMode = null }) => {
                       src={photo.src}
                       alt={photo.name || ''}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
                     />
                   </div>
                   <h1 className="cv-hero-title">{displayTitle}</h1>
@@ -1193,7 +1194,7 @@ const CustomerView = ({ domainMode = null }) => {
                         openLightbox(aIdx, pIdx);
                       }
                     }} style={{ cursor: 'pointer' }}>
-                      <img src={img.src} alt={img.name || ''} loading="lazy" />
+                      <img src={img.src} alt={img.name || ''} loading="lazy" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
                       {isPhotoSelected(img.src) && (
                         <span className="cv-photo-heart-badge">♥</span>
                       )}
@@ -1239,7 +1240,7 @@ const CustomerView = ({ domainMode = null }) => {
               <div className={`cv-photo-grid ${designDisplay === 'kacheln' ? 'cv-tiles' : 'cv-masonry'}`} style={{ padding: '1rem 60px' }}>
                 {selPhotos.map((photo, pIdx) => (
                   <div key={pIdx} className="cv-photo">
-                    <img src={photo.src} alt={photo.name || ''} loading="lazy" decoding="async" />
+                    <img src={photo.src} alt={photo.name || ''} loading="lazy" decoding="async" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
                     <span className="cv-photo-heart-badge">♥</span>
                     {toggles.wasserzeichen && (
                       <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
@@ -1395,7 +1396,7 @@ const CustomerView = ({ domainMode = null }) => {
             </button>
           )}
           <div className="cv-lightbox-image" onClick={(e) => e.stopPropagation()}>
-            <img src={lightboxPhotos[lightboxIndex]?.src} alt={lightboxPhotos[lightboxIndex]?.name || ''} />
+            <img src={lightboxPhotos[lightboxIndex]?.src} alt={lightboxPhotos[lightboxIndex]?.name || ''} onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
             {toggles.wasserzeichen && (
               <WatermarkOverlay className="cv-lightbox-watermark" variant="lightbox" />
             )}

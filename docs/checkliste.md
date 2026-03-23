@@ -1,7 +1,7 @@
 # Fotohahn Gallery Platform
 ### Projekt-Checkliste seit 16. März 2026
 
-> Letzte Aktualisierung: 21. März 2026, 21:27 Uhr
+> Letzte Aktualisierung: 23. März 2026, 14:27 Uhr
 
 ---
 
@@ -100,15 +100,15 @@
 
 | # | Prio | Feature | Beschreibung | Status |
 |:-:|:----:|---------|--------------|:------:|
-| 50 | Hoch | Eigene Domains | `app.firma.ch/de/com` — Tab vorhanden, noch einpflegen | 🟡 |
+| 50 | Hoch | Eigene Domains | `galerie.{website}` aus Marke abgeleitet, Domain-Dropdown, GalleryHomePage | 🟢 |
 | 50 | Hoch | Multi-Tenant | Mehrere Fotografen, eigenes Branding & Subdomain | 🟡 |
 | 51 | Hoch | E-Mail-Versand | Galerien per Mail an Kunden verschicken | 🟡 |
-| 52 | Hoch | Backup-Strategie | Auto-Backups Supabase DB + NAS-Fotos | 🟡 |
+| 52 | Hoch | Backup-Strategie | NAS geschützt ✓ — DB Auto-Backups noch offen | 🟡 |
 | 53 | Hoch | Upload Fortschrittsbalken | Einzelbild-Upload mit Live-Counter „3 von 5" | 🟢 |
 | 54 | Mittel | Monitoring & Alerts | Uptime-Checks, Crash-Benachrichtigungen | 🟡 |
-| 55 | Mittel | Design-Darstellung übernehmen | Design aus Galerieeinstellungen korrekt anwenden | 🟡 |
+| 55 | Mittel | Design-Darstellung übernehmen | CSS-Variablen, Google Font, Spacing + Display in CustomerView | 🟢 |
 | 56 | Mittel | Text zu Bildern | Beschreibungstext bei Galerie-Bildern | 🟡 |
-| 57 | Mittel | Bilderschutz | Kein Rechtsklick / Download verhindern | 🟡 |
+| 57 | Mittel | Bilderschutz | Rechtsklick, Drag & Overlay blockiert (CSS + JS) | 🟢 23.03. |
 | 58 | Niedrig | Video-Support | Videos in Galerien einbinden | 🟡 |
 
 ---
@@ -150,10 +150,10 @@
 ### Fortschritt
 
 ```
-🟢 Erledigt:  50 / 59  (85%)
-🟡 In Arbeit:  9 / 59  (15%)
+🟢 Erledigt:  52 / 59  (88%)
+🟡 In Arbeit:  7 / 59  (12%)
 🔴 Offen:      0 / 59   (0%)
-█████████████████████████████████░░░░░░  85%
+██████████████████████████████████░░░░░░  88%
 ```
 
 > 🟢 Erledigt · 🟡 In Arbeit · 🔴 Offen

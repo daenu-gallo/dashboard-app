@@ -2,9 +2,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install sharp dependencies
+# Install sharp dependencies + pg_dump for DB backups
 RUN apt-get update && apt-get install -y --no-install-recommends \
   libvips-dev \
+  postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
