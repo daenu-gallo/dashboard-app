@@ -103,6 +103,7 @@ const Topbar = () => {
     try {
       // Find the selected preset data
       const preset = presets.find(p => p.name === selectedPreset);
+      console.log('[Topbar] Creating gallery. Presets count:', presets.length, '| Selected:', selectedPreset, '| Found preset:', !!preset, '| Preset albums:', preset?.albums);
 
       const gallery = await createGallery({
         title: titel.trim(),
