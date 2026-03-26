@@ -103,14 +103,14 @@ app.use(cors({
 // ── Rate Limiting ──
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: 100,                  // max. 100 Requests pro IP
+  max: 1000,                 // max. 1000 Requests pro IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,                   // max. 20 Uploads pro IP
+  max: 500,                  // max. 500 Uploads pro IP (für Batch-Uploads)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Upload limit reached, please try again later.' },
