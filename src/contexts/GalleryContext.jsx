@@ -118,7 +118,6 @@ export const GalleryProvider = ({ children }) => {
       message: preset?.mitteilung || null,
       expiry_date: expiryDate,
       tags: tagsArray,
-      default_sort: preset?.sortierung || 'Uploaddatum',
       download_pin_code: preset?.downloadPinCode || null,
       toggles,
       design,
