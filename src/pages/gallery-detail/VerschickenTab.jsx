@@ -46,7 +46,10 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
   const [selectedEditId, setSelectedEditId] = useState(null);
 
   const displayTitle = settings?.titel || gallery?.title || 'Galerie';
-  const galleryUrl = settings?.domain ? `https://${settings.domain}/${settings?.domainpfad || galleryKey}` : '';
+  const GALLERY_BASE = import.meta.env.VITE_GALLERY_BASE_DOMAIN || 'galerie.fotohahn.ch';
+  const galleryUrl = settings?.domain
+    ? `https://${settings.domain}/${settings?.domainpfad || galleryKey}`
+    : `https://${GALLERY_BASE}/${galleryKey}`;
   const password = settings?.passwort || settings?.password || '';
 
   // Clear status after 5s

@@ -1413,6 +1413,7 @@ const MitteilungenTab = () => {
 
 /* ——— Tab: Eigene Domains ——— */
 const DomainsTab = () => {
+  const { brands } = useBrand();
   const [impressumList, setImpressumList] = useSupabaseSetting('settings_impressum_v2', []);
   const [datenschutzList, setDatenschutzList] = useSupabaseSetting('settings_datenschutz_v2', []);
   const [legalModal, setLegalModal] = useState(null); // { type: 'impressum'|'datenschutz', mode: 'add'|'edit', data: {...} }
