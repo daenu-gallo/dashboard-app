@@ -72,7 +72,8 @@ export const GalleryProvider = ({ children }) => {
       dateienamen: preset ? preset.zeigeDateinamen || false : false,
       download: preset ? preset.download !== false : true,
       downloadPin: preset ? preset.downloadPin || false : false,
-      wasserzeichen: false,
+      wasserzeichen: preset ? !!preset.wasserzeichen : false,
+      selectedWatermarkId: preset?.wasserzeichen || null,
     };
 
     const design = {
@@ -90,17 +91,35 @@ export const GalleryProvider = ({ children }) => {
       fbPixel: preset?.fbPixel || '',
     } : {};
 
+    // Calculate expiry date from preset.ablauf (days from now)
+    let expiryDate = null;
+    if (preset?.ablauf) {
+      const d = new Date();
+      d.setDate(d.getDate() + parseInt(preset.ablauf));
+      expiryDate = d.toISOString().split('T')[0];
+    }
+
+    // Tags: preset stores as comma-separated string or array
+    let tagsArray = [];
+    if (preset?.tags) {
+      tagsArray = Array.isArray(preset.tags) ? preset.tags : preset.tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
+
     const galleryData = {
       user_id: user.id,
       title: title.trim(),
       slug,
       internal_name: internalName?.trim() || null,
       shooting_date: shootingDate || null,
-      brand: brand || null,
+      brand: brand || preset?.marke || null,
       language: preset?.sprache || 'Deutsch',
       domain: preset?.domain || null,
       domain_path: slug,
       message: preset?.mitteilung || null,
+      expiry_date: expiryDate,
+      tags: tagsArray,
+      default_sort: preset?.sortierung || 'Uploaddatum',
+      download_pin_code: preset?.downloadPinCode || null,
       toggles,
       design,
       tracking,
