@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { existsSync, createReadStream, readdirSync, statSync, unlinkSync } from 'fs';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import cron from 'node-cron';
@@ -40,6 +41,26 @@ if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
   console.log('✅ Supabase client created');
 } else {
   console.error('⚠️  Supabase credentials missing! API will start but uploads won\'t work.');
+}
+
+// ── SMTP Config ──
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
+
+let emailTransporter = null;
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  emailTransporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+  console.log(`✅ Email transporter created (${SMTP_HOST}:${SMTP_PORT})`);
+} else {
+  console.warn('⚠️  SMTP credentials missing — email sending disabled.');
 }
 
 const app = express();
@@ -574,6 +595,93 @@ app.post('/api/admin/purge-cache', authenticate, async (req, res) => {
   res.json(result);
 });
 
+// ── POST /api/send-email ──
+// Send branded gallery email to customer
+app.post('/api/send-email', authenticate, async (req, res) => {
+  if (!emailTransporter) {
+    return res.status(503).json({ error: 'E-Mail-Versand nicht konfiguriert. Bitte SMTP Env-Vars setzen.' });
+  }
+
+  const { to, subject, body, galleryUrl, password, showPassword, cc, brandName, brandLogo, previewImage } = req.body;
+
+  if (!to || !subject) {
+    return res.status(400).json({ error: 'Empfänger und Betreff sind erforderlich.' });
+  }
+
+  // Basic email validation
+  const emails = Array.isArray(to) ? to : [to];
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  for (const email of emails) {
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: `Ungültige E-Mail-Adresse: ${email}` });
+    }
+  }
+
+  // Build HTML email
+  const bodyHtml = (body || '').replace(/\n/g, '<br>');
+  const logoHtml = brandLogo
+    ? `<img src="${brandLogo}" alt="${brandName || ''}" style="max-height:50px;max-width:180px;object-fit:contain;margin-bottom:16px;" />`
+    : '';
+  const imageHtml = previewImage
+    ? `<img src="${previewImage}" alt="Galerie" style="width:100%;max-width:520px;border-radius:8px;margin:16px 0;" />`
+    : '';
+  const passwordHtml = (password && showPassword)
+    ? `<p style="margin-top:16px;font-size:14px;color:#666;">Passwort: <strong>${password}</strong></p>`
+    : '';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+        <tr><td style="padding:32px 32px 0;text-align:center;">
+          ${logoHtml}
+        </td></tr>
+        <tr><td style="padding:0 32px;text-align:center;">
+          ${imageHtml}
+        </td></tr>
+        <tr><td style="padding:24px 32px;">
+          <h2 style="margin:0 0 16px;font-size:20px;color:#222;">${subject}</h2>
+          <div style="font-size:15px;line-height:1.7;color:#444;">${bodyHtml}</div>
+        </td></tr>
+        ${galleryUrl ? `
+        <tr><td style="padding:0 32px 8px;text-align:center;">
+          <a href="${galleryUrl}" style="display:inline-block;padding:14px 36px;background:#333;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;letter-spacing:0.5px;">GALERIE ÖFFNEN</a>
+        </td></tr>` : ''}
+        <tr><td style="padding:0 32px 24px;text-align:center;">
+          ${passwordHtml}
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #eee;text-align:center;font-size:12px;color:#999;">
+          ${brandName ? `<p>${brandName}</p>` : ''}
+          <p>Powered by <a href="https://fotohahn.ch" style="color:#528c68;text-decoration:none;">Fotohahn</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const mailOptions = {
+      from: `"${brandName || 'Fotohahn Galerie'}" <${SMTP_FROM}>`,
+      to: emails.map(e => e.trim()).join(', '),
+      subject,
+      html,
+    };
+    if (cc) mailOptions.cc = cc;
+
+    await emailTransporter.sendMail(mailOptions);
+    console.log(`✅ Email sent to ${mailOptions.to} (subject: ${subject})`);
+    res.json({ success: true, message: 'E-Mail wurde erfolgreich gesendet.' });
+  } catch (err) {
+    console.error('[Email] Send error:', err.message);
+    res.status(500).json({ error: 'E-Mail konnte nicht gesendet werden.', details: err.message });
+  }
+});
+
 // ── GET /api/health ──
 app.get('/api/health', (req, res) => {
   res.json({
@@ -705,14 +813,119 @@ cron.schedule('0 3 * * *', () => {
   runDatabaseBackup();
 }, { timezone: 'Europe/Zurich' });
 
+// ══════════════════════════════════════════
+// ── Uptime Monitoring & Alerts ──
+// ══════════════════════════════════════════
+const MONITOR_TARGETS = [
+  { name: 'Upload-API', url: `http://localhost:${PORT}/api/health`, type: 'internal' },
+  { name: 'Dashboard-App', url: process.env.DASHBOARD_URL || 'https://admin.fotohahn.ch', type: 'external' },
+  { name: 'Supabase', url: null, type: 'supabase' },
+];
+
+const monitorHistory = []; // Array of { timestamp, results: [{ name, status, responseTime, error }] }
+const MAX_HISTORY = 20;
+let lastAlertSent = 0; // Timestamp of last alert email
+const ALERT_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes between alerts
+
+async function checkService(target) {
+  const start = Date.now();
+  try {
+    if (target.type === 'supabase') {
+      // Check Supabase by doing a simple query
+      if (!supabase) return { name: target.name, status: 'down', responseTime: 0, error: 'Supabase not configured' };
+      const { error } = await supabase.from('app_config').select('key').limit(1);
+      if (error) throw error;
+      return { name: target.name, status: 'up', responseTime: Date.now() - start };
+    }
+
+    // HTTP check
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const res = await fetch(target.url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (res.ok || res.status < 500) {
+      return { name: target.name, status: 'up', responseTime: Date.now() - start };
+    }
+    return { name: target.name, status: 'down', responseTime: Date.now() - start, error: `HTTP ${res.status}` };
+  } catch (err) {
+    return { name: target.name, status: 'down', responseTime: Date.now() - start, error: err.message?.substring(0, 100) };
+  }
+}
+
+async function runUptimeCheck() {
+  const results = await Promise.all(MONITOR_TARGETS.map(checkService));
+  const entry = { timestamp: new Date().toISOString(), results };
+
+  monitorHistory.unshift(entry);
+  if (monitorHistory.length > MAX_HISTORY) monitorHistory.pop();
+
+  // Log status
+  const downServices = results.filter(r => r.status === 'down');
+  if (downServices.length > 0) {
+    console.error(`[Monitor] ❌ ${downServices.length} service(s) DOWN:`, downServices.map(s => `${s.name} (${s.error})`).join(', '));
+
+    // Send alert email (with cooldown)
+    if (emailTransporter && (Date.now() - lastAlertSent > ALERT_COOLDOWN_MS)) {
+      lastAlertSent = Date.now();
+      const downList = downServices.map(s => `• ${s.name}: ${s.error}`).join('\n');
+      try {
+        await emailTransporter.sendMail({
+          from: `"Fotohahn Monitor" <${SMTP_FROM}>`,
+          to: ADMIN_EMAIL,
+          subject: `⚠️ Service Alert: ${downServices.length} Service(s) DOWN`,
+          text: `Folgende Services sind nicht erreichbar:\n\n${downList}\n\nZeit: ${new Date().toLocaleString('de-CH')}\n\nBitte prüfe die Dienste.`,
+          html: `<h2 style="color:#ef4444;">⚠️ Service Alert</h2>
+            <p>Folgende Services sind nicht erreichbar:</p>
+            <pre style="background:#f5f5f5;padding:12px;border-radius:6px;">${downList}</pre>
+            <p style="color:#666;font-size:13px;">Zeit: ${new Date().toLocaleString('de-CH')}</p>`,
+        });
+        console.log('[Monitor] 📧 Alert email sent to', ADMIN_EMAIL);
+      } catch (mailErr) {
+        console.error('[Monitor] Failed to send alert email:', mailErr.message);
+      }
+    }
+  } else {
+    console.log(`[Monitor] ✅ All ${results.length} services OK (${results.map(r => `${r.name}:${r.responseTime}ms`).join(', ')})`);
+  }
+
+  return entry;
+}
+
+// GET /api/admin/status — Current service health
+app.get('/api/admin/status', authenticate, adminOnly, (req, res) => {
+  res.json({
+    current: monitorHistory[0] || null,
+    history: monitorHistory,
+    alertCooldownMinutes: Math.round(ALERT_COOLDOWN_MS / 60000),
+    lastAlertSent: lastAlertSent ? new Date(lastAlertSent).toISOString() : null,
+  });
+});
+
+// POST /api/admin/check-now — Trigger immediate check
+app.post('/api/admin/check-now', authenticate, adminOnly, async (req, res) => {
+  console.log(`[Monitor] 🔍 Manual check triggered by ${req.user.email}`);
+  const result = await runUptimeCheck();
+  res.json(result);
+});
+
+// Uptime check cron: every 5 minutes
+cron.schedule('*/5 * * * *', () => {
+  runUptimeCheck();
+}, { timezone: 'Europe/Zurich' });
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
   console.log(`📁 NAS base: ${NAS_BASE}`);
   console.log(`🔗 Supabase: ${SUPABASE_URL}`);
   console.log(`🗄️  DB Backups: täglich 03:00 → ${BACKUP_DIR}`);
+  console.log(`📡 Monitoring: alle 5 Min → ${MONITOR_TARGETS.map(t => t.name).join(', ')}`);
   console.log(`   DB Host: ${DB_HOST}:${DB_PORT}`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();
+
+  // Run initial uptime check on startup
+  setTimeout(runUptimeCheck, 5000);
 });
