@@ -143,6 +143,10 @@ const CustomerView = ({ domainMode = null }) => {
   const [supaLoading, setSupaLoading] = useState(true);
   const [supaBrand, setSupaBrand] = useState(null);
   const [ownerBrandSettings, setOwnerBrandSettings] = useState(null);
+  const [ownerMitteilungen, setOwnerMitteilungen] = useState([]);
+  const [dismissedMitteilungen, setDismissedMitteilungen] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('dismissed_mitteilungen') || '[]'); } catch { return []; }
+  });
 
   // Custom domain lookup: resolve domain → brand → user's galleries
   useEffect(() => {
@@ -208,6 +212,16 @@ const CustomerView = ({ domainMode = null }) => {
               .maybeSingle();
             if (settingsRow?.value) {
               setOwnerBrandSettings(settingsRow.value);
+            }
+            // Load global mitteilungen for banner
+            const { data: mittRow } = await supabase
+              .from('user_settings')
+              .select('value')
+              .eq('user_id', gallery.user_id)
+              .eq('key', 'settings_mitteilungen')
+              .maybeSingle();
+            if (mittRow?.value && Array.isArray(mittRow.value)) {
+              setOwnerMitteilungen(mittRow.value.filter(m => m.aktiv));
             }
             }
         }
@@ -871,6 +885,25 @@ const CustomerView = ({ domainMode = null }) => {
           </div>
         </div>
       )}
+
+      {/* Global Mitteilung Banner */}
+      {ownerMitteilungen.filter(m => !dismissedMitteilungen.includes(m.titel)).map((mitt, mIdx) => (
+        <div key={mIdx} className="cv-mitteilung-banner" style={{ background: designSecondary, color: designPrimary }}>
+          <button className="cv-mitteilung-close" onClick={() => {
+            const updated = [...dismissedMitteilungen, mitt.titel];
+            setDismissedMitteilungen(updated);
+            sessionStorage.setItem('dismissed_mitteilungen', JSON.stringify(updated));
+          }}><X size={16} /></button>
+          {mitt.titel && <strong className="cv-mitteilung-title">{mitt.titel}</strong>}
+          {mitt.mitteilung && <p className="cv-mitteilung-text">{mitt.mitteilung}</p>}
+          {mitt.bild && <img src={mitt.bild} alt="" className="cv-mitteilung-img" />}
+          {mitt.buttontext && mitt.buttonaktion && (
+            <a href={mitt.buttonaktion.startsWith('http') ? mitt.buttonaktion : `https://${mitt.buttonaktion}`} target="_blank" rel="noopener noreferrer" className="cv-mitteilung-btn">
+              {mitt.buttontext}
+            </a>
+          )}
+        </div>
+      ))}
 
       {/* App Install Instructions Popup */}
       {showInstallPopup && (
