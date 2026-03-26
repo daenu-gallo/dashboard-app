@@ -41,7 +41,20 @@ const Topbar = () => {
     if (showModal && user) {
       // Fetch presets
       supabase.from('presets').select('*').eq('user_id', user.id)
-        .then(({ data }) => setPresets(data || []));
+        .then(({ data }) => {
+          const loaded = data || [];
+          setPresets(loaded);
+          // Auto-select default preset when loaded (fixes race condition with openModal)
+          if (loaded.length > 0) {
+            const std = loaded.find(p => p.is_default) || loaded[0];
+            setSelectedPreset(std.name);
+            const d = std.design || {};
+            const s = std.settings || {};
+            if (d.vorlage) setSelectedDesign(d.vorlage);
+            if (s.marke) setSelectedBrand(s.marke);
+            console.log('[Topbar] Presets loaded:', loaded.length, '| Auto-selected:', std.name, '| Albums:', std.albums?.length || 0);
+          }
+        });
       // Fetch brands
       supabase.from('brands').select('*').eq('user_id', user.id)
         .then(({ data }) => setBrands(data || []));
