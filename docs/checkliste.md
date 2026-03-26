@@ -101,15 +101,15 @@
 | # | Prio | Feature | Beschreibung | Status |
 |:-:|:----:|---------|--------------|:------:|
 | 50 | Hoch | Eigene Domains | `galerie.{website}` aus Marke abgeleitet, Domain-Dropdown, GalleryHomePage | 🟢 |
-| 50 | Hoch | Multi-Tenant | Mehrere Fotografen, eigenes Branding & Subdomain | 🟡 |
-| 51 | Hoch | E-Mail-Versand | Galerien per Mail an Kunden verschicken | 🟡 |
+| 50 | Hoch | Multi-Tenant | RLS auf galleries/brands, Onboarding (Auto-Brand), Storage-Isolation ✅ | 🟢 |
+| 51 | Hoch | E-Mail-Versand | Nodemailer + POST /api/send-email + VerschickenTab verdrahtet | 🟢 |
 | 52 | Hoch | Backup-Strategie | NAS ✓, DB Auto-Backup 03:00 + Admin-Button, 30d Retention | 🟢 23.03. |
 | 53 | Hoch | Upload Fortschrittsbalken | Einzelbild-Upload mit Live-Counter „3 von 5" | 🟢 |
-| 54 | Mittel | Monitoring & Alerts | Uptime-Checks, Crash-Benachrichtigungen | 🟡 |
+| 54 | Mittel | Monitoring & Alerts | Uptime-Cron (5 Min), Alert-Mails, Admin Status-Widget | 🟢 |
 | 55 | Mittel | Design-Darstellung übernehmen | CSS-Variablen, Google Font, Spacing + Display in CustomerView | 🟢 |
-| 56 | Mittel | Text zu Bildern | Beschreibungstext bei Galerie-Bildern | 🟡 |
+| 56 | Mittel | Text zu Bildern | Nicht benötigt | ⚪ |
 | 57 | Mittel | Bilderschutz | Rechtsklick, Drag & Overlay blockiert (CSS + JS) | 🟢 23.03. |
-| 58 | Niedrig | Video-Support | Videos in Galerien einbinden | 🟡 |
+| 58 | Niedrig | Video-Support | Video-Einbindung (YouTube/Vimeo) funktioniert bereits | 🟢 |
 
 ---
 

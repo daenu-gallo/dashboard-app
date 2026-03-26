@@ -51,6 +51,24 @@ export const AuthProvider = ({ children }) => {
       password,
     });
     if (error) throw error;
+
+    // Onboarding: auto-create a default brand from the email domain
+    if (data.user) {
+      try {
+        const emailDomain = email.split('@')[1] || '';
+        const domainName = emailDomain.split('.')[0] || 'Mein Studio';
+        const brandName = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+        await supabase.from('brands').insert({
+          user_id: data.user.id,
+          name: brandName,
+          active: true,
+          website: emailDomain,
+        });
+      } catch (onboardErr) {
+        console.warn('[Auth] Onboarding brand creation failed:', onboardErr.message);
+      }
+    }
+
     return data;
   };
 

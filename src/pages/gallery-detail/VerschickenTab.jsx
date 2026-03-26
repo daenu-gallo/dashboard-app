@@ -1,8 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Copy, Mail, Facebook, Twitter, MessageCircle, Image as ImageIcon, X, Trash2 } from 'lucide-react';
+import { Copy, Mail, Facebook, Twitter, MessageCircle, Image as ImageIcon, X, Trash2, Check, AlertCircle } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useSupabaseSetting } from '../../hooks/useSupabaseSetting';
 import { useBrand } from '../../contexts/BrandContext';
+import { useAuth } from '../../contexts/AuthContext';
+
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
 
 const DEFAULT_TEMPLATES = [
   {
@@ -28,6 +31,13 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
   const [emailBody, setEmailBody] = useState('');
   const [templates, setTemplates] = useSupabaseSetting('email_templates', DEFAULT_TEMPLATES);
   const { globalBrand } = useBrand();
+  const { session } = useAuth();
+
+  // Email sending state
+  const [recipient, setRecipient] = useState('');
+  const [sendCopy, setSendCopy] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState(null); // { type: 'success'|'error', message: '' }
 
   // Template modal state
   const [editName, setEditName] = useState('');
@@ -38,6 +48,61 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
   const displayTitle = settings?.titel || gallery?.title || 'Galerie';
   const galleryUrl = settings?.domain ? `https://${settings.domain}/${settings?.domainpfad || galleryKey}` : '';
   const password = settings?.passwort || settings?.password || '';
+
+  // Clear status after 5s
+  useEffect(() => {
+    if (sendStatus) {
+      const timer = setTimeout(() => setSendStatus(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [sendStatus]);
+
+  // Send email handler
+  const handleSendEmail = async () => {
+    if (!recipient.trim()) {
+      setSendStatus({ type: 'error', message: 'Bitte E-Mail-Adresse eingeben.' });
+      return;
+    }
+    if (!betreff.trim()) {
+      setSendStatus({ type: 'error', message: 'Bitte Betreff eingeben.' });
+      return;
+    }
+
+    setSending(true);
+    setSendStatus(null);
+
+    try {
+      const res = await fetch(`${UPLOAD_API}/api/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          to: recipient.trim(),
+          subject: betreff,
+          body: emailBody,
+          galleryUrl,
+          password,
+          showPassword,
+          cc: sendCopy ? session?.user?.email : undefined,
+          brandName: globalBrand.firmenname || '',
+          brandLogo: globalBrand.logoDark || '',
+          previewImage: getFirstImage() || '',
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSendStatus({ type: 'success', message: data.message || 'E-Mail gesendet!' });
+      } else {
+        setSendStatus({ type: 'error', message: data.error || 'Fehler beim Senden.' });
+      }
+    } catch (err) {
+      setSendStatus({ type: 'error', message: 'Netzwerkfehler. Bitte versuche es erneut.' });
+    }
+    setSending(false);
+  };
 
   // Get selected template
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
@@ -231,7 +296,7 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
 
         <div className="form-group">
           <div className="form-label">Empfänger</div>
-          <input className="form-input" placeholder="🔍 E-Mail Adresse eintragen" />
+          <input className="form-input" placeholder="🔍 E-Mail Adresse eintragen" value={recipient} onChange={e => setRecipient(e.target.value)} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
@@ -242,15 +307,27 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input type="checkbox" id="emailCopy" style={{ accentColor: 'var(--color-primary)' }} />
+          <input type="checkbox" id="emailCopy" checked={sendCopy} onChange={e => setSendCopy(e.target.checked)} style={{ accentColor: 'var(--color-primary)' }} />
           <label htmlFor="emailCopy" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             Schicke mir diese E-Mail als Kopie zu
           </label>
         </div>
 
-        <button className="share-btn primary" style={{ marginTop: '0.5rem' }}>
-          E-Mail absenden
+        <button className="share-btn primary" style={{ marginTop: '0.5rem' }} onClick={handleSendEmail} disabled={sending}>
+          {sending ? 'Wird gesendet...' : 'E-Mail absenden'}
         </button>
+
+        {sendStatus && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem',
+            padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.8rem',
+            background: sendStatus.type === 'success' ? '#e6f4ea' : '#fce8e8',
+            color: sendStatus.type === 'success' ? '#1a7f37' : '#c33',
+          }}>
+            {sendStatus.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+            {sendStatus.message}
+          </div>
+        )}
 
         {password && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
@@ -338,7 +415,7 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
               placeholder="Bitte wähle eine Vorlage aus dem Dropdown oder tippe hier..."
             />
 
-            <button className="share-btn primary" style={{ background: '#333', borderColor: '#333' }}>
+            <button className="share-btn primary" style={{ background: '#333', borderColor: '#333' }} onClick={() => galleryUrl && window.open(galleryUrl, '_blank')}>
               GALERIE ÖFFNEN
             </button>
 

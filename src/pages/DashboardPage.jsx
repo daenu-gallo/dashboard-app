@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader, DatabaseBackup, HardDrive } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader, DatabaseBackup, HardDrive, Activity } from 'lucide-react';
 import { useBrand } from '../contexts/BrandContext';
 import './Dashboard.css';
 
@@ -31,6 +31,10 @@ const DashboardPage = () => {
   const [backupResult, setBackupResult] = useState(null);
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
+
+  // Monitoring state
+  const [serviceStatus, setServiceStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
@@ -157,6 +161,27 @@ const DashboardPage = () => {
   // Load backups when admin section is visible
   useEffect(() => {
     if (isAdmin) loadBackups();
+  }, [isAdmin]);
+
+  // Load service status
+  const loadServiceStatus = async (manual = false) => {
+    if (!session?.access_token || !UPLOAD_API) return;
+    setStatusLoading(true);
+    try {
+      const endpoint = manual ? '/api/admin/check-now' : '/api/admin/status';
+      const method = manual ? 'POST' : 'GET';
+      const res = await fetch(`${UPLOAD_API}${endpoint}`, {
+        method,
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      setServiceStatus(manual ? { current: data, history: [] } : data);
+    } catch { setServiceStatus(null); }
+    setStatusLoading(false);
+  };
+
+  useEffect(() => {
+    if (isAdmin) loadServiceStatus();
   }, [isAdmin]);
 
   // Greeting based on time of day
@@ -630,6 +655,62 @@ const DashboardPage = () => {
             {backups.length === 0 && !backupsLoading && (
               <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
                 Noch keine Backups vorhanden. Klicke "Backup jetzt" oder warte auf das Auto-Backup um 03:00.
+              </p>
+            )}
+          </div>
+
+          {/* Service Monitoring */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <label style={{ fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ccc' }}>
+                <Activity size={16} style={{ color: '#22c55e' }} />
+                Service-Monitoring
+              </label>
+              <button
+                onClick={() => loadServiceStatus(true)}
+                disabled={statusLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.4rem 0.8rem', borderRadius: 6, border: 'none',
+                  background: '#528c68', color: '#fff', fontWeight: 500,
+                  cursor: statusLoading ? 'wait' : 'pointer', fontSize: '0.75rem',
+                  opacity: statusLoading ? 0.7 : 1,
+                }}
+              >
+                {statusLoading ? <Loader size={12} className="spin" /> : <Activity size={12} />}
+                Jetzt prüfen
+              </button>
+            </div>
+
+            {serviceStatus?.current ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                {serviceStatus.current.results.map((s, i) => (
+                  <div key={i} style={{
+                    padding: '0.75rem', borderRadius: 8,
+                    background: s.status === 'up' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                    border: `1px solid ${s.status === 'up' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.status === 'up' ? '#22c55e' : '#ef4444', display: 'inline-block' }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.8rem', color: s.status === 'up' ? '#22c55e' : '#ef4444' }}>
+                        {s.name}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>
+                      {s.status === 'up' ? `${s.responseTime}ms` : s.error || 'Nicht erreichbar'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
+                {statusLoading ? 'Prüfe Services...' : 'Klicke "Jetzt prüfen" für einen Statuscheck.'}
+              </p>
+            )}
+
+            {serviceStatus?.current && (
+              <p style={{ fontSize: '0.65rem', color: '#555', marginTop: '0.5rem', marginBottom: 0 }}>
+                Letzter Check: {new Date(serviceStatus.current.timestamp).toLocaleString('de-CH')} · Auto-Check alle 5 Min · Alert-Mail bei Ausfall
               </p>
             )}
           </div>

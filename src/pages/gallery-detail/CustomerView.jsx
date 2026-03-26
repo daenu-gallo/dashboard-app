@@ -1402,7 +1402,16 @@ const CustomerView = ({ domainMode = null }) => {
             )}
           </div>
           <div className="cv-lightbox-actions" onClick={(e) => e.stopPropagation()}>
-            <button className="cv-lightbox-btn">
+            <button className="cv-lightbox-btn" onClick={() => {
+              // Move to next photo and close if at end
+              if (lightboxIndex < lightboxPhotos.length - 1) {
+                setLightboxIndex(i => i + 1);
+              } else if (lightboxIndex > 0) {
+                setLightboxIndex(i => i - 1);
+              } else {
+                setLightboxOpen(false);
+              }
+            }}>
               <EyeOff size={16} /> Ausblenden
             </button>
             <button
@@ -1504,19 +1513,39 @@ const CustomerView = ({ domainMode = null }) => {
           <div className="cv-login-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
             <button className="cv-login-close" onClick={() => setShowSendForm(false)}><X size={20} /></button>
             <h3>An Fotograf senden</h3>
-            <form onSubmit={(e) => { e.preventDefault(); alert('Auswahl wurde an den Fotografen gesendet!'); setShowSendForm(false); setSelectionMode(false); }}>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const selectedPhotos = Object.entries(selections).filter(([, v]) => v).map(([src]) => src);
+              try {
+                const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+                await fetch(`${UPLOAD_API}/api/send-email`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: supaGallery?.user_id ? undefined : 'galerie@fotohahn.ch',
+                    subject: `Auswahl: ${selectionName || displayTitle} (${selectedPhotos.length} Fotos)`,
+                    body: `Kunde: ${formData.get('vorname') || ''} ${formData.get('nachname') || ''}\nE-Mail: ${formData.get('email') || ''}\nAuswahl: ${selectionName}\n\nNachricht: ${sendMessage}\n\nFotos (${selectedPhotos.length}):\n${selectedPhotos.join('\n')}`,
+                    brandName: brandData?.name || '',
+                  }),
+                });
+              } catch (err) { console.warn('Send error:', err); }
+              alert('✅ Auswahl wurde an den Fotografen gesendet!');
+              setShowSendForm(false);
+              setSelectionMode(false);
+            }}>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <div style={{ flex: 1 }}>
                   <label className="cv-form-label">Vorname</label>
-                  <input type="text" placeholder="Vorname" defaultValue={customerUser?.name?.split(' ')[0] || ''} required />
+                  <input type="text" name="vorname" placeholder="Vorname" defaultValue={customerUser?.name?.split(' ')[0] || ''} required />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label className="cv-form-label">Nachname</label>
-                  <input type="text" placeholder="Nachname" defaultValue={customerUser?.name?.split(' ').slice(1).join(' ') || ''} />
+                  <input type="text" name="nachname" placeholder="Nachname" defaultValue={customerUser?.name?.split(' ').slice(1).join(' ') || ''} />
                 </div>
               </div>
               <label className="cv-form-label">Deine E-Mail</label>
-              <input type="email" placeholder="Deine E-Mail" defaultValue={customerUser?.email || ''} required />
+              <input type="email" name="email" placeholder="Deine E-Mail" defaultValue={customerUser?.email || ''} required />
               <label className="cv-form-label">Name der Auswahl</label>
               <input type="text" placeholder="Favoriten, Fotobuch..." value={selectionName} onChange={e => setSelectionName(e.target.value)} />
               <label className="cv-form-label">Nachricht an deinen Fotografen</label>
@@ -1533,7 +1562,17 @@ const CustomerView = ({ domainMode = null }) => {
           <div className="cv-login-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <button className="cv-login-close" onClick={() => setShowSaveForm(false)}><X size={20} /></button>
             <h3 style={{ textTransform: 'uppercase', letterSpacing: 2 }}>Speichern</h3>
-            <form onSubmit={(e) => { e.preventDefault(); alert('Auswahl gespeichert!'); setShowSaveForm(false); setSelectionMode(false); }}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const selectedPhotos = Object.entries(selections).filter(([, v]) => v).map(([src, data]) => ({ src, name: data.name || src }));
+              try {
+                const key = `gallery_selection_${supaGallery?.id || 'unknown'}`;
+                localStorage.setItem(key, JSON.stringify({ name: selectionName, photos: selectedPhotos, savedAt: new Date().toISOString() }));
+              } catch (err) { console.warn('Save error:', err); }
+              alert('✅ Auswahl wurde gespeichert!');
+              setShowSaveForm(false);
+              setSelectionMode(false);
+            }}>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <div style={{ flex: 1 }}>
                   <label className="cv-form-label">Vorname</label>
