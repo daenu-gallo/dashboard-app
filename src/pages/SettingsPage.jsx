@@ -1065,6 +1065,7 @@ const VoreinstellungenTab = () => {
                     </select>
                   </div>
                   <div className="template-carousel">
+                    <button className="carousel-arrow" onClick={() => { const vp = document.querySelector('.template-carousel-viewport'); if (vp) vp.scrollBy({ left: -180, behavior: 'smooth' }); }}>‹</button>
                     <div className="template-carousel-viewport">
                       <div className="template-carousel-track">
                         {PRESET_TEMPLATES.map((t) => (
@@ -1079,6 +1080,7 @@ const VoreinstellungenTab = () => {
                         ))}
                       </div>
                     </div>
+                    <button className="carousel-arrow" onClick={() => { const vp = document.querySelector('.template-carousel-viewport'); if (vp) vp.scrollBy({ left: 180, behavior: 'smooth' }); }}>›</button>
                   </div>
                   <div className="form-group">
                     <div className="form-label">
