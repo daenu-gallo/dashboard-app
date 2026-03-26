@@ -1265,7 +1265,7 @@ const SteuerTab = () => {
 };
 
 /* ——— Tab: Mitteilungen ——— */
-const EMPTY_MITTEILUNG = { titel: '', mitteilung: '', bild: null, bildName: '', buttontext: '', buttonaktion: '', werSoll: 'Alle', wannAnzeigen: '0', wieOftAnzeigen: '1', anzeigenBis: '' };
+const EMPTY_MITTEILUNG = { titel: '', mitteilung: '', bild: null, bildName: '', buttontext: '', buttonaktion: '', werSoll: 'Alle', wannAnzeigen: '0', wieOftAnzeigen: '1', anzeigenBis: '', aktiv: false };
 
 const MitteilungenTab = () => {
   const [mittList, setMittList] = useSupabaseSetting('settings_mitteilungen', []);
@@ -1389,6 +1389,24 @@ const MitteilungenTab = () => {
                 <input className="form-input-st" placeholder="Bitte Datum auswählen" type="date" value={current.anzeigenBis} onChange={e => updateField('anzeigenBis', e.target.value)} />
               </div>
             </div>
+            <button
+              onClick={() => updateField('aktiv', !current.aktiv)}
+              style={{
+                width: '100%',
+                marginTop: '1.25rem',
+                padding: '0.75rem',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: current.aktiv ? '#dc3545' : '#528c68',
+                color: '#fff',
+                transition: 'background 0.2s',
+              }}
+            >
+              {current.aktiv ? 'Mitteilung deaktivieren' : 'Mitteilung aktivieren'}
+            </button>
           </>
         )}
       </div>
