@@ -928,7 +928,7 @@ const VoreinstellungenTab = () => {
               <p style={{ fontSize: '0.85rem', color: '#555', marginBottom: '1rem' }}>Trage einen Namen für deine neue Galerie Voreinstellung ein</p>
               <div style={{ position: 'relative' }}>
                 <input className="form-input-st" placeholder="Galerie Voreinstellung Name" value={modal.name} onChange={e => setModal(prev => ({ ...prev, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') handleAddSave(); }} autoFocus />
-                <HelpCircle size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59' }} />
+
               </div>
               <button onClick={handleAddSave} disabled={!modal.name.trim()} style={{ ...greenBtn, width: '100%', marginTop: '1.25rem', padding: '0.65rem', opacity: modal.name.trim() ? 1 : 0.5, cursor: modal.name.trim() ? 'pointer' : 'not-allowed' }}>Erstellen</button>
             </div>
@@ -1003,12 +1003,12 @@ const VoreinstellungenTab = () => {
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Läuft ab am</label>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <input className="form-input-st" type="number" value={detailModal.ablauf} onChange={e => ud('ablauf', e.target.value)} style={{ flex: 1 }} />
-                        <HelpCircle size={14} style={{ color: '#4a7c59' }} /><span style={{ fontSize: '0.8rem', color: '#666', whiteSpace: 'nowrap' }}>Tage(n)</span>
+                        <HelpCircle size={14} style={{ color: '#4a7c59', cursor: 'help' }} title="An diesem Datum läuft die Galerie ab und der Kunde hat keinen Zugriff mehr. 30 Tage nach dem Ablaufdatum wird die Galerie endgültig gelöscht. Davor kannst du sie jederzeit deinem Kunden erneut freischalten." /><span style={{ fontSize: '0.8rem', color: '#666', whiteSpace: 'nowrap' }}>Tage(n)</span>
                       </div></div>
                     <div style={{ marginBottom: '0.75rem' }}><label style={labelSt}>Tags</label>
                       <div style={{ position: 'relative' }}>
                         <input className="form-input-st" placeholder="Tag eintragen..." value={detailModal.tags} onChange={e => ud('tags', e.target.value)} />
-                        <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59' }} />
+                        <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59', cursor: 'help' }} title="Trage deine Galerien ein, um z.B. danach zu filtern." />
                       </div></div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '0.25rem' }}>
@@ -1190,17 +1190,17 @@ const VoreinstellungenTab = () => {
                   <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Google Analytics Code</label>
                     <div style={{ position: 'relative' }}>
                       <input className="form-input-st" placeholder="Google Analytics Code" value={detailModal.gaCode} onChange={e => ud('gaCode', e.target.value)} />
-                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59' }} />
+                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59', cursor: 'help' }} title="Dein Google Analytics Code in folgender Form: UA-12345678-9" />
                     </div></div>
                   <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Google Tag Manager ID</label>
                     <div style={{ position: 'relative' }}>
                       <input className="form-input-st" placeholder="Google Tag Manager ID" value={detailModal.gtmId} onChange={e => ud('gtmId', e.target.value)} />
-                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59' }} />
+                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59', cursor: 'help' }} title="Google Tag Manager ID im folgendem Format: GTM-XXXXXXX" />
                     </div></div>
                   <div style={{ marginBottom: '1rem' }}><label style={labelSt}>Facebook Pixel ID</label>
                     <div style={{ position: 'relative' }}>
                       <input className="form-input-st" placeholder="Facebook Pixel ID" value={detailModal.fbPixel} onChange={e => ud('fbPixel', e.target.value)} />
-                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59' }} />
+                      <HelpCircle size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#4a7c59', cursor: 'help' }} title="Deine Facebook Pixel ID in folgender Form: 1806111324671399" />
                     </div></div>
                 </div>
               )}
@@ -1240,23 +1240,23 @@ const SteuerTab = () => {
         Der Umsatzsteuersatz + KU-Regelung kann nur einmal im Jahr angepasst werden. Bitte wende dich an unseren Support, wenn du deine Steuerregelung dennoch anpassen möchtest.
       </div>
       <div className="form-group-st">
-        <label>Account Währung <HelpCircle size={13} className="help-icon" /></label>
+        <label>Account Währung <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="Deine Währung kann nur geändert werden, wenn dein Accountguthaben bei 0 ist. Wenn du dein Account Guthaben änderst, werden alle Preise in der jeweiligen Währung angezeigt. Einkaufspreise für Fotoprodukte werden dann auch in deine gewählte Währung umgerechnet. Einige Funktionen sind je nach Währung nicht verfügbar." /></label>
         <select className="form-input-st" value={steuerData.waehrung} onChange={e => updateField('waehrung', e.target.value)}><option>Schweizer Franken</option><option>Euro</option></select>
       </div>
       <div className="form-group-st">
-        <label>Umsatzsteuer-ID <HelpCircle size={13} className="help-icon" /></label>
+        <label>Umsatzsteuer-ID <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="Deine Umsatzsteuer-ID, wenn du eine hast." /></label>
         <input className="form-input-st" value={steuerData.umsatzsteuerId} onChange={e => updateField('umsatzsteuerId', e.target.value)} />
       </div>
       <div className="form-group-st">
-        <label>Steuernummer <HelpCircle size={13} className="help-icon" /></label>
+        <label>Steuernummer <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="Deine Steuernummer, wenn du eine hast." /></label>
         <input className="form-input-st" value={steuerData.steuernummer} onChange={e => updateField('steuernummer', e.target.value)} />
       </div>
       <div className="form-group-st">
-        <label>Handelsregisternummer <HelpCircle size={13} className="help-icon" /></label>
+        <label>Handelsregisternummer <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="Deine Handelsregisternummer, wenn du eine hast." /></label>
         <input className="form-input-st" value={steuerData.handelsregisternummer} onChange={e => updateField('handelsregisternummer', e.target.value)} />
       </div>
       <div className="form-group-st">
-        <label>Handelsregister <HelpCircle size={13} className="help-icon" /></label>
+        <label>Handelsregister <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="In welchem Handelsregister ist dein Unternehmen eingetragen?" /></label>
         <input className="form-input-st" value={steuerData.handelsregister} onChange={e => updateField('handelsregister', e.target.value)} />
       </div>
       <button className="btn-save">Speichern</button>
@@ -1543,15 +1543,15 @@ const DomainsTab = () => {
             </div>
             <div style={modalBody}>
               <div className="form-group-st">
-                <label style={{ fontWeight: 600 }}>Beschreibung <HelpCircle size={13} style={{ color: '#aaa' }} /></label>
+                <label style={{ fontWeight: 600 }}>Beschreibung</label>
                 <input className="form-input-st" value={legalModal.data.name} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, name: e.target.value } }))} />
               </div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
-                <label style={{ fontWeight: 600 }}>Internetaddresse <HelpCircle size={13} style={{ color: '#aaa' }} /></label>
+                <label style={{ fontWeight: 600 }}>Internetaddresse</label>
                 <input className="form-input-st" placeholder="https://example.com/agb" value={legalModal.data.url} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, url: e.target.value } }))} />
               </div>
               <div className="form-group-st" style={{ marginTop: '0.75rem' }}>
-                <label style={{ fontWeight: 600 }}>{legalModal.type === 'impressum' ? 'Impressum' : 'Datenschutz'} <HelpCircle size={13} style={{ color: '#aaa' }} /></label>
+                <label style={{ fontWeight: 600 }}>{legalModal.type === 'impressum' ? 'Impressum' : 'Datenschutz'}</label>
                 <textarea className="form-input-st" rows={3} placeholder={legalModal.type === 'impressum' ? 'https://example.com/impressum' : 'https://example.com/datenschutz'} value={legalModal.data.content} onChange={e => setLegalModal(prev => ({ ...prev, data: { ...prev.data, content: e.target.value } }))} style={{ resize: 'vertical' }} />
               </div>
               <button onClick={saveLegal} style={{ ...greenBtn, width: '100%', marginTop: '1rem', padding: '0.65rem' }}>

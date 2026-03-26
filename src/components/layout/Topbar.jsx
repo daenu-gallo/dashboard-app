@@ -185,7 +185,6 @@ const Topbar = () => {
                   <div className="wizard-field">
                     <label className="wizard-label">
                       Titel
-                      <HelpCircle size={14} className="wizard-help-icon" />
                     </label>
                     <input
                       className="topbar-modal-input"
@@ -200,7 +199,6 @@ const Topbar = () => {
                   <div className="wizard-field">
                     <label className="wizard-label">
                       Interne Bezeichnung (optional)
-                      <HelpCircle size={14} className="wizard-help-icon" />
                     </label>
                     <input
                       className="topbar-modal-input"

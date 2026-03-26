@@ -103,7 +103,7 @@ const PortfolioDetail = ({ portfolio, onBack, onSave }) => {
           </div>
 
           <div className="pf-field">
-            <label>Interne Beschreibung <HelpCircle size={13} className="help-icon" /></label>
+            <label>Interne Beschreibung <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="Eine interne Beschreibung für Ihr Portfolio." /></label>
             <input className="pf-input" placeholder="z.B. 01-01-20 - Drehort" value={formData.description} onChange={(e) => updateField('description', e.target.value)} />
           </div>
 
