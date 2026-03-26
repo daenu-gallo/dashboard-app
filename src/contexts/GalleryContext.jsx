@@ -115,13 +115,17 @@ export const GalleryProvider = ({ children }) => {
     if (err) throw err;
 
     // Create preset albums if any
-    if (preset?.alben?.length > 0) {
-      const albumsToInsert = preset.alben.map((name, i) => ({
+    const albumNames = preset?.alben || [];
+    console.log('[createGallery] Preset albums to create:', albumNames, '| Raw preset.alben:', preset?.alben, '| Full preset keys:', preset ? Object.keys(preset) : 'null');
+    if (albumNames.length > 0) {
+      const albumsToInsert = albumNames.map((name, i) => ({
         gallery_id: data.id,
-        name,
+        name: typeof name === 'string' ? name : (name?.name || `Album ${i + 1}`),
         sort_order: i,
       }));
-      await supabase.from('albums').insert(albumsToInsert);
+      const { error: albumErr } = await supabase.from('albums').insert(albumsToInsert);
+      if (albumErr) console.error('[createGallery] Album insert error:', albumErr);
+      else console.log('[createGallery] Created', albumsToInsert.length, 'albums');
     }
 
     // Update local state immediately

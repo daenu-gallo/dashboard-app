@@ -342,9 +342,49 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
   }
 });
 
+// ── Watermark config cache (1hr TTL) ──
+const wmCache = new Map();
+const WM_CACHE_TTL = 3600000;
+
+async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
+  const cacheKey = `${userId}:${gallerySlug}:${albumIndex}`;
+  const cached = wmCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < WM_CACHE_TTL) return cached.data;
+
+  if (!supabase) return null;
+  try {
+    // Get gallery by slug and user
+    const { data: gallery } = await supabase
+      .from('galleries').select('id, toggles').eq('slug', gallerySlug).eq('user_id', userId).maybeSingle();
+    if (!gallery) return null;
+
+    const toggles = gallery.toggles || {};
+    const albumToggles = toggles[`album_${albumIndex}`] || {};
+
+    // Check album-level watermark first, then gallery-level
+    const wmEnabled = albumToggles.watermark || toggles.wasserzeichen;
+    if (!wmEnabled) { wmCache.set(cacheKey, { data: null, ts: Date.now() }); return null; }
+
+    const wmId = albumToggles.watermarkId || toggles.selectedWatermarkId;
+    if (!wmId) { wmCache.set(cacheKey, { data: null, ts: Date.now() }); return null; }
+
+    // Load watermark settings from user_settings
+    const { data: settingsRow } = await supabase
+      .from('user_settings').select('value').eq('user_id', userId).eq('key', 'settings_watermarks_v2').maybeSingle();
+    const watermarks = settingsRow?.value || [];
+    const wm = watermarks.find(w => String(w.id) === String(wmId));
+
+    wmCache.set(cacheKey, { data: wm || null, ts: Date.now() });
+    return wm || null;
+  } catch (err) {
+    console.error('[Watermark] Config load error:', err.message);
+    return null;
+  }
+}
+
 // ── GET /api/images/:userId/:slug/:albumIndex/:type/:filename ──
-// Serve images from NAS (type = 'original' or 'thumb')
-app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', (req, res) => {
+// Serve images from NAS with optional watermark overlay
+app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res) => {
   const { userId, slug, albumIndex, type, filename } = req.params;
 
   if (!['original', 'thumb'].includes(type)) {
@@ -357,7 +397,124 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  // Cache headers (images don't change)
+  // Only apply watermarks to originals (not thumbnails)
+  if (type === 'original') {
+    try {
+      const wm = await getWatermarkConfig(userId, albumIndex, slug);
+      if (wm && wm.wmType === 'text') {
+        const image = sharp(filePath);
+        const metadata = await image.metadata();
+        const w = metadata.width || 1200;
+        const h = metadata.height || 800;
+
+        const fontStr = wm.font || 'Open Sans, 64px, weiß';
+        const [fontName, fontSizeStr] = fontStr.split(',').map(s => s.trim());
+        const fontSize = Math.min(parseInt(fontSizeStr) || 64, Math.round(w * 0.06));
+        const isBlack = fontStr.includes('schwarz');
+        const fillColor = isBlack ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+        const opacity = (wm.transparency ?? 50) / 100;
+        const text = wm.text || wm.name || 'Watermark';
+
+        // Position mapping
+        const posMap = {
+          'oben-links': { x: '8%', y: '10%', anchor: 'start' },
+          'oben-mitte': { x: '50%', y: '10%', anchor: 'middle' },
+          'oben-rechts': { x: '92%', y: '10%', anchor: 'end' },
+          'mitte-links': { x: '8%', y: '52%', anchor: 'start' },
+          'mitte': { x: '50%', y: '52%', anchor: 'middle' },
+          'mitte-rechts': { x: '92%', y: '52%', anchor: 'end' },
+          'unten-links': { x: '8%', y: '94%', anchor: 'start' },
+          'unten-mitte': { x: '50%', y: '94%', anchor: 'middle' },
+          'unten-rechts': { x: '92%', y: '94%', anchor: 'end' },
+        };
+        const pos = posMap[wm.position] || posMap['mitte'];
+
+        const svgOverlay = Buffer.from(`
+          <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <text x="${pos.x}" y="${pos.y}" text-anchor="${pos.anchor}" dominant-baseline="central"
+              font-family="'${fontName}', sans-serif" font-size="${fontSize}" font-weight="700"
+              fill="${fillColor}" opacity="${opacity}"
+              filter="drop-shadow(0 2px 6px rgba(0,0,0,0.4))"
+            >${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+          </svg>
+        `);
+
+        const buffer = await image
+          .composite([{ input: svgOverlay, top: 0, left: 0 }])
+          .jpeg({ quality: 85 })
+          .toBuffer();
+
+        res.set({
+          'Cache-Control': 'public, max-age=86400',
+          'Content-Type': 'image/jpeg',
+          'Content-Length': buffer.length,
+        });
+        return res.send(buffer);
+      }
+
+      if (wm && wm.wmType === 'image' && wm.image) {
+        try {
+          const image = sharp(filePath);
+          const metadata = await image.metadata();
+          const w = metadata.width || 1200;
+          const h = metadata.height || 800;
+          const opacity = (wm.transparency ?? 50) / 100;
+          const scale = (wm.scale ?? 100) / 100;
+          const overlayW = Math.round(w * 0.25 * scale);
+
+          // Fetch watermark image (base64 or URL)
+          let wmBuffer;
+          if (wm.image.startsWith('data:')) {
+            const base64Data = wm.image.split(',')[1];
+            wmBuffer = Buffer.from(base64Data, 'base64');
+          } else {
+            const resp = await fetch(wm.image);
+            wmBuffer = Buffer.from(await resp.arrayBuffer());
+          }
+
+          const wmResized = await sharp(wmBuffer)
+            .resize(overlayW, null, { fit: 'inside' })
+            .ensureAlpha()
+            .toBuffer();
+
+          // Position
+          const wmMeta = await sharp(wmResized).metadata();
+          const posCalc = {
+            'oben-links': { left: Math.round(w * 0.06), top: Math.round(h * 0.06) },
+            'oben-mitte': { left: Math.round((w - wmMeta.width) / 2), top: Math.round(h * 0.06) },
+            'oben-rechts': { left: Math.round(w * 0.94 - wmMeta.width), top: Math.round(h * 0.06) },
+            'mitte-links': { left: Math.round(w * 0.06), top: Math.round((h - wmMeta.height) / 2) },
+            'mitte': { left: Math.round((w - wmMeta.width) / 2), top: Math.round((h - wmMeta.height) / 2) },
+            'mitte-rechts': { left: Math.round(w * 0.94 - wmMeta.width), top: Math.round((h - wmMeta.height) / 2) },
+            'unten-links': { left: Math.round(w * 0.06), top: Math.round(h * 0.94 - wmMeta.height) },
+            'unten-mitte': { left: Math.round((w - wmMeta.width) / 2), top: Math.round(h * 0.94 - wmMeta.height) },
+            'unten-rechts': { left: Math.round(w * 0.94 - wmMeta.width), top: Math.round(h * 0.94 - wmMeta.height) },
+          };
+          const pos = posCalc[wm.position] || posCalc['mitte'];
+
+          const buffer = await image
+            .composite([{ input: wmResized, left: pos.left, top: pos.top, blend: 'over' }])
+            .jpeg({ quality: 85 })
+            .toBuffer();
+
+          res.set({
+            'Cache-Control': 'public, max-age=86400',
+            'Content-Type': 'image/jpeg',
+            'Content-Length': buffer.length,
+          });
+          return res.send(buffer);
+        } catch (wmErr) {
+          console.error('[Watermark] Image overlay error:', wmErr.message);
+          // Fall through to serve without watermark
+        }
+      }
+    } catch (err) {
+      console.error('[Watermark] Processing error:', err.message);
+      // Fall through to serve without watermark
+    }
+  }
+
+  // Default: serve without watermark (thumbnails, or when no watermark configured)
   res.set({
     'Cache-Control': 'public, max-age=31536000, immutable',
     'Content-Type': 'image/jpeg',
