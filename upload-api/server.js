@@ -103,18 +103,14 @@ app.use(cors({
 // ── Rate Limiting ──
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: 1000,                 // max. 1000 Requests pro IP
+  max: 5000,                 // max. 5000 Requests pro IP (für Batch-Uploads von 3000+ Bildern)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
-const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 500,                  // max. 500 Uploads pro IP (für Batch-Uploads)
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Upload limit reached, please try again later.' },
-});
+// Upload limiter disabled — authenticated users can upload unlimited
+// Security is handled by JWT auth, not rate limiting
+const uploadLimiter = (req, res, next) => next();
 app.use(generalLimiter);
 
 app.use(express.json());
