@@ -1058,9 +1058,9 @@ const VoreinstellungenTab = () => {
                 <div className="design-controls">
                   <div className="form-group">
                     <div className="form-label">Vorlagen</div>
-                    <select className="form-select" value={detailModal.vorlage} onChange={e => applyPresetTemplate(e.target.value)}>
+                    <select className="form-select" style={{ background: '#fff', color: '#333' }} value={detailModal.vorlage} onChange={e => applyPresetTemplate(e.target.value)}>
                       {PRESET_TEMPLATES.map(t => (
-                        <option key={t.id} value={t.name}>{t.name}</option>
+                        <option key={t.id} value={t.name} style={{ background: '#fff', color: '#333' }}>{t.name}</option>
                       ))}
                     </select>
                   </div>
