@@ -1448,9 +1448,11 @@ const DomainsTab = () => {
   const typeLabel = legalModal?.type === 'impressum' ? 'Impressum' : 'Datenschutzerklärung';
 
   // Derive domains from ALL brands with a website
+  const { globalBrand } = useBrand();
   const derivedDomains = (brands || [])
     .map(b => {
-      const cleanHost = (b.website || '').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
+      const rawWebsite = b.website || globalBrand?.webseite || '';
+      const cleanHost = rawWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
       return cleanHost ? { brandName: b.name, domain: `galerie.${cleanHost}` } : null;
     })
     .filter(Boolean);
