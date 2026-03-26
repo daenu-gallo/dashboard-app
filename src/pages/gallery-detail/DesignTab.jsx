@@ -203,7 +203,7 @@ const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
             <ChevronLeft size={18} />
           </button>
           <div className="template-carousel-viewport">
-            <div className="template-carousel-track" style={{ transform: `translateX(-${carouselOffset * 172}px)` }}>
+            <div className="template-carousel-track" style={{ transform: `translateX(-${carouselOffset * 132}px)` }}>
               {TEMPLATES.map((t) => (
                 <div
                   key={t.id}

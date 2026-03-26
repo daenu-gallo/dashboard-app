@@ -1364,7 +1364,7 @@
 }
 
 .template-carousel-viewport {
-  overflow-x: auto;
+  overflow: hidden;
   flex: 1;
   scrollbar-width: none;
 }
@@ -1381,8 +1381,9 @@
 }
 
 .template-thumb {
-  width: 160px;
-  height: 100px;
+  width: 120px;
+  min-width: 120px;
+  height: 80px;
   border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
