@@ -566,6 +566,51 @@ app.delete('/api/images/:imageId', authenticate, async (req, res) => {
   }
 });
 
+// ── DELETE /api/gallery/:galleryId ──
+// Delete all gallery files from NAS + images from Supabase
+app.delete('/api/gallery/:galleryId', authenticate, async (req, res) => {
+  const { galleryId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Verify gallery exists and belongs to user
+    const { data: gallery, error: fetchErr } = await supabase
+      .from('galleries')
+      .select('slug, user_id')
+      .eq('id', galleryId)
+      .single();
+
+    if (fetchErr || !gallery) {
+      return res.status(404).json({ error: 'Gallery not found' });
+    }
+    if (gallery.user_id !== userId) {
+      return res.status(403).json({ error: 'Not your gallery' });
+    }
+
+    const galleryPath = path.join(NAS_BASE, userId, gallery.slug);
+
+    // Delete all images from Supabase
+    await supabase.from('images').delete().eq('gallery_id', galleryId);
+
+    // Delete all albums from Supabase
+    await supabase.from('albums').delete().eq('gallery_id', galleryId);
+
+    // Delete gallery views
+    await supabase.from('gallery_views').delete().eq('gallery_id', galleryId);
+
+    // Delete gallery folder from NAS (recursive)
+    if (existsSync(galleryPath)) {
+      await fs.rm(galleryPath, { recursive: true, force: true });
+      console.log(`[DeleteGallery] Removed NAS folder: ${galleryPath}`);
+    }
+
+    res.json({ success: true, deleted: galleryPath });
+  } catch (err) {
+    console.error('[DeleteGallery] Error:', err);
+    res.status(500).json({ error: 'Gallery cleanup failed', details: err.message });
+  }
+});
+
 // ── PATCH /api/images/:imageId ──
 // Update image flags (title, mobile, app-icon)
 app.patch('/api/images/:imageId', authenticate, async (req, res) => {

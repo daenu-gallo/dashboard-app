@@ -166,6 +166,22 @@ export const GalleryProvider = ({ children }) => {
 
   // ─── Delete gallery ───
   const deleteGallery = useCallback(async (id) => {
+    // Clean up NAS files, images, albums, views via upload-API
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (token) {
+        const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+        await fetch(`${UPLOAD_API}/api/gallery/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      }
+    } catch (err) {
+      console.warn('[deleteGallery] NAS cleanup failed (continuing):', err.message);
+    }
+
+    // Delete gallery record from Supabase
     const { error: err } = await supabase
       .from('galleries')
       .delete()
