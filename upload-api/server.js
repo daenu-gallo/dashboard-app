@@ -113,7 +113,7 @@ const generalLimiter = rateLimit({
 const uploadLimiter = (req, res, next) => next();
 app.use(generalLimiter);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // ── Request logging (security audit trail) ──
 app.use((req, res, next) => {
