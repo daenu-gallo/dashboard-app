@@ -800,7 +800,7 @@ app.post('/api/send-email', authenticate, async (req, res) => {
     return res.status(503).json({ error: 'E-Mail-Versand nicht konfiguriert. Bitte SMTP Env-Vars setzen.' });
   }
 
-  const { to, subject, body, galleryUrl, password, showPassword, cc, brandName, brandLogo, previewImage } = req.body;
+  const { to, subject, body, galleryUrl, password, showPassword, cc, brandName, brandEmail, brandLogo, previewImage } = req.body;
 
   if (!to || !subject) {
     return res.status(400).json({ error: 'Empfänger und Betreff sind erforderlich.' });
@@ -863,8 +863,10 @@ app.post('/api/send-email', authenticate, async (req, res) => {
 </html>`;
 
   try {
+    const senderEmail = brandEmail || SMTP_FROM;
     const mailOptions = {
-      from: `"${brandName || 'Fotohahn Galerie'}" <${SMTP_FROM}>`,
+      from: `"${brandName || 'Fotohahn Galerie'}" <${senderEmail}>`,
+      replyTo: brandEmail || undefined,
       to: emails.map(e => e.trim()).join(', '),
       subject,
       html,

@@ -90,6 +90,7 @@ const VerschickenTab = ({ gallery, galleryKey, settings, uploadedImages, appIcon
           showPassword,
           cc: sendCopy ? session?.user?.email : undefined,
           brandName: globalBrand.firmenname || '',
+          brandEmail: globalBrand.email || '',
           brandLogo: globalBrand.logoDark || '',
           previewImage: getFirstImage() || '',
         }),

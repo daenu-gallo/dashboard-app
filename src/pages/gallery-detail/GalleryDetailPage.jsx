@@ -42,7 +42,7 @@ const GalleryDetailPage = () => {
   };
 
   // Gallery key for sub-components
-  const galleryKey = gallery?.title || slug;
+  const galleryKey = gallery?.slug || slug;
 
   // Load app icon from Supabase images table
   const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
