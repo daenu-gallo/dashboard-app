@@ -191,7 +191,7 @@ const CustomerView = ({ domainMode = null }) => {
       try {
         // Fetch gallery by slug (public, no auth needed)
         const { data: gallery } = await supabase
-          .from('galleries').select('*').eq('slug', slug).maybeSingle();
+          .from('galleries').select('*').eq('slug', slug.toLowerCase()).maybeSingle();
         if (gallery) {
           setSupaGallery(gallery);
           // Fetch albums for this gallery
