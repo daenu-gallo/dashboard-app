@@ -595,7 +595,7 @@
 }
 
 @media (max-width: 768px) {
-  .cv-photo-grid {
+  .cv-photo-grid.cv-tiles {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -1782,7 +1782,8 @@
     font-size: 0.7rem;
   }
 
-  .cv-photo-grid {
+  .cv-photo-grid,
+  .cv-photo-grid.cv-masonry {
     column-count: 2;
     padding: 0 10px;
   }
@@ -1814,6 +1815,20 @@
   .cv-hero-title {
     font-size: 1rem;
     letter-spacing: 3px;
+  }
+
+  .cv-photo-grid,
+  .cv-photo-grid.cv-masonry {
+    column-count: 1;
+    padding: 0 8px;
+  }
+
+  .cv-photo-grid.cv-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .cv-album-title {
+    padding: 1rem 10px 0.75rem;
   }
 }
 

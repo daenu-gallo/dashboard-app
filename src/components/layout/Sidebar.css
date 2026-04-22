@@ -68,3 +68,32 @@
   background-color: var(--color-primary-light);
   color: var(--color-primary);
 }
+
+/* --- Shop Sub Navigation --- */
+.sidebar-sub-items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.15rem 0;
+  border-left: 2px solid var(--color-primary, #528c68);
+  margin-left: 0;
+}
+
+.nav-sub-item {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-sub-item:hover {
+  background-color: var(--bg-main, #f5f5f5);
+  color: var(--color-primary, #528c68);
+}

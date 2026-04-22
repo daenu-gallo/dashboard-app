@@ -2,10 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useGalleryImages } from '../../hooks/useGalleryImages';
-import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
 import { supabase } from '../../lib/supabaseClient';
-import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Droplets, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Droplet, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, ChevronsDown, Type, Eye, Download, Upload, FolderPlus, Play, Image as ImageIcon, Smartphone, Maximize, X, Info, Trash2, Video, FolderOpen, Star, Bookmark, ArrowUp, ArrowDown, ArrowUpAZ, ArrowDownAZ, GripVertical, Monitor, Pencil } from 'lucide-react';
 
 const defaultAlbums = [];
 
@@ -76,11 +75,11 @@ const VideoEmbedModal = ({ onClose, onSubmit }) => {
 };
 
 /* ---- Album hinzufügen Modal ---- */
-const AlbumModal = ({ onClose, onSubmit, watermarks = [] }) => {
+const AlbumModal = ({ onClose, onSubmit }) => {
   const [albumTitle, setAlbumTitle] = React.useState('');
   const [albumText, setAlbumText] = React.useState('');
   const [sortierung, setSortierung] = React.useState('Aufnahmedatum');
-  const [watermark, setWatermark] = React.useState('Kein Wasserzeichen');
+
   const [downloadEnabled, setDownloadEnabled] = React.useState(true);
   const [asFirst, setAsFirst] = React.useState(false);
 
@@ -108,83 +107,7 @@ const AlbumModal = ({ onClose, onSubmit, watermarks = [] }) => {
               <option>Manuelle Sortierung</option>
             </select>
           </div>
-          <div className="album-form-group">
-            <label>Wasserzeichen</label>
-            <select value={watermark} onChange={e => setWatermark(e.target.value)}>
-              <option value="">Kein Wasserzeichen</option>
-              {watermarks.map((wm) => (
-                <option key={wm.id} value={String(wm.id)}>
-                  {wm.name || wm.text || `Wasserzeichen`} ({wm.wmType === 'tile' ? 'Kachel' : wm.wmType === 'text' ? 'Text' : 'Bild'})
-                </option>
-              ))}
-            </select>
-            {/* Live watermark preview */}
-            {(() => {
-              const selWm = watermarks.find(wm => String(wm.id) === watermark);
-              if (!selWm) return null;
-              const posMap = {
-                'oben-links': { top: '6%', left: '6%' },
-                'oben-mitte': { top: '6%', left: '50%', transform: 'translateX(-50%)' },
-                'oben-rechts': { top: '6%', right: '6%' },
-                'mitte-links': { top: '50%', left: '6%', transform: 'translateY(-50%)' },
-                'mitte': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
-                'mitte-rechts': { top: '50%', right: '6%', transform: 'translateY(-50%)' },
-                'unten-links': { bottom: '6%', left: '6%' },
-                'unten-mitte': { bottom: '6%', left: '50%', transform: 'translateX(-50%)' },
-                'unten-rechts': { bottom: '6%', right: '6%' },
-              };
-              const opacityVal = (selWm.transparency ?? 50) / 100;
-              const pos = selWm.position || 'mitte';
-              return (
-                <div style={{ marginTop: '0.5rem', width: '100%', aspectRatio: '16/10', borderRadius: 8, overflow: 'hidden', position: 'relative', background: '#333' }}>
-                  <img src="/watermark-sample-bg.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {selWm.wmType === 'image' && selWm.image && (
-                    <img src={selWm.image} alt="" style={{
-                      position: 'absolute', maxWidth: '35%', maxHeight: '35%', objectFit: 'contain',
-                      opacity: opacityVal, pointerEvents: 'none',
-                      transform: (posMap[pos]?.transform || '') + ` scale(${(selWm.scale ?? 100) / 100})`,
-                      ...posMap[pos],
-                    }} />
-                  )}
-                  {selWm.wmType === 'text' && (() => {
-                    const fontStr = selWm.font || 'Open Sans, 64px, weiß';
-                    const [fontName, fontSizeStr] = fontStr.split(',').map(s => s.trim());
-                    const fontPx = parseInt(fontSizeStr) || 64;
-                    const fontColor = fontStr.includes('schwarz') ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
-                    return (
-                      <span style={{
-                        position: 'absolute', fontFamily: `'${fontName}', sans-serif`, fontSize: fontPx * 0.35,
-                        fontWeight: 700, color: fontColor, opacity: opacityVal, pointerEvents: 'none',
-                        textShadow: '0 2px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', ...posMap[pos],
-                      }}>
-                        {selWm.text || selWm.name}
-                      </span>
-                    );
-                  })()}
-                  {selWm.wmType === 'tile' && selWm.image && (() => {
-                    const spacing = selWm.tileSpacing ?? 120;
-                    const size = selWm.tileSize ?? 60;
-                    const scaledSize = size * 0.6;
-                    const scaledSpacing = spacing * 0.6;
-                    const tiles = [];
-                    for (let row = -1; row < 5; row++) {
-                      for (let col = -1; col < 6; col++) {
-                        const x = col * scaledSpacing + (row % 2 ? scaledSpacing / 2 : 0);
-                        const y = row * scaledSpacing;
-                        tiles.push(
-                          <img key={`${row}-${col}`} src={selWm.image} alt="" style={{
-                            position: 'absolute', width: scaledSize, height: scaledSize, objectFit: 'contain',
-                            left: x, top: y, opacity: opacityVal, transform: 'rotate(-15deg)', pointerEvents: 'none',
-                          }} />
-                        );
-                      }
-                    }
-                    return <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>{tiles}</div>;
-                  })()}
-                </div>
-              );
-            })()}
-          </div>
+
           <div className="album-form-toggle-row">
             <div className={`album-toggle ${downloadEnabled ? 'on' : ''}`} onClick={() => setDownloadEnabled(!downloadEnabled)}>
               <div className="album-toggle-knob" />
@@ -278,66 +201,9 @@ const VideoCard = ({ video, onDelete, onReplace }) => {
   );
 };
 
-/* ---- Watermark Selection Modal ---- */
-const WatermarkModal = ({ photoSrc, watermarks, onClose, onApply }) => {
-  const [selectedIdx, setSelectedIdx] = React.useState(-1);
-  const selectedWm = selectedIdx >= 0 ? watermarks[selectedIdx] : null;
-
-  return (
-    <div className="video-modal-overlay" onClick={onClose}>
-      <div className="watermark-select-modal" onClick={e => e.stopPropagation()}>
-        <div className="watermark-select-header">
-          <span>Wasserzeichen</span>
-          <button className="video-modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-        <div className="watermark-select-body">
-          <select
-            className="watermark-select-dropdown"
-            value={selectedIdx}
-            onChange={e => setSelectedIdx(Number(e.target.value))}
-          >
-            <option value={-1}>Kein Wasserzeichen</option>
-            {watermarks.map((wm, i) => (
-              <option key={i} value={i}>{wm.name || wm.text || `Wasserzeichen ${i + 1}`}</option>
-            ))}
-          </select>
-
-          {selectedWm && (
-            <div className="watermark-select-preview">
-              <img src={photoSrc} alt="" className="watermark-preview-bg" />
-              {selectedWm.type === 'image' && selectedWm.src ? (
-                <img
-                  src={selectedWm.src}
-                  alt=""
-                  className="watermark-preview-overlay"
-                  style={{ opacity: (selectedWm.transparency || 50) / 100, maxWidth: `${selectedWm.scale || 30}%` }}
-                />
-              ) : (
-                <span className="watermark-preview-text" style={{
-                  opacity: (selectedWm.transparency || 50) / 100,
-                  color: selectedWm.color || '#fff',
-                }}>{selectedWm.text || 'Wasserzeichen'}</span>
-              )}
-            </div>
-          )}
-
-
-
-          <button
-            className="watermark-apply-btn"
-            disabled={selectedIdx < 0}
-            onClick={() => { if (selectedIdx >= 0) { onApply(selectedIdx); onClose(); } }}
-          >
-            Wasserzeichen auswählen
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 /* ---- Photo Card with Hover Toolbar ---- */
-const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild, onSetMobileTitelbild, onSetAppIcon, onApplyWatermark, showWatermark, watermarkText }) => {
+const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild, onSetMobileTitelbild, onSetAppIcon }) => {
   const [hoveredAction, setHoveredAction] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmTimer = useRef(null);
@@ -412,7 +278,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
     { id: 'vollbild', icon: <Maximize size={13} />, label: 'Im Vollbildmodus öffnen', action: handleFullscreen },
     { id: 'filename', icon: <X size={13} />, label: filename || 'Bild' },
     { id: 'download', icon: <Download size={13} />, label: 'Originalbild herunterladen', action: handleDownload },
-    { id: 'watermark', icon: <Droplet size={13} />, label: 'Wasserzeichen', action: onApplyWatermark },
+
     { id: 'delete', icon: <Trash2 size={13} />, label: confirmDelete ? 'Wirklich löschen?' : 'Löschen', action: handleDeleteClick },
   ];
 
@@ -431,12 +297,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
         </div>
       )}
 
-      {/* Watermark overlay */}
-      {isReal && showWatermark && (
-        <div className="photo-watermark-overlay">
-          {watermarkText || ''}
-        </div>
-      )}
+
 
       {isTitleCard && isReal && (
         <div className="photo-hover-toolbar title-card-toolbar">
@@ -619,86 +480,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const [textModalAlbum, setTextModalAlbum] = useState(null);
   const [eyeOverlayAlbum, setEyeOverlayAlbum] = useState(null);
 
-  // Read watermark settings
-  const [watermarks] = useWatermarks();
-  const [watermarkModalTarget, setWatermarkModalTarget] = useState(null);
 
-  // Apply watermark to an image using a specific watermark index
-  const applyWatermarkWithIndex = (wmIdx) => {
-    if (!watermarkModalTarget) return;
-    const { albumIdx, imgIdx } = watermarkModalTarget;
-    const wm = watermarks[wmIdx];
-    if (!wm) return;
 
-    // Album-level watermark: just save the watermark ID in albumToggles
-    if (imgIdx == null) {
-      setAlbumToggles(prev => ({
-        ...prev,
-        [albumIdx]: {
-          ...(prev[albumIdx] || {}),
-          watermark: true,
-          watermarkId: String(wm.id),
-        },
-      }));
-      setWatermarkModalTarget(null);
-      return;
-    }
-
-    // Single-image watermark: bake into the image via canvas
-    const img = uploadedImages[albumIdx]?.[imgIdx];
-    if (!img || !img.src) return;
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const baseImg = new Image();
-    baseImg.onload = () => {
-      canvas.width = baseImg.width;
-      canvas.height = baseImg.height;
-      ctx.drawImage(baseImg, 0, 0);
-
-      const scale = (wm.scale || 30) / 100;
-      const opacity = (wm.transparency || 50) / 100;
-      ctx.globalAlpha = opacity;
-
-      if (wm.type === 'image' && wm.src) {
-        const wmImg = new Image();
-        wmImg.onload = () => {
-          const wmW = canvas.width * scale;
-          const wmH = (wmImg.height / wmImg.width) * wmW;
-          const pos = wm.position || 'center';
-          let x = (canvas.width - wmW) / 2;
-          let y = (canvas.height - wmH) / 2;
-          if (pos.includes('top')) y = 20;
-          if (pos.includes('bottom')) y = canvas.height - wmH - 20;
-          if (pos.includes('left')) x = 20;
-          if (pos.includes('right')) x = canvas.width - wmW - 20;
-          ctx.drawImage(wmImg, x, y, wmW, wmH);
-          ctx.globalAlpha = 1;
-          const result = canvas.toDataURL('image/jpeg', 0.92);
-          setUploadedImages(prev => {
-            const imgs = [...(prev[albumIdx] || [])];
-            imgs[imgIdx] = { ...imgs[imgIdx], src: result };
-            return { ...prev, [albumIdx]: imgs };
-          });
-        };
-        wmImg.src = wm.src;
-      } else {
-        const fontSize = Math.max(16, canvas.width * scale * 0.15);
-        ctx.font = `${fontSize}px sans-serif`;
-        ctx.fillStyle = wm.color || '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(wm.text || 'Wasserzeichen', canvas.width / 2, canvas.height / 2);
-        ctx.globalAlpha = 1;
-        const result = canvas.toDataURL('image/jpeg', 0.92);
-        setUploadedImages(prev => {
-          const imgs = [...(prev[albumIdx] || [])];
-          imgs[imgIdx] = { ...imgs[imgIdx], src: result };
-          return { ...prev, [albumIdx]: imgs };
-        });
-      }
-    };
-    baseImg.src = img.src;
-  };
 
   // Set image as App-Icon via Upload-API
   const setAppIcon = (imageId) => {
@@ -1105,38 +888,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                     />
                     <span className="toggle-switch-slider"></span>
                   </label>
-                  <label className="album-toggle" style={{ marginLeft: 4 }}>
-                    <Droplets size={12} />
-                    <span>Wasserzeichen</span>
-                    <input
-                      type="checkbox"
-                      className="toggle-switch-input"
-                      checked={!!albumToggles[idx]?.watermark}
-                      onChange={() => {
-                        const wasOn = !!albumToggles[idx]?.watermark;
-                        if (!wasOn && watermarks.length === 0) {
-                          // No watermarks configured — open modal to let user know
-                          setWatermarkModalTarget({ albumIdx: idx, imgIdx: null, photoSrc: null });
-                          return;
-                        }
-                        setAlbumToggles(prev => ({
-                          ...prev,
-                          [idx]: {
-                            ...(prev[idx] || {}),
-                            watermark: !wasOn,
-                            // Clear watermarkId when turning OFF
-                            ...(wasOn ? { watermarkId: undefined, watermarkName: undefined } : {}),
-                          }
-                        }));
-                      }}
-                    />
-                    <span className="toggle-switch-slider"></span>
-                  </label>
-                  <button
-                    className="album-watermark-edit-btn"
-                    title="Wasserzeichen bearbeiten"
-                    onClick={() => setWatermarkModalTarget({ albumIdx: idx, imgIdx: null, photoSrc: null })}
-                  ><Pencil size={12} /></button>
+
                 </div>
               </div>
               <div className="album-header-right">
@@ -1297,9 +1049,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                     onSetTitelbild={() => setAlbumTitelbild(idx, img)}
                     onSetMobileTitelbild={() => setAlbumMobileTitelbild(idx, img)}
                     onSetAppIcon={() => img.id && setAppIcon(img.id)}
-                    onApplyWatermark={() => setWatermarkModalTarget({ albumIdx: idx, imgIdx, photoSrc: img.src })}
-                    showWatermark={!!albumToggles[idx]?.watermark && !!albumToggles[idx]?.watermarkId}
-                    watermarkText={albumToggles[idx]?.watermarkName || ''}
                   />
                 ))}
               </div>
@@ -1327,7 +1076,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         <AlbumModal
           onClose={() => setShowAlbumModal(false)}
           onSubmit={handleAddAlbum}
-          watermarks={watermarks}
         />
       )}
 
@@ -1385,15 +1133,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         </div>
       )}
 
-      {/* Watermark Selection Modal */}
-      {watermarkModalTarget && (
-        <WatermarkModal
-          photoSrc={watermarkModalTarget.photoSrc}
-          watermarks={watermarks}
-          onClose={() => setWatermarkModalTarget(null)}
-          onApply={(wmIdx) => applyWatermarkWithIndex(wmIdx)}
-        />
-      )}
+
     </div>
   );
 };

@@ -1114,6 +1114,357 @@ cron.schedule('*/5 * * * *', () => {
   runUptimeCheck();
 }, { timezone: 'Europe/Zurich' });
 
+// ═══════════════════════════════════════════════
+// ── SHOP MODULE: Order & Provider Endpoints ──
+// ═══════════════════════════════════════════════
+
+// ── Helper: Generate order number ──
+function generateOrderNumber() {
+  const now = new Date();
+  const date = now.toISOString().slice(2, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `FH-${date}-${rand}`;
+}
+
+// ── POST /api/shop/order ──
+// Create a new shop order (called from customer checkout)
+app.post('/api/shop/order', async (req, res) => {
+  try {
+    const {
+      gallery_id, user_id, items, customer_name, customer_email,
+      customer_address, coupon_code, payment_method, provider,
+    } = req.body;
+
+    if (!user_id || !items?.length || !customer_email) {
+      return res.status(400).json({ error: 'user_id, items, and customer_email are required' });
+    }
+
+    // Calculate totals
+    let totalGross = 0;
+    let totalProductionCost = 0;
+    const orderItems = items.map(item => {
+      const lineTotal = (item.unit_price || 0) * (item.quantity || 1);
+      const lineCost = (item.production_cost || 0) * (item.quantity || 1);
+      totalGross += lineTotal;
+      totalProductionCost += lineCost;
+      return {
+        product_sku: item.sku,
+        product_name: item.name,
+        quantity: item.quantity || 1,
+        unit_price: item.unit_price || 0,
+        production_cost: item.production_cost || 0,
+        options: item.options || {},
+      };
+    });
+
+    // Apply coupon discount
+    let discount = 0;
+    if (coupon_code) {
+      const { data: coupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('user_id', user_id)
+        .eq('code', coupon_code)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (coupon) {
+        if (coupon.discount_type === 'percent') {
+          discount = totalGross * (coupon.discount_value / 100);
+        } else {
+          discount = Math.min(coupon.discount_value, totalGross);
+        }
+      }
+    }
+
+    totalGross -= discount;
+    const serviceFee = Math.round(totalGross * 0.05 * 100) / 100; // 5% service fee
+    const totalShipping = 7.90; // Flat rate CH shipping
+    const totalProfit = totalGross - totalProductionCost - serviceFee;
+
+    const orderNumber = generateOrderNumber();
+
+    // Insert order
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .insert({
+        user_id,
+        gallery_id: gallery_id || null,
+        order_number: orderNumber,
+        provider: provider || 'gelato',
+        customer_name: customer_name || '',
+        customer_email,
+        customer_address: customer_address || {},
+        total_gross: totalGross,
+        total_production_cost: totalProductionCost,
+        total_shipping: totalShipping,
+        service_fee: serviceFee,
+        total_profit: totalProfit,
+        status: 'pending',
+        coupon_code: coupon_code || null,
+      })
+      .select()
+      .single();
+
+    if (orderErr) {
+      console.error('[Shop] Order insert error:', orderErr);
+      return res.status(500).json({ error: 'Order creation failed', details: orderErr.message });
+    }
+
+    // Insert order items
+    const itemRows = orderItems.map(item => ({ ...item, order_id: order.id }));
+    const { error: itemsErr } = await supabase.from('order_items').insert(itemRows);
+    if (itemsErr) {
+      console.error('[Shop] Order items insert error:', itemsErr);
+    }
+
+    console.log(`🛒 [Shop] New order ${orderNumber} created (${items.length} items, ${totalGross.toFixed(2)} CHF)`);
+
+    res.json({ success: true, order });
+  } catch (err) {
+    console.error('[Shop] Order error:', err);
+    res.status(500).json({ error: 'Order failed', details: err.message });
+  }
+});
+
+// ── GET /api/shop/orders ──
+// List orders for authenticated user
+app.get('/api/shop/orders', authenticate, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let query = supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (from) query = query.gte('created_at', from);
+    if (to) query = query.lte('created_at', to + 'T23:59:59');
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ orders: data || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/shop/order/:orderId ──
+// Get single order detail
+app.get('/api/shop/order/:orderId', authenticate, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', req.params.orderId)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Order not found' });
+    res.json({ order: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/shop/order/:orderId/forward ──
+// Forward order to production provider (Gelato or nPhoto)
+app.post('/api/shop/order/:orderId/forward', authenticate, async (req, res) => {
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', req.params.orderId)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !order) return res.status(404).json({ error: 'Order not found' });
+
+    const provider = order.provider || 'gelato';
+    let externalId = null;
+
+    if (provider === 'gelato') {
+      // Gelato API integration (placeholder — needs real API key)
+      const GELATO_API_KEY = process.env.GELATO_API_KEY;
+      if (!GELATO_API_KEY) {
+        console.warn('[Shop] GELATO_API_KEY not configured — order forwarding skipped');
+        externalId = `gelato-mock-${Date.now()}`;
+      } else {
+        try {
+          const gelatoOrder = {
+            orderReferenceId: order.order_number,
+            customerReferenceId: order.customer_email,
+            currency: 'CHF',
+            items: order.order_items.map(item => ({
+              itemReferenceId: item.product_sku,
+              productUid: item.product_sku,
+              quantity: item.quantity,
+              fileUrl: item.options?.imageUrl || '',
+            })),
+            shippingAddress: {
+              firstName: order.customer_name?.split(' ')[0] || '',
+              lastName: order.customer_name?.split(' ').slice(1).join(' ') || '',
+              addressLine1: order.customer_address?.strasse || '',
+              city: order.customer_address?.ort || '',
+              postCode: order.customer_address?.plz || '',
+              country: order.customer_address?.land === 'Schweiz' ? 'CH' : 'DE',
+              email: order.customer_email,
+            },
+          };
+
+          const resp = await fetch('https://order.gelatoapis.com/v4/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-KEY': GELATO_API_KEY,
+            },
+            body: JSON.stringify(gelatoOrder),
+          });
+          const result = await resp.json();
+          externalId = result.id || result.orderId || `gelato-${Date.now()}`;
+          console.log(`📦 [Shop] Gelato order created: ${externalId}`);
+        } catch (gelatoErr) {
+          console.error('[Shop] Gelato API error:', gelatoErr.message);
+          externalId = `gelato-error-${Date.now()}`;
+        }
+      }
+    } else if (provider === 'nphoto') {
+      // nPhoto API integration (placeholder — needs real API key)
+      const NPHOTO_API_KEY = process.env.NPHOTO_API_KEY;
+      if (!NPHOTO_API_KEY) {
+        console.warn('[Shop] NPHOTO_API_KEY not configured — order forwarding skipped');
+        externalId = `nphoto-mock-${Date.now()}`;
+      } else {
+        try {
+          const nphotoOrder = {
+            reference: order.order_number,
+            items: order.order_items.map(item => ({
+              sku: item.product_sku,
+              quantity: item.quantity,
+              file: item.options?.imageUrl || '',
+            })),
+            delivery: {
+              name: order.customer_name,
+              street: order.customer_address?.strasse || '',
+              zip: order.customer_address?.plz || '',
+              city: order.customer_address?.ort || '',
+              country: order.customer_address?.land === 'Schweiz' ? 'CH' : 'DE',
+            },
+          };
+
+          const resp = await fetch('https://api.nphoto.com/v1/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${NPHOTO_API_KEY}`,
+            },
+            body: JSON.stringify(nphotoOrder),
+          });
+          const result = await resp.json();
+          externalId = result.id || `nphoto-${Date.now()}`;
+          console.log(`📦 [Shop] nPhoto order created: ${externalId}`);
+        } catch (nphotoErr) {
+          console.error('[Shop] nPhoto API error:', nphotoErr.message);
+          externalId = `nphoto-error-${Date.now()}`;
+        }
+      }
+    }
+
+    // Update order status and external ID
+    await supabase
+      .from('orders')
+      .update({
+        status: 'processing',
+        external_id: externalId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    console.log(`✅ [Shop] Order ${order.order_number} forwarded to ${provider} (${externalId})`);
+    res.json({ success: true, provider, externalId });
+  } catch (err) {
+    console.error('[Shop] Forward error:', err);
+    res.status(500).json({ error: 'Forward failed', details: err.message });
+  }
+});
+
+// ── POST /api/shop/webhook/gelato ──
+// Receive Gelato status webhooks
+app.post('/api/shop/webhook/gelato', async (req, res) => {
+  try {
+    const { orderId, orderReferenceId, status, trackingCode, trackingUrl } = req.body;
+    console.log(`📬 [Shop] Gelato webhook: ${orderReferenceId} → ${status}`);
+
+    const statusMap = {
+      'created': 'processing',
+      'passed_to_production': 'processing',
+      'in_production': 'processing',
+      'shipped': 'shipped',
+      'delivered': 'delivered',
+      'canceled': 'cancelled',
+      'failed': 'cancelled',
+    };
+
+    const newStatus = statusMap[status] || 'processing';
+
+    // Find order by order_number or external_id
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id')
+      .or(`order_number.eq.${orderReferenceId},external_id.eq.${orderId}`)
+      .maybeSingle();
+
+    if (order) {
+      await supabase.from('orders').update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.id);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[Shop] Gelato webhook error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/shop/webhook/nphoto ──
+// Receive nPhoto status webhooks
+app.post('/api/shop/webhook/nphoto', async (req, res) => {
+  try {
+    const { reference, status: nphotoStatus, tracking } = req.body;
+    console.log(`📬 [Shop] nPhoto webhook: ${reference} → ${nphotoStatus}`);
+
+    const statusMap = {
+      'accepted': 'processing',
+      'in_production': 'processing',
+      'shipped': 'shipped',
+      'delivered': 'delivered',
+      'cancelled': 'cancelled',
+    };
+
+    const newStatus = statusMap[nphotoStatus] || 'processing';
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('order_number', reference)
+      .maybeSingle();
+
+    if (order) {
+      await supabase.from('orders').update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.id);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[Shop] nPhoto webhook error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);

@@ -372,20 +372,12 @@ const CustomerView = ({ domainMode = null }) => {
   const [watermarks] = useWatermarks(supaGallery?.user_id);
   const selectedWm = watermarks.find(wm => String(wm.id) === String(toggles.selectedWatermarkId)) || null;
 
-  // Dynamic watermark overlay component with hierarchy:
-  // Album-level watermark → Gallery-level watermark → none
-  const WatermarkOverlay = ({ className, variant, albumIdx }) => {
-    // Hierarchy: check album-level first, then gallery-level
-    const albumWmEnabled = albumIdx != null && !!albumToggles[albumIdx]?.watermark;
-    const galleryWmEnabled = !!toggles.wasserzeichen;
-    const isEnabled = albumWmEnabled || galleryWmEnabled;
-    if (!isEnabled) return null;
+  // Dynamic watermark overlay component — gallery-level only
+  const WatermarkOverlay = ({ className, variant }) => {
+    if (!toggles.wasserzeichen) return null;
 
-    // Resolve watermark: album-level override → gallery-level → null
-    const albumWmId = albumIdx != null ? albumToggles[albumIdx]?.watermarkId : null;
     const galleryWmId = toggles.selectedWatermarkId;
-    const resolvedId = albumWmId || galleryWmId;
-    const wm = resolvedId ? watermarks.find(w => String(w.id) === String(resolvedId)) : null;
+    const wm = galleryWmId ? watermarks.find(w => String(w.id) === String(galleryWmId)) : null;
 
     if (!wm) return null; // No watermark configured — show nothing
 
@@ -1456,9 +1448,7 @@ const CustomerView = ({ domainMode = null }) => {
                           {img.name || `IMG_${String(pIdx + 1).padStart(4, '0')}.jpg`}
                         </span>
                       )}
-                      {(!!albumToggles[aIdx]?.watermark || toggles.wasserzeichen) && (
-                        <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
-                      )}
+                      <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
                     </div>
                   );
                 })}
@@ -1490,9 +1480,7 @@ const CustomerView = ({ domainMode = null }) => {
                   <div key={pIdx} className="cv-photo">
                     <img src={photo.src} alt={photo.name || ''} loading="lazy" decoding="async" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
                     <span className="cv-photo-heart-badge">♥</span>
-                    {toggles.wasserzeichen && (
-                      <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
-                    )}
+                    <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
                   </div>
                 ))}
               </div>
@@ -1645,9 +1633,7 @@ const CustomerView = ({ domainMode = null }) => {
           )}
           <div className="cv-lightbox-image" onClick={(e) => e.stopPropagation()}>
             <img src={lightboxPhotos[lightboxIndex]?.src} alt={lightboxPhotos[lightboxIndex]?.name || ''} onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
-            {toggles.wasserzeichen && (
-              <WatermarkOverlay className="cv-lightbox-watermark" variant="lightbox" />
-            )}
+            <WatermarkOverlay className="cv-lightbox-watermark" variant="lightbox" />
           </div>
           <div className="cv-lightbox-actions" onClick={(e) => e.stopPropagation()}>
             <button className="cv-lightbox-btn" onClick={() => {

@@ -6,6 +6,7 @@ import MainLayout from './components/layout/MainLayout';
 import CookieConsent from './components/CookieConsent';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './contexts/ToastContext';
+import { ShopProvider } from './contexts/ShopContext';
 import { BrandProvider } from './contexts/BrandContext';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -28,6 +29,7 @@ const LegalPage = React.lazy(() => import('./pages/LegalPage'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 const GalleryHomePage = React.lazy(() => import('./pages/GalleryHomePage'));
+const ShopPage = React.lazy(() => import('./pages/shop/ShopPage'));
 
 // ── Suspense fallback ──
 const PageLoader = () => (
@@ -157,7 +159,8 @@ function AppContent() {
             <Route path="/galleries/:slug" element={<GalleryDetailPage />} />
             <Route path="/portfolios" element={<PortfoliosPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/shop" element={<div className="p-4 text-center">Shop Funktionalität kommt bald...</div>} />
+            <Route path="/shop" element={<ShopPage />} />
+            <Route path="/shop/:tab" element={<ShopPage />} />
           </Route>
 
           {/* Customer view - clean URL /:slug (lower priority than static routes above) */}
@@ -176,9 +179,11 @@ function App() {
         <AuthProvider>
           <BrandProvider>
             <GalleryProvider>
-              <ToastProvider>
-                <AppContent />
-              </ToastProvider>
+              <ShopProvider>
+                <ToastProvider>
+                  <AppContent />
+                </ToastProvider>
+              </ShopProvider>
             </GalleryProvider>
           </BrandProvider>
         </AuthProvider>
