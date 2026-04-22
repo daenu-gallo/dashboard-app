@@ -23,7 +23,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     download: sbToggles.download !== undefined ? sbToggles.download : true,
     downloadPin: sbToggles.downloadPin || false,
     bilderschutz: !!sbToggles.bilderschutz,
-    wasserzeichen: !!sbToggles.wasserzeichen,
+    wasserzeichen: !!sbToggles.wasserzeichen && !!sbToggles.selectedWatermarkId,
     selectedWatermarkId: sbToggles.selectedWatermarkId || '',
   });
 

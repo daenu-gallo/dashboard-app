@@ -303,9 +303,14 @@ const CustomerView = ({ domainMode = null }) => {
     sprache: 'Deutsch', mitteilung: '', downloadPinCode: '', shootingdatum: '',
   };
 
-  const toggles = supaGallery?.toggles || {
+  const rawToggles = supaGallery?.toggles || {
     appHinweis: true, teilen: true, kommentarfunktion: false,
     dateienamen: false, download: true, downloadPin: false, wasserzeichen: false,
+  };
+  // Safety: wasserzeichen only active if a watermark ID is actually selected
+  const toggles = {
+    ...rawToggles,
+    wasserzeichen: !!rawToggles.wasserzeichen && !!rawToggles.selectedWatermarkId,
   };
 
   // Albums from Supabase
