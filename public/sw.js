@@ -1,5 +1,5 @@
 // Fotohahn PWA Service Worker
-const CACHE_NAME = 'fotohahn-v1';
+const CACHE_NAME = 'fotohahn-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -39,8 +39,11 @@ self.addEventListener('fetch', (event) => {
   // Skip Supabase API calls
   if (url.hostname.includes('supabase')) return;
 
-  // API calls: network only
+  // API calls: network only (includes upload-api images)
   if (url.pathname.startsWith('/api/')) return;
+
+  // Skip upload-api / external API image requests (e.g. api.fotohahn.ch)
+  if (url.hostname !== self.location.hostname) return;
 
   // Static assets (images, fonts, CSS, JS): cache-first
   if (
