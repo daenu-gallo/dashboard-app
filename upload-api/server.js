@@ -340,7 +340,7 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
 
 // ── Watermark config cache (1hr TTL) ──
 const wmCache = new Map();
-const WM_CACHE_TTL = 3600000;
+const WM_CACHE_TTL = 300000; // 5 min cache (was 1hr – too stale when toggling off)
 
 async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
   const cacheKey = `${userId}:${gallerySlug}:${albumIndex}`;
@@ -355,13 +355,12 @@ async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
     if (!gallery) return null;
 
     const toggles = gallery.toggles || {};
-    const albumToggles = toggles[`album_${albumIndex}`] || {};
 
-    // Check album-level watermark first, then gallery-level
-    const wmEnabled = albumToggles.watermark || toggles.wasserzeichen;
+    // Gallery-level only (album-level watermarks removed)
+    const wmEnabled = !!toggles.wasserzeichen && !!toggles.selectedWatermarkId;
     if (!wmEnabled) { wmCache.set(cacheKey, { data: null, ts: Date.now() }); return null; }
 
-    const wmId = albumToggles.watermarkId || toggles.selectedWatermarkId;
+    const wmId = toggles.selectedWatermarkId;
     if (!wmId) { wmCache.set(cacheKey, { data: null, ts: Date.now() }); return null; }
 
     // Load watermark settings from user_settings
@@ -494,7 +493,7 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
             .toBuffer();
 
           res.set({
-            'Cache-Control': 'public, max-age=86400',
+            'Cache-Control': 'public, max-age=300',
             'Content-Type': 'image/jpeg',
             'Content-Length': buffer.length,
           });
