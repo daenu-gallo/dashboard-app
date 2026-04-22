@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send, ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
@@ -44,6 +44,19 @@ const translations = {
     noPhotos: 'Noch keine Bilder',
     downloadStarted: 'Download wird gestartet...',
     photosBy: 'Fotos von',
+    shop: 'Shop',
+    addToCart: 'In den Warenkorb',
+    cart: 'Warenkorb',
+    checkout: 'Zur Kasse',
+    orderNow: 'Jetzt bestellen',
+    chooseProduct: 'Produkt wählen',
+    yourCart: 'Dein Warenkorb',
+    emptyCart: 'Dein Warenkorb ist leer',
+    orderSuccess: 'Bestellung erfolgreich!',
+    orderSuccessMsg: 'Deine Bestellung wurde aufgegeben. Du erhältst eine Bestätigung per E-Mail.',
+    total: 'Gesamt',
+    shipping: 'Versand',
+    shippingFlat: 'Pauschal CHF 7.90',
   },
   English: {
     gallery: 'Gallery',
@@ -70,6 +83,19 @@ const translations = {
     noPhotos: 'No photos yet',
     downloadStarted: 'Starting download...',
     photosBy: 'Photos by',
+    shop: 'Shop',
+    addToCart: 'Add to cart',
+    cart: 'Cart',
+    checkout: 'Checkout',
+    orderNow: 'Order now',
+    chooseProduct: 'Choose product',
+    yourCart: 'Your cart',
+    emptyCart: 'Your cart is empty',
+    orderSuccess: 'Order placed!',
+    orderSuccessMsg: 'Your order has been placed. You will receive a confirmation via email.',
+    total: 'Total',
+    shipping: 'Shipping',
+    shippingFlat: 'Flat rate CHF 7.90',
   },
   'Français': {
     gallery: 'Galerie',
@@ -96,6 +122,19 @@ const translations = {
     noPhotos: 'Pas encore de photos',
     downloadStarted: 'Téléchargement en cours...',
     photosBy: 'Photos par',
+    shop: 'Boutique',
+    addToCart: 'Ajouter au panier',
+    cart: 'Panier',
+    checkout: 'Commander',
+    orderNow: 'Commander maintenant',
+    chooseProduct: 'Choisir un produit',
+    yourCart: 'Votre panier',
+    emptyCart: 'Votre panier est vide',
+    orderSuccess: 'Commande réussie!',
+    orderSuccessMsg: 'Votre commande a été passée. Vous recevrez une confirmation par email.',
+    total: 'Total',
+    shipping: 'Livraison',
+    shippingFlat: 'Forfait CHF 7.90',
   },
   Italiano: {
     gallery: 'Galleria',
@@ -122,6 +161,19 @@ const translations = {
     noPhotos: 'Nessuna foto ancora',
     downloadStarted: 'Download in corso...',
     photosBy: 'Foto di',
+    shop: 'Negozio',
+    addToCart: 'Aggiungi al carrello',
+    cart: 'Carrello',
+    checkout: 'Cassa',
+    orderNow: 'Ordina ora',
+    chooseProduct: 'Scegli il prodotto',
+    yourCart: 'Il tuo carrello',
+    emptyCart: 'Il tuo carrello è vuoto',
+    orderSuccess: 'Ordine effettuato!',
+    orderSuccessMsg: 'Il tuo ordine è stato effettuato. Riceverai una conferma via email.',
+    total: 'Totale',
+    shipping: 'Spedizione',
+    shippingFlat: 'Forfait CHF 7.90',
   },
 };
 
@@ -335,7 +387,7 @@ const CustomerView = ({ domainMode = null }) => {
     const resolvedId = albumWmId || galleryWmId;
     const wm = resolvedId ? watermarks.find(w => String(w.id) === String(resolvedId)) : null;
 
-    if (!wm) return <span className={className}>{brandName || 'Wasserzeichen'}</span>;
+    if (!wm) return null; // No watermark configured — show nothing
 
     const posMap = {
       'oben-links': { top: '6%', left: '6%' },
@@ -467,6 +519,154 @@ const CustomerView = ({ domainMode = null }) => {
   const [downloadAlbumChecks, setDownloadAlbumChecks] = useState({});
   const [sendMessage, setSendMessage] = useState('');
   const [selectionName, setSelectionName] = useState('');
+
+  // ── SHOP STATE ──
+  const [shopProducts, setShopProducts] = useState([]);
+  const [shopEnabled, setShopEnabled] = useState(false);
+  const [shopProvider, setShopProvider] = useState('gelato');
+  const [cart, setCart] = useState([]);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productModalPhoto, setProductModalPhoto] = useState(null);
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutForm, setCheckoutForm] = useState({ name: '', email: '', strasse: '', plz: '', ort: '', land: 'Schweiz' });
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+
+  // Load shop products from photographer's price list
+  useEffect(() => {
+    if (!supaGallery?.user_id) return;
+    (async () => {
+      try {
+        // Check if photographer has shop enabled
+        const { data: shopSettings } = await supabase
+          .from('shop_settings')
+          .select('*')
+          .eq('user_id', supaGallery.user_id)
+          .maybeSingle();
+
+        if (shopSettings) {
+          setShopEnabled(true);
+          setShopProvider(shopSettings.provider || 'gelato');
+        }
+
+        // Load first active price list with items
+        const { data: priceLists } = await supabase
+          .from('price_lists')
+          .select('*, price_list_items(*)')
+          .eq('user_id', supaGallery.user_id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (priceLists?.[0]?.price_list_items) {
+          const items = priceLists[0].price_list_items
+            .filter(item => item.active !== false)
+            .map(item => ({
+              id: item.id,
+              sku: item.product_sku,
+              name: item.product_name,
+              category: item.category || 'Prints',
+              price: item.custom_price || item.base_price || 0,
+              productionCost: item.base_price || 0,
+              provider: priceLists[0].provider || 'gelato',
+            }));
+          setShopProducts(items);
+          if (items.length > 0) setShopEnabled(true);
+        }
+      } catch (err) {
+        console.error('[CustomerView] Shop load error:', err);
+      }
+    })();
+  }, [supaGallery?.user_id]);
+
+  // Cart helpers
+  const addToCart = (product, photo) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id && item.photo.src === photo.src);
+      if (existing) {
+        return prev.map(item =>
+          item.product.id === product.id && item.photo.src === photo.src
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { product, photo, quantity: 1 }];
+    });
+    setShowProductModal(false);
+    setShowCartDrawer(true);
+  };
+
+  const removeFromCart = (index) => {
+    setCart(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateCartQuantity = (index, delta) => {
+    setCart(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const newQty = Math.max(1, item.quantity + delta);
+      return { ...item, quantity: newQty };
+    }));
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Open product selection for a photo
+  const openProductSelect = (photo) => {
+    setProductModalPhoto(photo);
+    setShowProductModal(true);
+  };
+
+  // Submit order
+  const handleCheckoutSubmit = async (e) => {
+    e.preventDefault();
+    if (cart.length === 0 || !checkoutForm.email) return;
+    setOrderSubmitting(true);
+    try {
+      const orderPayload = {
+        user_id: supaGallery.user_id,
+        gallery_id: supaGallery.id,
+        provider: shopProvider,
+        customer_name: checkoutForm.name,
+        customer_email: checkoutForm.email,
+        customer_address: {
+          strasse: checkoutForm.strasse,
+          plz: checkoutForm.plz,
+          ort: checkoutForm.ort,
+          land: checkoutForm.land,
+        },
+        coupon_code: couponInput || null,
+        items: cart.map(item => ({
+          sku: item.product.sku,
+          name: item.product.name,
+          unit_price: item.product.price,
+          production_cost: item.product.productionCost,
+          quantity: item.quantity,
+          options: { imageUrl: item.photo.src, imageName: item.photo.name },
+        })),
+      };
+
+      const resp = await fetch(`${UPLOAD_API}/api/shop/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+      const result = await resp.json();
+      if (result.success) {
+        setOrderSuccess(true);
+        setCart([]);
+        setShowCheckout(false);
+        setShowCartDrawer(false);
+      } else {
+        alert('Fehler: ' + (result.error || 'Unbekannter Fehler'));
+      }
+    } catch (err) {
+      console.error('[Shop] Order error:', err);
+      alert('Bestellfehler: ' + err.message);
+    }
+    setOrderSubmitting(false);
+  };
 
   // Password gate
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -952,6 +1152,12 @@ const CustomerView = ({ domainMode = null }) => {
             <Download size={22} />
           </button>
         )}
+        {shopEnabled && shopProducts.length > 0 && (
+          <button className="cv-icon-btn cv-icon-btn-shop" title={t.shop} onClick={() => setShowCartDrawer(true)}>
+            <ShoppingCart size={22} />
+            {cartCount > 0 && <span className="cv-cart-badge">{cartCount}</span>}
+          </button>
+        )}
         <button className="cv-icon-btn" title={t.createAccount} onClick={() => { if (customerUser) { alert(`Angemeldet als: ${customerUser.name} (${customerUser.email})`); } else { setShowLoginModal(true); } }}>
           <User size={22} />
         </button>
@@ -1235,6 +1441,15 @@ const CustomerView = ({ domainMode = null }) => {
                         <div className={`cv-photo-select-overlay ${isPhotoSelected(img.src) ? 'selected' : ''}`}>
                           <Heart size={24} fill={isPhotoSelected(img.src) ? '#e74c3c' : 'none'} color={isPhotoSelected(img.src) ? '#e74c3c' : 'white'} />
                         </div>
+                      )}
+                      {shopEnabled && shopProducts.length > 0 && !selectionMode && (
+                        <button
+                          className="cv-photo-shop-btn"
+                          title={t.orderNow}
+                          onClick={(e) => { e.stopPropagation(); openProductSelect(img); }}
+                        >
+                          <ShoppingCart size={16} />
+                        </button>
                       )}
                       {toggles.dateienamen && (
                         <span className="cv-photo-filename">
@@ -1624,6 +1839,162 @@ const CustomerView = ({ domainMode = null }) => {
                 <Download size={16} /> Speichern
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====== SHOP: PRODUCT SELECTION MODAL ====== */}
+      {showProductModal && productModalPhoto && (
+        <div className="cv-modal-overlay" onMouseDown={() => setShowProductModal(false)}>
+          <div className="cv-shop-modal" onMouseDown={e => e.stopPropagation()}>
+            <button className="cv-shop-modal-close" onClick={() => setShowProductModal(false)}><X size={20} /></button>
+            <div className="cv-shop-modal-photo">
+              <img src={productModalPhoto.thumbSrc || productModalPhoto.src} alt="" />
+            </div>
+            <h3 className="cv-shop-modal-title">{t.chooseProduct}</h3>
+            <div className="cv-shop-product-grid">
+              {shopProducts.map(product => (
+                <button
+                  key={product.id}
+                  className="cv-shop-product-card"
+                  onClick={() => addToCart(product, productModalPhoto)}
+                >
+                  <span className="cv-shop-product-name">{product.name}</span>
+                  <span className="cv-shop-product-price">CHF {product.price.toFixed(2)}</span>
+                  <span className="cv-shop-product-add"><Plus size={14} /> {t.addToCart}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== SHOP: CART DRAWER ====== */}
+      {showCartDrawer && (
+        <div className="cv-cart-overlay" onMouseDown={() => setShowCartDrawer(false)}>
+          <div className="cv-cart-drawer" onMouseDown={e => e.stopPropagation()}>
+            <div className="cv-cart-header">
+              <h3><ShoppingCart size={20} /> {t.yourCart} ({cartCount})</h3>
+              <button onClick={() => setShowCartDrawer(false)}><X size={20} /></button>
+            </div>
+            <div className="cv-cart-items">
+              {cart.length === 0 ? (
+                <div className="cv-cart-empty">
+                  <ShoppingCart size={40} />
+                  <p>{t.emptyCart}</p>
+                </div>
+              ) : (
+                cart.map((item, idx) => (
+                  <div key={idx} className="cv-cart-item">
+                    <img src={item.photo.thumbSrc || item.photo.src} alt="" className="cv-cart-item-img" />
+                    <div className="cv-cart-item-info">
+                      <span className="cv-cart-item-name">{item.product.name}</span>
+                      <span className="cv-cart-item-photo">{item.photo.name || 'Foto'}</span>
+                      <span className="cv-cart-item-price">CHF {(item.product.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                    <div className="cv-cart-item-qty">
+                      <button onClick={() => updateCartQuantity(idx, -1)}><Minus size={14} /></button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => updateCartQuantity(idx, 1)}><Plus size={14} /></button>
+                    </div>
+                    <button className="cv-cart-item-remove" onClick={() => removeFromCart(idx)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            {cart.length > 0 && (
+              <div className="cv-cart-footer">
+                <div className="cv-cart-total">
+                  <span>{t.total}</span>
+                  <span>CHF {cartTotal.toFixed(2)}</span>
+                </div>
+                <div className="cv-cart-shipping">
+                  <span>{t.shipping}</span>
+                  <span>{t.shippingFlat}</span>
+                </div>
+                <div className="cv-cart-grand-total">
+                  <span>{t.total}</span>
+                  <span>CHF {(cartTotal + 7.90).toFixed(2)}</span>
+                </div>
+                <button className="cv-cart-checkout-btn" onClick={() => { setShowCartDrawer(false); setShowCheckout(true); }}>
+                  {t.checkout} <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ====== SHOP: CHECKOUT FORM ====== */}
+      {showCheckout && (
+        <div className="cv-modal-overlay" onMouseDown={() => setShowCheckout(false)}>
+          <div className="cv-checkout-modal" onMouseDown={e => e.stopPropagation()}>
+            <button className="cv-shop-modal-close" onClick={() => setShowCheckout(false)}><X size={20} /></button>
+            <h3 className="cv-checkout-title">{t.checkout}</h3>
+            <form onSubmit={handleCheckoutSubmit} className="cv-checkout-form">
+              <div className="cv-checkout-row">
+                <div className="cv-checkout-field">
+                  <label>Name *</label>
+                  <input type="text" required value={checkoutForm.name} onChange={e => setCheckoutForm(p => ({ ...p, name: e.target.value }))} placeholder="Max Mustermann" />
+                </div>
+                <div className="cv-checkout-field">
+                  <label>E-Mail *</label>
+                  <input type="email" required value={checkoutForm.email} onChange={e => setCheckoutForm(p => ({ ...p, email: e.target.value }))} placeholder="max@example.com" />
+                </div>
+              </div>
+              <div className="cv-checkout-field">
+                <label>Strasse</label>
+                <input type="text" value={checkoutForm.strasse} onChange={e => setCheckoutForm(p => ({ ...p, strasse: e.target.value }))} placeholder="Musterstrasse 1" />
+              </div>
+              <div className="cv-checkout-row">
+                <div className="cv-checkout-field" style={{ flex: '0 0 120px' }}>
+                  <label>PLZ</label>
+                  <input type="text" value={checkoutForm.plz} onChange={e => setCheckoutForm(p => ({ ...p, plz: e.target.value }))} placeholder="8000" />
+                </div>
+                <div className="cv-checkout-field">
+                  <label>Ort</label>
+                  <input type="text" value={checkoutForm.ort} onChange={e => setCheckoutForm(p => ({ ...p, ort: e.target.value }))} placeholder="Zürich" />
+                </div>
+              </div>
+              <div className="cv-checkout-field">
+                <label>Gutschein-Code</label>
+                <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="RABATT10" />
+              </div>
+              <div className="cv-checkout-summary">
+                <h4>Zusammenfassung</h4>
+                {cart.map((item, idx) => (
+                  <div key={idx} className="cv-checkout-line">
+                    <span>{item.quantity}x {item.product.name}</span>
+                    <span>CHF {(item.product.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="cv-checkout-line cv-checkout-line-ship">
+                  <span>{t.shipping}</span>
+                  <span>CHF 7.90</span>
+                </div>
+                <div className="cv-checkout-line cv-checkout-line-total">
+                  <span>{t.total}</span>
+                  <span>CHF {(cartTotal + 7.90).toFixed(2)}</span>
+                </div>
+              </div>
+              <button type="submit" className="cv-checkout-submit" disabled={orderSubmitting}>
+                {orderSubmitting ? 'Wird bestellt...' : t.orderNow}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====== SHOP: ORDER SUCCESS ====== */}
+      {orderSuccess && (
+        <div className="cv-modal-overlay" onMouseDown={() => setOrderSuccess(false)}>
+          <div className="cv-order-success" onMouseDown={e => e.stopPropagation()}>
+            <div className="cv-order-success-icon"><Check size={48} /></div>
+            <h3>{t.orderSuccess}</h3>
+            <p>{t.orderSuccessMsg}</p>
+            <button className="cv-order-success-btn" onClick={() => setOrderSuccess(false)}>OK</button>
           </div>
         </div>
       )}
