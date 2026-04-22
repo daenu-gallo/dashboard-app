@@ -956,9 +956,8 @@ const CustomerView = ({ domainMode = null }) => {
     }
   }, [allPhotos.length, currentSlide]);
 
-  // Check if any album has download enabled
-  const anyAlbumDownload = Object.values(albumToggles).some(t => t?.download);
-  const showDownloadMenu = toggles.download || anyAlbumDownload;
+  // Download controlled at gallery level only
+  const showDownloadMenu = !!toggles.download;
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % Math.max(1, allPhotos.length));
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + Math.max(1, allPhotos.length)) % Math.max(1, allPhotos.length));

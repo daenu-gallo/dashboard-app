@@ -80,7 +80,7 @@ const AlbumModal = ({ onClose, onSubmit }) => {
   const [albumText, setAlbumText] = React.useState('');
   const [sortierung, setSortierung] = React.useState('Aufnahmedatum');
 
-  const [downloadEnabled, setDownloadEnabled] = React.useState(true);
+
   const [asFirst, setAsFirst] = React.useState(false);
 
   return (
@@ -108,12 +108,7 @@ const AlbumModal = ({ onClose, onSubmit }) => {
             </select>
           </div>
 
-          <div className="album-form-toggle-row">
-            <div className={`album-toggle ${downloadEnabled ? 'on' : ''}`} onClick={() => setDownloadEnabled(!downloadEnabled)}>
-              <div className="album-toggle-knob" />
-            </div>
-            <span>Download</span>
-          </div>
+
           <div className="album-form-toggle-row">
             <div className={`album-toggle ${asFirst ? 'on' : ''}`} onClick={() => setAsFirst(!asFirst)}>
               <div className="album-toggle-knob" />
@@ -874,20 +869,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                       </div>
                     )}
                   </div>
-                  <label className="album-toggle" style={{ marginLeft: 4 }}>
-                    <Download size={12} />
-                    <span>Download</span>
-                    <input
-                      type="checkbox"
-                      className="toggle-switch-input"
-                      checked={albumToggles[idx]?.download !== false}
-                      onChange={() => setAlbumToggles(prev => ({
-                        ...prev,
-                        [idx]: { ...(prev[idx] || {}), download: prev[idx]?.download === false ? true : false }
-                      }))}
-                    />
-                    <span className="toggle-switch-slider"></span>
-                  </label>
+
 
                 </div>
               </div>
