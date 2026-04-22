@@ -511,7 +511,7 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
 
   // Default: serve without watermark (thumbnails, or when no watermark configured)
   res.set({
-    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Cache-Control': 'public, max-age=604800',
     'Content-Type': 'image/jpeg',
   });
 

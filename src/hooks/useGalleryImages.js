@@ -41,8 +41,8 @@ export function useGalleryImages(galleryId) {
         if (!grouped[idx]) grouped[idx] = [];
         grouped[idx].push({
           id: img.id,
-          src: UPLOAD_API + img.original_url,
-          thumbSrc: UPLOAD_API + img.thumb_url,
+          src: UPLOAD_API + img.original_url + '?v=2',
+          thumbSrc: UPLOAD_API + img.thumb_url + '?v=2',
           name: img.filename,
           width: img.width,
           height: img.height,
