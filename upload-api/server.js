@@ -363,14 +363,18 @@ async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
     const wmId = toggles.selectedWatermarkId;
     if (!wmId) { wmCache.set(cacheKey, { data: null, ts: Date.now() }); return null; }
 
-    // Load watermark settings from user_settings
-    const { data: settingsRow } = await supabase
-      .from('user_settings').select('value').eq('user_id', userId).eq('key', 'settings_watermarks_v2').maybeSingle();
-    const watermarks = settingsRow?.value || [];
-    const wm = watermarks.find(w => String(w.id) === String(wmId));
+    // Load watermark from watermarks table
+    const { data: wmRow } = await supabase
+      .from('watermarks').select('*').eq('id', Number(wmId)).maybeSingle();
+    const wm = wmRow ? {
+      id: wmRow.id, name: wmRow.name, wmType: wmRow.wm_type || 'image',
+      position: wmRow.position || 'mitte', image: wmRow.image || null,
+      text: wmRow.text || '', font: wmRow.font || '',
+      scale: wmRow.scale ?? 100, transparency: wmRow.transparency ?? 50,
+    } : null;
 
-    wmCache.set(cacheKey, { data: wm || null, ts: Date.now() });
-    return wm || null;
+    wmCache.set(cacheKey, { data: wm, ts: Date.now() });
+    return wm;
   } catch (err) {
     console.error('[Watermark] Config load error:', err.message);
     return null;
