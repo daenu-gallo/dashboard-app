@@ -929,18 +929,32 @@ async function runDatabaseBackup() {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
 
     // Run pg_dump with gzip compression
-    const cmd = `PGPASSWORD="${DB_PASSWORD}" pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres --clean --if-exists --no-owner --no-privileges --disable-triggers 2>/dev/null | gzip > "${filepath}"`;
-    const { stderr } = await execAsync(cmd, { timeout: 120000 }); // 2 min timeout
+    const cmd = `PGPASSWORD="${DB_PASSWORD}" pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres --clean --if-exists --no-owner --no-privileges --disable-triggers 2>&1 | gzip > "${filepath}"`;
+    let result;
+    try {
+      result = await execAsync(`bash -c 'set -o pipefail; ${cmd.replace(/'/g, "'\\''")}'`, { timeout: 120000 }); // 2 min timeout
+    } catch (execErr) {
+      // pg_dump failed — try to get error details
+      const errMsg = execErr.stderr || execErr.stdout || execErr.message || 'Unknown pg_dump error';
+      console.error(`[Backup] ❌ pg_dump Fehler: ${errMsg}`);
+      // Clean up empty/broken file
+      await fs.unlink(filepath).catch(() => {});
+      return { success: false, error: `pg_dump failed: ${errMsg.substring(0, 300)}` };
+    }
 
-    if (stderr && !stderr.includes('SET') && !stderr.includes('DROP')) {
-      console.warn(`[Backup] ⚠️  stderr: ${stderr.substring(0, 200)}`);
+    if (result?.stderr && !result.stderr.includes('SET') && !result.stderr.includes('DROP')) {
+      console.warn(`[Backup] ⚠️  stderr: ${result.stderr.substring(0, 200)}`);
     }
 
     // Validate backup file
     const stat = await fs.stat(filepath);
     if (stat.size < 1000) {
+      // Read file content to check for error messages
+      const { stdout: headContent } = await execAsync(`gzip -d < "${filepath}" | head -c 500 2>/dev/null || echo "empty"`).catch(() => ({ stdout: 'unreadable' }));
       console.error(`[Backup] ❌ Backup-Datei ist zu klein (${stat.size} Bytes) — möglicherweise fehlerhaft`);
-      return { success: false, error: 'Backup file too small', size: stat.size };
+      console.error(`[Backup]   Inhalt: ${headContent}`);
+      await fs.unlink(filepath).catch(() => {});
+      return { success: false, error: `Backup file too small (${stat.size} bytes). Content: ${headContent.substring(0, 200)}` };
     }
 
     const sizeKb = Math.round(stat.size / 1024);
