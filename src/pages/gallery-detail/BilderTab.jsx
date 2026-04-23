@@ -450,6 +450,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     appIconUrl,
     loading: imagesLoading,
     uploadProgress: apiUploadProgress,
+    uploadQueue,
     uploadImages,
     deleteImage: apiDeleteImage,
     setTitleImage: apiSetTitleImage,
@@ -469,8 +470,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const [confirmDeleteAlbum, setConfirmDeleteAlbum] = useState(null);
   const confirmDeleteAlbumTimer = useRef(null);
 
-  // Upload progress state
-  const [uploadProgress, setUploadProgress] = useState(null);
   const [selectedAlbums, setSelectedAlbums] = useState({});
   const [textModalAlbum, setTextModalAlbum] = useState(null);
   const [eyeOverlayAlbum, setEyeOverlayAlbum] = useState(null);
@@ -581,18 +580,10 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
       input.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
-          // Show upload progress popup
-          setUploadProgress({ albumName, total: files.length, completed: 0 });
           // Auto-expand the album so images are visible immediately
           setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
-
-          // Upload via API — files uploaded one by one for progress
-          await uploadImages(albumIdx, files, (completed, total) => {
-            setUploadProgress({ albumName, total, completed });
-          });
-
-          setUploadProgress({ albumName, total: files.length, completed: files.length });
-          setTimeout(() => setUploadProgress(null), 2500);
+          // Enqueue upload (queue handles progress + sequential processing)
+          uploadImages(albumIdx, files, null, albumName);
         }
         input.value = '';
       });
@@ -776,13 +767,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
               if (files.length === 0) return;
               const albumName = albumNames[idx] || albums[idx]?.name || `Album ${idx + 1}`;
-              setUploadProgress({ albumName, total: files.length, completed: 0 });
               setExpandedAlbums(prev => ({ ...prev, [idx]: true }));
-              await uploadImages(idx, files, (completed, total) => {
-                setUploadProgress({ albumName, total, completed });
-              });
-              setUploadProgress({ albumName, total: files.length, completed: files.length });
-              setTimeout(() => setUploadProgress(null), 2500);
+              uploadImages(idx, files, null, albumName);
             }}
           >
             <div className="album-header"
@@ -1061,27 +1047,45 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         />
       )}
 
-      {/* Upload Progress Popup */}
-      {uploadProgress && (
+      {/* Upload Queue Popup */}
+      {uploadQueue.length > 0 && (
         <div className="upload-progress-popup">
           <div className="upload-progress-header">
             <span>Bilder hochladen</span>
-            <button className="upload-progress-close" onClick={() => setUploadProgress(null)}>
-              <X size={14} />
-            </button>
+            {!uploadQueue.some(q => q.status === 'uploading' || q.status === 'queued') && (
+              <button className="upload-progress-close" onClick={() => {}}>
+                <X size={14} />
+              </button>
+            )}
           </div>
           <div className="upload-progress-body">
-            <p className="upload-progress-text">
-              {uploadProgress.completed} von {uploadProgress.total} Bildern hochgeladen zu „{uploadProgress.albumName}"
-            </p>
-            <div className="upload-progress-bar-track">
-              <div
-                className="upload-progress-bar-fill"
-                style={{ width: `${(uploadProgress.completed / uploadProgress.total) * 100}%` }}
-              />
-            </div>
-            {uploadProgress.completed === uploadProgress.total && (
-              <p className="upload-progress-done">✓ Alle Bilder hochgeladen!</p>
+            {uploadQueue.map((item, i) => (
+              <div key={i} style={{ marginBottom: item.status === 'uploading' ? '0.75rem' : '0.35rem' }}>
+                <p className="upload-progress-text" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {item.status === 'uploading' && <span style={{ color: '#4a7c59', fontWeight: 600 }}>⬆</span>}
+                  {item.status === 'queued' && <span style={{ color: '#888' }}>⏳</span>}
+                  {item.status === 'done' && <span style={{ color: '#4a7c59' }}>✓</span>}
+                  <span style={{ fontWeight: item.status === 'uploading' ? 600 : 400, color: item.status === 'queued' ? '#888' : undefined }}>
+                    {item.albumName}
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.8em', color: '#888' }}>
+                    {item.status === 'uploading' && `${item.completed || 0}/${item.files.length}`}
+                    {item.status === 'queued' && `${item.files.length} Bilder`}
+                    {item.status === 'done' && `${item.files.length} ✓`}
+                  </span>
+                </p>
+                {item.status === 'uploading' && (
+                  <div className="upload-progress-bar-track">
+                    <div
+                      className="upload-progress-bar-fill"
+                      style={{ width: `${((item.completed || 0) / item.files.length) * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+            {!uploadQueue.some(q => q.status === 'uploading' || q.status === 'queued') && (
+              <p className="upload-progress-done">✓ Alle Alben hochgeladen!</p>
             )}
           </div>
         </div>

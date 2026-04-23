@@ -75,58 +75,148 @@ export function useGalleryImages(galleryId) {
     return data?.session?.access_token;
   };
 
-  // ── Upload images (one by one for progress tracking) ──
-  const uploadImages = useCallback(async (albumIndex, files, onProgress) => {
-    if (!galleryId || !files?.length) return [];
+  // ── Upload Queue: one album at a time ──
+  const [uploadQueue, setUploadQueue] = useState([]); // [{ albumIndex, albumName, files, status: 'queued'|'uploading'|'done' }]
+  const queueProcessingRef = useRef(false);
+  const uploadQueueRef = useRef([]);
+  const wakeLockRef = useRef(null);
+
+  // Prevent device sleep during uploads (Wake Lock API)
+  const acquireWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        console.log('[Upload] Wake lock acquired');
+      }
+    } catch (err) { console.warn('[Upload] Wake lock failed:', err.message); }
+  };
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+      console.log('[Upload] Wake lock released');
+    }
+  };
+
+  // Warn before closing/navigating during active uploads
+  const isUploading = uploadQueue.some(q => q.status === 'uploading' || q.status === 'queued');
+  useEffect(() => {
+    if (!isUploading) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Upload läuft noch. Wirklich verlassen?';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handler);
+    acquireWakeLock();
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+      releaseWakeLock();
+    };
+  }, [isUploading]);
+
+  // Keep ref in sync with state
+  useEffect(() => { uploadQueueRef.current = uploadQueue; }, [uploadQueue]);
+
+  // Process queue: upload one album at a time
+  const processQueue = useCallback(async () => {
+    if (queueProcessingRef.current) return; // Already processing
+    queueProcessingRef.current = true;
+
     const token = await getToken();
-    if (!token) { console.error('[Upload] No auth token'); return []; }
+    if (!token) { queueProcessingRef.current = false; return; }
 
-    const allResults = [];
-    setUploadProgress({ albumIndex, total: files.length, completed: 0 });
+    while (true) {
+      // Find next queued item
+      const currentQueue = uploadQueueRef.current;
+      const nextIdx = currentQueue.findIndex(q => q.status === 'queued');
+      if (nextIdx === -1) break; // No more items
 
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const formData = new FormData();
-        formData.append('images', files[i]);
+      const item = currentQueue[nextIdx];
 
-        const response = await fetch(
-          `${UPLOAD_API}/api/upload/${galleryId}/${albumIndex}`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData,
+      // Mark as uploading
+      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'uploading', completed: 0 } : q));
+      setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed: 0 });
+
+      const allResults = [];
+
+      for (let i = 0; i < item.files.length; i++) {
+        if (!mountedRef.current) break;
+
+        try {
+          const formData = new FormData();
+          formData.append('images', item.files[i]);
+
+          const response = await fetch(
+            `${UPLOAD_API}/api/upload/${galleryId}/${item.albumIndex}`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` },
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            console.error(`[Upload] File ${i + 1}/${item.files.length} failed:`, err.error || response.status);
+          } else {
+            const result = await response.json();
+            if (result.images) allResults.push(...result.images);
           }
-        );
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          console.error(`[Upload] File ${i + 1}/${files.length} failed:`, err.error || response.status);
-          // Continue with next file even on error
-        } else {
-          const result = await response.json();
-          if (result.images) allResults.push(...result.images);
+        } catch (err) {
+          console.error(`[Upload] File ${i + 1}/${item.files.length} error:`, err);
         }
-      } catch (err) {
-        console.error(`[Upload] File ${i + 1}/${files.length} error:`, err);
+
+        // Update progress
+        const completed = i + 1;
+        if (mountedRef.current) {
+          setUploadQueue(prev => prev.map((q, j) => j === nextIdx ? { ...q, completed } : q));
+          setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed });
+          if (item.onProgress) item.onProgress(completed, item.files.length);
+        }
       }
 
-      // Update progress after each file
-      const completed = i + 1;
-      if (mountedRef.current) {
-        setUploadProgress({ albumIndex, total: files.length, completed });
-        if (onProgress) onProgress(completed, files.length);
-      }
+      // Mark as done
+      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'done' } : q));
+
+      // Refresh images from DB after each album
+      await loadImages();
     }
 
-    // Refresh images from DB
-    await loadImages();
+    // All done — clear queue after delay
+    if (mountedRef.current) {
+      setUploadProgress(null);
+      setTimeout(() => {
+        if (mountedRef.current) {
+          setUploadQueue(prev => prev.filter(q => q.status !== 'done'));
+        }
+      }, 3000);
+    }
 
-    setTimeout(() => {
-      if (mountedRef.current) setUploadProgress(null);
-    }, 2500);
-
-    return allResults;
+    queueProcessingRef.current = false;
   }, [galleryId, loadImages]);
+
+  // Public API: enqueue an album upload
+  const uploadImages = useCallback(async (albumIndex, files, onProgress, albumName) => {
+    if (!galleryId || !files?.length) return [];
+
+    const queueItem = {
+      albumIndex,
+      albumName: albumName || `Album ${albumIndex + 1}`,
+      files: Array.from(files),
+      status: 'queued',
+      completed: 0,
+      onProgress,
+    };
+
+    setUploadQueue(prev => [...prev, queueItem]);
+
+    // Kick off processing (no-op if already running)
+    // Use setTimeout to ensure state is updated before processing
+    setTimeout(() => processQueue(), 50);
+
+    return [];
+  }, [galleryId, processQueue]);
 
   // ── Delete image ──
   const deleteImage = useCallback(async (albumIndex, imageId) => {
@@ -255,6 +345,7 @@ export function useGalleryImages(galleryId) {
     appIconUrl,
     loading,
     uploadProgress,
+    uploadQueue,
     uploadImages,
     deleteImage,
     setTitleImage,
