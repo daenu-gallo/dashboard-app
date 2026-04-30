@@ -295,9 +295,23 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
         .jpeg({ quality: 90 })
         .toFile(thumbPath);
 
-      // Calculate file size
+      // ── Write verification: confirm files actually persist on NAS ──
       const stat = await fs.stat(originalPath);
+      const thumbStat = await fs.stat(thumbPath);
       const fileSizeKb = Math.round(stat.size / 1024);
+
+      if (stat.size < 1000 || thumbStat.size < 500) {
+        console.error(`[Upload] ❌ WRITE VERIFICATION FAILED: original=${stat.size}B, thumb=${thumbStat.size}B for ${filename}`);
+        // Try to read back the file to verify it's actually on NAS
+        const readCheck = await fs.readFile(originalPath).catch(() => null);
+        if (!readCheck || readCheck.length < 1000) {
+          console.error(`[Upload] ❌ NAS READ-BACK FAILED — Dateien werden NICHT persistent gespeichert!`);
+          return res.status(503).json({ 
+            error: 'NAS-Speicher nicht verfügbar — Dateien können nicht gesichert werden. Bitte kontaktiere den Administrator.',
+            detail: 'Write verification failed — files are not persisting to NAS storage.'
+          });
+        }
+      }
 
       // Build URLs (relative to API base)
       const originalUrl = `/api/images/${userId}/${slug}/${albumIndex}/original/${filename}`;
