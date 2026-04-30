@@ -91,6 +91,10 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, health checks)
     if (!origin) return callback(null, true);
+    // Always allow *.fotohahn.ch subdomains
+    if (origin.endsWith('.fotohahn.ch') || origin.endsWith('fotohahn.ch')) {
+      return callback(null, true);
+    }
     if (ALLOWED_ORIGINS.includes(origin)) {
       return callback(null, true);
     }
