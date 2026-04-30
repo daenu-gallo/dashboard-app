@@ -912,11 +912,16 @@ app.post('/api/send-email', authenticate, async (req, res) => {
 });
 
 // ── GET /api/health ──
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let nasFiles = [];
+  try {
+    nasFiles = existsSync(NAS_BASE) ? readdirSync(NAS_BASE) : [];
+  } catch {}
   res.json({
     status: supabase ? 'ok' : 'degraded',
     nasAvailable: existsSync(NAS_BASE),
     nasPath: NAS_BASE,
+    nasContents: nasFiles,
     supabaseConnected: !!supabase,
     envVars: {
       SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
@@ -929,6 +934,48 @@ app.get('/api/health', (req, res) => {
     },
     timestamp: new Date().toISOString(),
   });
+});
+
+// ── GET /api/admin/nas-check — Deep NAS diagnostic ──
+app.get('/api/admin/nas-check', authenticate, adminOnly, async (req, res) => {
+  try {
+    const result = { nasPath: NAS_BASE, available: existsSync(NAS_BASE), tree: {} };
+    if (!result.available) return res.json(result);
+
+    // List top-level (user IDs)
+    const userDirs = readdirSync(NAS_BASE).filter(f => !f.startsWith('.') && !f.startsWith('#'));
+    for (const uid of userDirs) {
+      const userPath = path.join(NAS_BASE, uid);
+      try {
+        const stat = statSync(userPath);
+        if (!stat.isDirectory()) continue;
+        const slugs = readdirSync(userPath).filter(f => !f.startsWith('.'));
+        result.tree[uid] = {};
+        for (const slug of slugs) {
+          const slugPath = path.join(userPath, slug);
+          try {
+            const slugStat = statSync(slugPath);
+            if (!slugStat.isDirectory()) continue;
+            const albumDirs = readdirSync(slugPath).filter(f => !f.startsWith('.'));
+            result.tree[uid][slug] = {};
+            for (const album of albumDirs) {
+              const albumPath = path.join(slugPath, album);
+              try {
+                const origPath = path.join(albumPath, 'original');
+                const thumbPath = path.join(albumPath, 'thumb');
+                const origCount = existsSync(origPath) ? readdirSync(origPath).length : 0;
+                const thumbCount = existsSync(thumbPath) ? readdirSync(thumbPath).length : 0;
+                result.tree[uid][slug][album] = { originals: origCount, thumbs: thumbCount };
+              } catch {}
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ══════════════════════════════════════════
