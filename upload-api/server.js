@@ -978,6 +978,26 @@ app.get('/api/admin/nas-check', authenticate, adminOnly, async (req, res) => {
   }
 });
 
+// ── DELETE /api/admin/purge-images — Remove all image DB records (for re-upload) ──
+app.delete('/api/admin/purge-images', authenticate, adminOnly, async (req, res) => {
+  const { gallery_id } = req.query; // optional: purge only one gallery
+  try {
+    let query = supabase.from('images').delete();
+    if (gallery_id) {
+      query = query.eq('gallery_id', gallery_id);
+    } else {
+      // Delete ALL — need a filter for PostgREST, use id != null
+      query = query.neq('id', '00000000-0000-0000-0000-000000000000');
+    }
+    const { data, error } = await query.select('id');
+    if (error) return res.status(500).json({ error: error.message });
+    console.log(`[Admin] 🗑️ Purged ${data?.length || 0} image records${gallery_id ? ` for gallery ${gallery_id}` : ''}`);
+    res.json({ success: true, deleted: data?.length || 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ══════════════════════════════════════════
 // ── Database Auto-Backup System ──
 // ══════════════════════════════════════════
