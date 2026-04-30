@@ -1894,20 +1894,23 @@
 .cv-protected img {
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
-  pointer-events: none;
+  /* No pointer-events: none — that breaks sliders and lightbox navigation */
 }
 
 .cv-protected .cv-photo {
   -webkit-touch-callout: none;
+  position: relative;
 }
 
-/* Transparent overlay on photos to block "Save Image As" */
+/* Transparent overlay on photos to block "Save Image As" right-click menu on the image itself.
+   pointer-events: none so clicks pass through to the photo for lightbox etc. */
 .cv-protected .cv-photo::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 10;
   background: transparent;
+  pointer-events: none;
 }
 
 /* Lightbox image protection */
@@ -1921,6 +1924,7 @@
   inset: 0;
   z-index: 10;
   background: transparent;
+  pointer-events: none;
 }
 
 /* Hero image protection */
@@ -1930,4 +1934,5 @@
   inset: 0;
   z-index: 10;
   background: transparent;
+  pointer-events: none;
 }
