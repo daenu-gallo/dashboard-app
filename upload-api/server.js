@@ -1508,6 +1508,42 @@ app.post('/api/shop/webhook/nphoto', async (req, res) => {
   }
 });
 
+// ── NAS Watchdog: auto-restart if NAS becomes unreachable ──
+let nasFailCount = 0;
+const NAS_FAIL_THRESHOLD = 3; // 3 consecutive failures = restart
+const NAS_CHECK_INTERVAL = 30000; // Check every 30 seconds
+
+async function checkNasHealth() {
+  const testFile = path.join(NAS_BASE, '.nas_health_check');
+  try {
+    // Try to write + read a small test file with a 5s timeout
+    const checkPromise = (async () => {
+      await fs.writeFile(testFile, Date.now().toString());
+      await fs.readFile(testFile, 'utf-8');
+      await fs.unlink(testFile).catch(() => {});
+    })();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('NAS check timeout (5s)')), 5000)
+    );
+
+    await Promise.race([checkPromise, timeoutPromise]);
+    
+    if (nasFailCount > 0) {
+      console.log(`[NAS-Watchdog] ✅ NAS wieder erreichbar (nach ${nasFailCount} Fehlern)`);
+    }
+    nasFailCount = 0;
+  } catch (err) {
+    nasFailCount++;
+    console.error(`[NAS-Watchdog] ❌ NAS-Fehler #${nasFailCount}/${NAS_FAIL_THRESHOLD}: ${err.message}`);
+
+    if (nasFailCount >= NAS_FAIL_THRESHOLD) {
+      console.error(`[NAS-Watchdog] 🔄 ${NAS_FAIL_THRESHOLD} aufeinanderfolgende NAS-Fehler — Container wird neu gestartet...`);
+      process.exit(1); // Docker/Coolify restarts the container
+    }
+  }
+}
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
@@ -1516,10 +1552,16 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🗄️  DB Backups: täglich 03:00 → ${BACKUP_DIR}`);
   console.log(`📡 Monitoring: alle 5 Min → ${MONITOR_TARGETS.map(t => t.name).join(', ')}`);
   console.log(`   DB Host: ${DB_HOST}:${DB_PORT}`);
+  console.log(`🛡️  NAS-Watchdog: alle ${NAS_CHECK_INTERVAL / 1000}s, Restart nach ${NAS_FAIL_THRESHOLD} Fehlern`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();
 
   // Run initial uptime check on startup
   setTimeout(runUptimeCheck, 5000);
+
+  // Start NAS watchdog
+  setInterval(checkNasHealth, NAS_CHECK_INTERVAL);
+  // Initial check after 10s (give container time to mount)
+  setTimeout(checkNasHealth, 10000);
 });
