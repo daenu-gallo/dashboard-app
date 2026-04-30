@@ -385,7 +385,6 @@ async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
   }
 }
 
-// ── GET /api/images/:userId/:slug/:albumIndex/:type/:filename ──
 // Serve images from NAS with optional watermark overlay
 app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res) => {
   const { userId, slug, albumIndex, type, filename } = req.params;
@@ -394,9 +393,22 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
     return res.status(400).json({ error: 'Invalid type' });
   }
 
+  // Request-level timeout: 10 seconds max
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error(`[Images] ⏰ Timeout serving ${type}/${filename}`);
+      res.status(504).json({ error: 'NAS timeout — bitte Seite neu laden' });
+    }
+  }, 10000);
+  res.on('close', () => clearTimeout(timeout));
+
   const filePath = path.join(NAS_BASE, userId, slug, albumIndex, type, filename);
 
-  if (!existsSync(filePath)) {
+  // Async file check (non-blocking)
+  try {
+    await fs.access(filePath);
+  } catch {
+    clearTimeout(timeout);
     return res.status(404).json({ error: 'File not found' });
   }
 
@@ -447,6 +459,7 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
           .jpeg({ quality: 85 })
           .toBuffer();
 
+        clearTimeout(timeout);
         res.set({
           'Cache-Control': 'public, max-age=86400',
           'Content-Type': 'image/jpeg',
@@ -500,6 +513,7 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
             .jpeg({ quality: 85 })
             .toBuffer();
 
+          clearTimeout(timeout);
           res.set({
             'Cache-Control': 'public, max-age=300',
             'Content-Type': 'image/jpeg',
@@ -518,12 +532,20 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
   }
 
   // Default: serve without watermark (thumbnails, or when no watermark configured)
+  clearTimeout(timeout);
   res.set({
     'Cache-Control': 'public, max-age=604800',
     'Content-Type': 'image/jpeg',
   });
 
-  createReadStream(filePath).pipe(res);
+  const stream = createReadStream(filePath);
+  stream.on('error', (err) => {
+    console.error(`[Images] Stream error for ${filename}:`, err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'File read error' });
+    }
+  });
+  stream.pipe(res);
 });
 
 // ── DELETE /api/images/:imageId ──
