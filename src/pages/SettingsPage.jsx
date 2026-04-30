@@ -240,6 +240,8 @@ const MarkenTab = () => {
         const mapped = dbWm.map(w => ({ id: w.id, name: w.name, wmType: w.wm_type, image: w.image || null, text: w.text || '', font: w.font || '', scale: w.scale ?? 100, transparency: w.transparency ?? 50, position: w.position || 'mitte', tileSpacing: w.tile_spacing ?? 120, tileSize: w.tile_size ?? 60 }));
         wmLoadedFromDb.current = true;
         queueMicrotask(() => setWatermarks(mapped));
+        // Initialize prevWmIdsRef so deletion detection works correctly
+        if (typeof prevWmIdsRef !== 'undefined') prevWmIdsRef.current = mapped.map(w => w.id);
       }
     })();
   }, [user]);
@@ -291,24 +293,46 @@ const MarkenTab = () => {
   // ── Sync watermarks to Supabase (debounced) ──
   const wmSyncTimer = useRef(null);
   const wmSyncSkip = useRef(true);
+  const prevWmIdsRef = useRef(null); // Track previous IDs for deletion detection
   useEffect(() => {
     if (wmSyncSkip.current) { wmSyncSkip.current = false; return; }
     if (!user) return;
     if (wmSyncTimer.current) clearTimeout(wmSyncTimer.current);
     wmSyncTimer.current = setTimeout(async () => {
       try {
-        await supabase.from('watermarks').delete().eq('user_id', user.id);
-        if (watermarks.length > 0) {
-          await supabase.from('watermarks').insert(watermarks.map(w => ({
+        const currentIds = watermarks.map(w => w.id).filter(Boolean);
+
+        // Delete removed watermarks (ones that existed before but are no longer present)
+        if (prevWmIdsRef.current) {
+          const removedIds = prevWmIdsRef.current.filter(id => !currentIds.includes(id));
+          if (removedIds.length > 0) {
+            await supabase.from('watermarks').delete().eq('user_id', user.id).in('id', removedIds);
+          }
+        }
+
+        // Upsert each watermark individually to preserve IDs
+        for (const w of watermarks) {
+          const row = {
             user_id: user.id, name: w.name, wm_type: w.wmType || 'image',
             position: w.position || 'mitte',
             image: w.image || null, text: w.text || '', font: w.font || '',
             scale: w.scale ?? 100, transparency: w.transparency ?? 50,
             tile_spacing: w.tileSpacing ?? 120, tile_size: w.tileSize ?? 60,
-          })));
+          };
+
+          if (typeof w.id === 'number' && w.id > 1e12) {
+            // New watermark (client-generated ID from Date.now()) → INSERT
+            const { data } = await supabase.from('watermarks').insert(row).select('id').single();
+            if (data) w.id = data.id; // Update local ID with DB-generated one
+          } else if (w.id) {
+            // Existing watermark → UPDATE
+            await supabase.from('watermarks').update(row).eq('id', w.id).eq('user_id', user.id);
+          }
         }
+
+        prevWmIdsRef.current = watermarks.map(w => w.id).filter(Boolean);
       } catch (err) { console.error('[Settings] Watermark sync error:', err); }
-    }, 1500);
+    }, 2500); // 2.5s debounce — longer for sliders
   }, [watermarks]);
 
   const [modalType, setModalType] = useState(null);
