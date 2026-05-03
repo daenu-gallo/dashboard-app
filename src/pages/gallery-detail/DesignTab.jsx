@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { RotateCcw, Edit2, ChevronLeft, ChevronRight, ExternalLink, Monitor, Smartphone, HelpCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
+
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
 
 
 // ── Template Definitions ──
@@ -77,6 +80,23 @@ const DISPLAY_OPTIONS = [
 
 const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
   const galleryKey = gallery?.title || 'default';
+
+  // ── Fetch real gallery thumbnails for preview ──
+  const [previewImages, setPreviewImages] = useState([]);
+  useEffect(() => {
+    if (!supabaseGallery?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('images')
+        .select('thumb_url')
+        .eq('gallery_id', supabaseGallery.id)
+        .order('sort_order', { ascending: true })
+        .limit(6);
+      if (data?.length) {
+        setPreviewImages(data.map(img => UPLOAD_API + img.thumb_url + '?v=3'));
+      }
+    })();
+  }, [supabaseGallery?.id]);
 
   // ── Initialize from Supabase design JSONB ──
   const sbDesign = supabaseGallery?.design || {};
@@ -400,19 +420,34 @@ const DesignTab = ({ gallery, supabaseGallery, updateGallery }) => {
                   <div style={{ fontSize: '0.65rem', marginTop: '0.4rem', opacity: 0.5 }}>Fotos von Fotograf</div>
                 </div>
               </div>
-              {/* Mock image grid */}
+              {/* Image grid — real thumbnails or placeholders */}
               <div style={{
                 flex: 1, padding: spacing === 'gross' ? '12px' : spacing === 'mittel' ? '8px' : '5px',
                 display: 'grid',
                 gridTemplateColumns: displayMode === 'kacheln' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
                 gap: spacing === 'gross' ? '12px' : spacing === 'mittel' ? '8px' : '5px',
               }}>
-                {[1,2,3,4,5,6].map(i => (
-                  <div key={i} style={{
-                    background: `${secondaryColor}15`,
-                    borderRadius: 4,
-                    aspectRatio: displayMode === 'kacheln' ? '1' : '3/2',
-                  }} />
+                {(previewImages.length ? previewImages : [1,2,3,4,5,6]).map((item, i) => (
+                  typeof item === 'string' ? (
+                    <div key={i} style={{
+                      borderRadius: 4,
+                      aspectRatio: displayMode === 'kacheln' ? '1' : '3/2',
+                      overflow: 'hidden',
+                    }}>
+                      <img
+                        src={item}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <div key={i} style={{
+                      background: `${secondaryColor}15`,
+                      borderRadius: 4,
+                      aspectRatio: displayMode === 'kacheln' ? '1' : '3/2',
+                    }} />
+                  )
                 ))}
               </div>
               {/* Mock footer */}
