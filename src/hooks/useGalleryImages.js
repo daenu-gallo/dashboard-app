@@ -139,6 +139,7 @@ export function useGalleryImages(galleryId) {
       setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed: 0 });
 
       const allResults = [];
+      let totalSkipped = 0;
 
       for (let i = 0; i < item.files.length; i++) {
         if (!mountedRef.current) break;
@@ -162,6 +163,7 @@ export function useGalleryImages(galleryId) {
           } else {
             const result = await response.json();
             if (result.images) allResults.push(...result.images);
+            if (result.skippedDuplicates) totalSkipped += result.skippedDuplicates;
           }
         } catch (err) {
           console.error(`[Upload] File ${i + 1}/${item.files.length} error:`, err);
@@ -176,8 +178,8 @@ export function useGalleryImages(galleryId) {
         }
       }
 
-      // Mark as done
-      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'done' } : q));
+      // Mark as done (include skipped info)
+      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'done', skippedDuplicates: totalSkipped, newUploads: allResults.length } : q));
 
       // Refresh images from DB after each album
       await loadImages();

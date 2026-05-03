@@ -1097,7 +1097,11 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                   <span style={{ marginLeft: 'auto', fontSize: '0.8em', color: '#888' }}>
                     {item.status === 'uploading' && `${item.completed || 0}/${item.files.length}`}
                     {item.status === 'queued' && `${item.files.length} Bilder`}
-                    {item.status === 'done' && `${item.files.length} ✓`}
+                    {item.status === 'done' && (
+                      item.skippedDuplicates > 0
+                        ? `${item.newUploads} neu, ${item.skippedDuplicates} übersprungen`
+                        : `${item.files.length} ✓`
+                    )}
                   </span>
                 </p>
                 {item.status === 'uploading' && (

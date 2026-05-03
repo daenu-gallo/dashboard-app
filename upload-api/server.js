@@ -258,8 +258,24 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
       .limit(1);
     let nextSort = (existing?.[0]?.sort_order ?? -1) + 1;
 
+    // Load existing filenames for this album to detect duplicates
+    const { data: existingImages } = await supabase
+      .from('images')
+      .select('filename')
+      .eq('gallery_id', galleryId)
+      .eq('album_index', Number(albumIndex));
+    const existingFilenames = new Set((existingImages || []).map(img => img.filename));
+
     const results = [];
+    let skippedDuplicates = 0;
     for (const file of req.files) {
+      // Skip duplicates (same original filename already in this album)
+      if (existingFilenames.has(file.originalname)) {
+        console.log(`⏭️ Skipping duplicate: ${file.originalname}`);
+        await fs.unlink(file.path).catch(() => {});
+        skippedDuplicates++;
+        continue;
+      }
       // Validate magic bytes (real image check)
       const isRealImage = await validateImageMagicBytes(file.path);
       if (!isRealImage) {
@@ -345,7 +361,11 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
       await fs.unlink(file.path).catch(() => {});
     }
 
-    res.json({ success: true, images: results });
+    if (skippedDuplicates > 0) {
+      console.log(`📋 ${skippedDuplicates} Duplikate übersprungen, ${results.length} neue Bilder hochgeladen`);
+    }
+
+    res.json({ success: true, images: results, skippedDuplicates });
   } catch (err) {
     console.error('[Upload] Error:', err);
     // Clean up temp files on error
