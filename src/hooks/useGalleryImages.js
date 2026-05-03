@@ -320,6 +320,62 @@ export function useGalleryImages(galleryId) {
     }
   }, []);
 
+  // ── Reassign album indexes (when albums are reordered) ──
+  const reassignAlbumIndexes = useCallback(async (indexMapping) => {
+    // indexMapping: { oldIndex: newIndex, ... }
+    // e.g., when adding album at front: { 0: 1, 1: 2, ..., N: N+1 }
+    // e.g., when swapping 2 and 3: { 2: 3, 3: 2 }
+    if (!galleryId) return false;
+
+    try {
+      // Get all images for this gallery
+      const { data: allImages, error } = await supabase
+        .from('images')
+        .select('id, album_index')
+        .eq('gallery_id', galleryId);
+
+      if (error) throw error;
+      if (!allImages?.length) return true;
+
+      // Find images that need updating
+      const updates = allImages
+        .filter(img => indexMapping[img.album_index] !== undefined)
+        .map(img => ({
+          id: img.id,
+          newIndex: indexMapping[img.album_index],
+        }));
+
+      if (updates.length === 0) return true;
+
+      // Use a temporary high offset to avoid collisions during reindex
+      const OFFSET = 10000;
+
+      // Step 1: Move all affected images to temp indexes
+      for (const { id, newIndex } of updates) {
+        await supabase
+          .from('images')
+          .update({ album_index: newIndex + OFFSET })
+          .eq('id', id);
+      }
+
+      // Step 2: Move from temp to final indexes
+      for (const { id, newIndex } of updates) {
+        await supabase
+          .from('images')
+          .update({ album_index: newIndex })
+          .eq('id', id);
+      }
+
+      // Refresh images
+      await loadImages();
+      return true;
+    } catch (err) {
+      console.error('[ReassignAlbumIndexes] Error:', err);
+      return false;
+    }
+  }, [galleryId, loadImages]);
+
+
   // ── Computed values ──
 
   // Title images per album: { [albumIndex]: { titelbild: url, mobile: url } }
@@ -352,6 +408,7 @@ export function useGalleryImages(galleryId) {
     setMobileTitleImage,
     setAppIcon,
     reorderImages,
+    reassignAlbumIndexes,
     refreshImages: loadImages,
   };
 }

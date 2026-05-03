@@ -456,6 +456,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     setTitleImage: apiSetTitleImage,
     setMobileTitleImage: apiSetMobileTitleImage,
     setAppIcon: apiSetAppIcon,
+    reassignAlbumIndexes,
     refreshImages,
   } = useGalleryImages(galleryId);
 
@@ -500,6 +501,15 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const handleAddAlbum = ({ name, asFirst }) => {
     const newAlbum = { name, count: 0, previewCount: 2, totalPhotos: 2 };
     if (asFirst) {
+      // Shift all existing image album_index values up by 1 in Supabase
+      const existingCount = albums.length;
+      if (existingCount > 0) {
+        const mapping = {};
+        for (let i = existingCount - 1; i >= 0; i--) {
+          mapping[i] = i + 1;
+        }
+        reassignAlbumIndexes(mapping);
+      }
       setAlbums(prev => [newAlbum, ...prev]);
       // Re-index albumNames and add new name at index 0
       setAlbumNames(prev => {
@@ -542,6 +552,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const moveAlbum = (fromIdx, direction) => {
     const toIdx = fromIdx + direction;
     if (toIdx < 0 || toIdx >= albums.length) return;
+    // Reassign image album_index values in Supabase
+    reassignAlbumIndexes({ [fromIdx]: toIdx, [toIdx]: fromIdx });
     setAlbums(prev => {
       const newAlbums = [...prev];
       [newAlbums[fromIdx], newAlbums[toIdx]] = [newAlbums[toIdx], newAlbums[fromIdx]];
@@ -790,6 +802,20 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 const from = Number(e.dataTransfer.getData('albumDragIdx'));
                 if (isNaN(from) || from === idx) return;
                 e.preventDefault();
+                // Build index mapping for image reassignment
+                const oldIndices = albums.map((_, i) => i);
+                const newIndices = [...oldIndices];
+                const [movedIdx] = newIndices.splice(from, 1);
+                newIndices.splice(idx, 0, movedIdx);
+                // mapping: { oldAlbumIndex: newAlbumIndex }
+                const mapping = {};
+                newIndices.forEach((oldIdx, newIdx) => {
+                  if (oldIdx !== newIdx) mapping[oldIdx] = newIdx;
+                });
+                // Reassign image album_index values in Supabase
+                if (Object.keys(mapping).length > 0) {
+                  reassignAlbumIndexes(mapping);
+                }
                 // Reorder albums
                 const newAlbums = [...albums];
                 const [moved] = newAlbums.splice(from, 1);
