@@ -241,17 +241,18 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
       return res.status(403).json({ error: 'Not your gallery' });
     }
 
-    // Determine if albumParam is a UUID (album_id) or integer (legacy album_index)
-    const isUUID = albumParam.includes('-') && albumParam.length > 10;
+    // Determine if albumParam is an album_id (prefixed with 'aid_') or legacy album_index (integer)
+    const isAlbumId = String(albumParam).startsWith('aid_');
     let albumId = null;
     let albumIndex;
 
-    if (isUUID) {
-      // New: album_id provided — look up sort_order for NAS path
+    if (isAlbumId) {
+      // New: album_id provided (prefixed) — look up sort_order for NAS path
+      const actualId = albumParam.replace('aid_', '');
       const { data: album, error: albErr } = await supabase
         .from('albums')
         .select('id, sort_order')
-        .eq('id', albumParam)
+        .eq('id', actualId)
         .single();
       if (albErr || !album) {
         return res.status(404).json({ error: 'Album not found' });

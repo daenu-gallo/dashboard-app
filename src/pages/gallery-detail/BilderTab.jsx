@@ -588,8 +588,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         if (files.length > 0) {
           // Auto-expand the album so images are visible immediately
           setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
-          // Upload using album_id (UUID) for stable linking
-          uploadImages(albumId || albumIdx, files, null, albumName, albumId);
+          // Upload using album_id for stable DB linking
+          uploadImages(albumIdx, files, null, albumName, albumId);
         }
         input.value = '';
       });
@@ -778,7 +778,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               if (files.length === 0) return;
               const albumName = albumNames[idx] || albums[idx]?.name || `Album ${idx + 1}`;
               setExpandedAlbums(prev => ({ ...prev, [idx]: true }));
-              uploadImages(album._supabaseId || idx, files, null, albumName, album._supabaseId);
+              uploadImages(idx, files, null, albumName, album._supabaseId);
             }}
           >
             <div className="album-header"

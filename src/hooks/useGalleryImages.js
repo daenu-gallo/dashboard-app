@@ -150,8 +150,8 @@ export function useGalleryImages(galleryId) {
           const formData = new FormData();
           formData.append('images', item.files[i]);
 
-          // Use albumId (UUID) if available, fall back to albumIndex
-          const albumParam = item.albumId || item.albumIndex;
+          // Use albumId with 'aid_' prefix if available, fall back to albumIndex
+          const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
           const response = await fetch(
             `${UPLOAD_API}/api/upload/${galleryId}/${albumParam}`,
             {
@@ -203,12 +203,12 @@ export function useGalleryImages(galleryId) {
   }, [galleryId, loadImages]);
 
   // Public API: enqueue an album upload
-  const uploadImages = useCallback(async (albumIdOrIndex, files, onProgress, albumName, albumId) => {
+  const uploadImages = useCallback(async (albumIndex, files, onProgress, albumName, albumId) => {
     if (!galleryId || !files?.length) return [];
 
     const queueItem = {
-      albumIndex: typeof albumIdOrIndex === 'number' ? albumIdOrIndex : null,
-      albumId: albumId || (typeof albumIdOrIndex === 'string' ? albumIdOrIndex : null),
+      albumIndex,
+      albumId: albumId || null,
       albumName: albumName || `Album`,
       files: Array.from(files),
       status: 'queued',
