@@ -905,9 +905,38 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                       // Second click — delete
                       if (confirmDeleteAlbumTimer.current) clearTimeout(confirmDeleteAlbumTimer.current);
                       setConfirmDeleteAlbum(null);
+
+                      // 1. Delete images belonging to this album from Supabase
+                      (async () => {
+                        try {
+                          if (galleryId) {
+                            const { error: delErr } = await supabase
+                              .from('images')
+                              .delete()
+                              .eq('gallery_id', galleryId)
+                              .eq('album_index', idx);
+                            if (delErr) console.error('[DeleteAlbum] Image delete error:', delErr);
+
+                            // 2. Shift album_index for all subsequent albums down by 1
+                            const totalAlbums = albums.length;
+                            if (idx < totalAlbums - 1) {
+                              const mapping = {};
+                              for (let i = idx + 1; i < totalAlbums; i++) {
+                                mapping[i] = i - 1;
+                              }
+                              await reassignAlbumIndexes(mapping);
+                            } else {
+                              // Last album — just refresh
+                              refreshImages();
+                            }
+                          }
+                        } catch (err) {
+                          console.error('[DeleteAlbum] Error:', err);
+                        }
+                      })();
+
+                      // 3. Update local state
                       setAlbums(prev => prev.filter((_, i) => i !== idx));
-                      // Images are from Supabase — they'll reload after album sync
-                      refreshImages();
                       setUploadedVideos(prev => {
                         const n = { ...prev }; delete n[idx];
                         const reindexed = {};
