@@ -222,8 +222,8 @@ const buildNasPath = (userId, gallerySlug, albumIndex) => {
 
 // ── POST /api/upload/:galleryId/:albumIndex ──
 // Upload multiple images, generate thumbnails, save to NAS, insert into Supabase
-app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, upload.array('images', 100), async (req, res) => {
-  const { galleryId, albumIndex } = req.params;
+app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, upload.array('images', 100), async (req, res) => {
+  const { galleryId, albumParam } = req.params;
   const userId = req.user.id;
 
   try {
@@ -239,6 +239,35 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
     }
     if (gallery.user_id !== userId) {
       return res.status(403).json({ error: 'Not your gallery' });
+    }
+
+    // Determine if albumParam is a UUID (album_id) or integer (legacy album_index)
+    const isUUID = albumParam.includes('-') && albumParam.length > 10;
+    let albumId = null;
+    let albumIndex;
+
+    if (isUUID) {
+      // New: album_id provided — look up sort_order for NAS path
+      const { data: album, error: albErr } = await supabase
+        .from('albums')
+        .select('id, sort_order')
+        .eq('id', albumParam)
+        .single();
+      if (albErr || !album) {
+        return res.status(404).json({ error: 'Album not found' });
+      }
+      albumId = album.id;
+      albumIndex = album.sort_order;
+    } else {
+      // Legacy: album_index provided — look up album_id
+      albumIndex = Number(albumParam);
+      const { data: album } = await supabase
+        .from('albums')
+        .select('id')
+        .eq('gallery_id', galleryId)
+        .eq('sort_order', albumIndex)
+        .single();
+      if (album) albumId = album.id;
     }
 
     const slug = gallery.slug;
@@ -334,20 +363,23 @@ app.post('/api/upload/:galleryId/:albumIndex', uploadLimiter, authenticate, uplo
       const thumbUrl = `/api/images/${userId}/${slug}/${albumIndex}/thumb/${thumbFilename}`;
 
       // Insert into Supabase
+      const insertData = {
+        gallery_id: galleryId,
+        album_index: Number(albumIndex),
+        filename: file.originalname,
+        original_url: originalUrl,
+        thumb_url: thumbUrl,
+        file_size_kb: fileSizeKb,
+        width,
+        height,
+        sort_order: nextSort++,
+        user_id: userId,
+      };
+      if (albumId) insertData.album_id = albumId;
+
       const { data: imgRow, error: insertErr } = await supabase
         .from('images')
-        .insert({
-          gallery_id: galleryId,
-          album_index: Number(albumIndex),
-          filename: file.originalname,
-          original_url: originalUrl,
-          thumb_url: thumbUrl,
-          file_size_kb: fileSizeKb,
-          width,
-          height,
-          sort_order: nextSort++,
-          user_id: userId,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -942,6 +974,94 @@ app.post('/api/send-email', authenticate, async (req, res) => {
   } catch (err) {
     console.error('[Email] Send error:', err.message);
     res.status(500).json({ error: 'E-Mail konnte nicht gesendet werden.', details: err.message });
+  }
+});
+
+// ── POST /api/admin/migrate-album-ids — One-time migration ──
+app.post('/api/admin/migrate-album-ids', authenticate, async (req, res) => {
+  try {
+    // 1. Check if album_id column exists
+    const { data: cols } = await supabase
+      .from('images')
+      .select('id')
+      .limit(1);
+
+    // 2. Add album_id column if not exists (via raw SQL through supabase-js)
+    // Since we can't run DDL via supabase-js, we'll do it via the migration approach
+    // First try to add the column
+    const addColResult = await supabase.rpc('exec_sql', {
+      sql: `ALTER TABLE images ADD COLUMN IF NOT EXISTS album_id UUID REFERENCES albums(id) ON DELETE CASCADE`
+    }).catch(() => null);
+
+    // If RPC doesn't exist, try direct approach
+    if (!addColResult || addColResult.error) {
+      // Try inserting with album_id to see if column exists
+      const testResult = await supabase
+        .from('images')
+        .select('album_id')
+        .limit(1)
+        .catch(() => null);
+      
+      if (!testResult || testResult.error) {
+        return res.status(500).json({ 
+          error: 'album_id column does not exist. Please run the migration SQL manually:',
+          sql: 'ALTER TABLE images ADD COLUMN IF NOT EXISTS album_id UUID REFERENCES albums(id) ON DELETE CASCADE; CREATE INDEX IF NOT EXISTS idx_images_album_id ON images(album_id);'
+        });
+      }
+    }
+
+    // 3. Backfill: link images to albums via gallery_id + album_index = sort_order
+    const { data: allImages, error: imgErr } = await supabase
+      .from('images')
+      .select('id, gallery_id, album_index, album_id')
+      .is('album_id', null);
+
+    if (imgErr) throw imgErr;
+
+    if (!allImages || allImages.length === 0) {
+      return res.json({ success: true, message: 'No images to migrate (all already have album_id)', migrated: 0 });
+    }
+
+    // Get all albums
+    const { data: allAlbums, error: albErr } = await supabase
+      .from('albums')
+      .select('id, gallery_id, sort_order');
+    if (albErr) throw albErr;
+
+    // Build lookup: { galleryId_sortOrder: albumId }
+    const albumLookup = {};
+    (allAlbums || []).forEach(a => {
+      albumLookup[`${a.gallery_id}_${a.sort_order}`] = a.id;
+    });
+
+    // Update images in batches
+    let migrated = 0;
+    let skipped = 0;
+    for (const img of allImages) {
+      const albumId = albumLookup[`${img.gallery_id}_${img.album_index}`];
+      if (albumId) {
+        const { error: upErr } = await supabase
+          .from('images')
+          .update({ album_id: albumId })
+          .eq('id', img.id);
+        if (!upErr) migrated++;
+        else console.error(`[Migration] Failed to update image ${img.id}:`, upErr);
+      } else {
+        skipped++;
+        console.warn(`[Migration] No album found for gallery=${img.gallery_id} index=${img.album_index}`);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Migration complete`, 
+      migrated, 
+      skipped, 
+      total: allImages.length 
+    });
+  } catch (err) {
+    console.error('[Migration] Error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

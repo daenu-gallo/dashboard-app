@@ -456,7 +456,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     setTitleImage: apiSetTitleImage,
     setMobileTitleImage: apiSetMobileTitleImage,
     setAppIcon: apiSetAppIcon,
-    reassignAlbumIndexes,
     refreshImages,
   } = useGalleryImages(galleryId);
 
@@ -501,15 +500,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const handleAddAlbum = ({ name, asFirst }) => {
     const newAlbum = { name, count: 0, previewCount: 2, totalPhotos: 2 };
     if (asFirst) {
-      // Shift all existing image album_index values up by 1 in Supabase
-      const existingCount = albums.length;
-      if (existingCount > 0) {
-        const mapping = {};
-        for (let i = existingCount - 1; i >= 0; i--) {
-          mapping[i] = i + 1;
-        }
-        reassignAlbumIndexes(mapping);
-      }
+      // With album_id, no need to reassign image indexes!
+      // Images stay linked to their album regardless of position.
       setAlbums(prev => [newAlbum, ...prev]);
       // Re-index albumNames and add new name at index 0
       setAlbumNames(prev => {
@@ -552,8 +544,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const moveAlbum = (fromIdx, direction) => {
     const toIdx = fromIdx + direction;
     if (toIdx < 0 || toIdx >= albums.length) return;
-    // Reassign image album_index values in Supabase
-    reassignAlbumIndexes({ [fromIdx]: toIdx, [toIdx]: fromIdx });
+    // With album_id, no need to reassign image indexes!
+    // Images stay linked to their album UUID regardless of position.
     setAlbums(prev => {
       const newAlbums = [...prev];
       [newAlbums[fromIdx], newAlbums[toIdx]] = [newAlbums[toIdx], newAlbums[fromIdx]];
@@ -581,7 +573,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   };
 
   const handleAddImages = (albumIdx) => {
-    const albumName = albumNames[albumIdx] || albums[albumIdx]?.name || `Album ${albumIdx + 1}`;
+    const album = albums[albumIdx];
+    const albumName = albumNames[albumIdx] || album?.name || `Album ${albumIdx + 1}`;
+    const albumId = album?._supabaseId;
 
     if (!fileInputRefs.current[albumIdx]) {
       const input = document.createElement('input');
@@ -594,8 +588,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         if (files.length > 0) {
           // Auto-expand the album so images are visible immediately
           setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
-          // Enqueue upload (queue handles progress + sequential processing)
-          uploadImages(albumIdx, files, null, albumName);
+          // Upload using album_id (UUID) for stable linking
+          uploadImages(albumId || albumIdx, files, null, albumName, albumId);
         }
         input.value = '';
       });
@@ -606,7 +600,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   };
 
   const removeImage = (albumIdx, imgIdx) => {
-    const img = uploadedImages[albumIdx]?.[imgIdx];
+    const album = albums[albumIdx];
+    const albumKey = album?._supabaseId || albumIdx;
+    const img = (uploadedImages[albumKey] || uploadedImages[albumIdx] || [])[imgIdx];
     if (img?.id) {
       apiDeleteImage(albumIdx, img.id);
     }
@@ -755,7 +751,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
       {albums.map((album, idx) => {
         const isExpanded = expandedAlbums[idx];
         const visiblePlaceholders = isExpanded ? album.totalPhotos : album.previewCount;
-        const albumImages = uploadedImages[idx] || [];
+        // Use album_id (stable UUID) to look up images, fall back to positional index
+        const albumKey = album._supabaseId || idx;
+        const albumImages = uploadedImages[albumKey] || uploadedImages[idx] || [];
         const albumVideos = uploadedVideos[idx] || [];
         const totalCount = albumImages.length;
 
@@ -780,7 +778,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               if (files.length === 0) return;
               const albumName = albumNames[idx] || albums[idx]?.name || `Album ${idx + 1}`;
               setExpandedAlbums(prev => ({ ...prev, [idx]: true }));
-              uploadImages(idx, files, null, albumName);
+              uploadImages(album._supabaseId || idx, files, null, albumName, album._supabaseId);
             }}
           >
             <div className="album-header"
@@ -802,20 +800,8 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 const from = Number(e.dataTransfer.getData('albumDragIdx'));
                 if (isNaN(from) || from === idx) return;
                 e.preventDefault();
-                // Build index mapping for image reassignment
-                const oldIndices = albums.map((_, i) => i);
-                const newIndices = [...oldIndices];
-                const [movedIdx] = newIndices.splice(from, 1);
-                newIndices.splice(idx, 0, movedIdx);
-                // mapping: { oldAlbumIndex: newAlbumIndex }
-                const mapping = {};
-                newIndices.forEach((oldIdx, newIdx) => {
-                  if (oldIdx !== newIdx) mapping[oldIdx] = newIdx;
-                });
-                // Reassign image album_index values in Supabase
-                if (Object.keys(mapping).length > 0) {
-                  reassignAlbumIndexes(mapping);
-                }
+                // With album_id, no need to reassign image indexes!
+                // Images stay linked to their album UUID regardless of position.
                 // Reorder albums
                 const newAlbums = [...albums];
                 const [moved] = newAlbums.splice(from, 1);
@@ -906,36 +892,33 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                       if (confirmDeleteAlbumTimer.current) clearTimeout(confirmDeleteAlbumTimer.current);
                       setConfirmDeleteAlbum(null);
 
-                      // 1. Delete images belonging to this album from Supabase
+                      const albumToDelete = albums[idx];
+
+                      // Delete album from Supabase (ON DELETE CASCADE removes linked images automatically)
                       (async () => {
                         try {
-                          if (galleryId) {
+                          if (albumToDelete?._supabaseId) {
                             const { error: delErr } = await supabase
+                              .from('albums')
+                              .delete()
+                              .eq('id', albumToDelete._supabaseId);
+                            if (delErr) console.error('[DeleteAlbum] Error:', delErr);
+                          } else if (galleryId) {
+                            // Legacy fallback: delete images by album_index
+                            await supabase
                               .from('images')
                               .delete()
                               .eq('gallery_id', galleryId)
                               .eq('album_index', idx);
-                            if (delErr) console.error('[DeleteAlbum] Image delete error:', delErr);
-
-                            // 2. Shift album_index for all subsequent albums down by 1
-                            const totalAlbums = albums.length;
-                            if (idx < totalAlbums - 1) {
-                              const mapping = {};
-                              for (let i = idx + 1; i < totalAlbums; i++) {
-                                mapping[i] = i - 1;
-                              }
-                              await reassignAlbumIndexes(mapping);
-                            } else {
-                              // Last album — just refresh
-                              refreshImages();
-                            }
                           }
+                          // Refresh images after delete
+                          refreshImages();
                         } catch (err) {
                           console.error('[DeleteAlbum] Error:', err);
                         }
                       })();
 
-                      // 3. Update local state
+                      // Update local state
                       setAlbums(prev => prev.filter((_, i) => i !== idx));
                       setUploadedVideos(prev => {
                         const n = { ...prev }; delete n[idx];
@@ -1002,11 +985,11 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 colorIdx={idx * 7}
                 position={0}
                 onDelete={() => {
-                  const titleImg = (uploadedImages[idx] || []).find(i => i.isTitleImage);
+                  const titleImg = (uploadedImages[albumKey] || []).find(i => i.isTitleImage);
                   if (titleImg?.id) apiSetTitleImage(titleImg.id); // toggle off
                 }}
                 onSetAppIcon={() => {
-                  const titleImg = (uploadedImages[idx] || []).find(i => i.isTitleImage);
+                  const titleImg = (uploadedImages[albumKey] || []).find(i => i.isTitleImage);
                   if (titleImg?.id) setAppIcon(titleImg.id);
                 }}
                 onApplyWatermark={() => {}}
@@ -1019,11 +1002,11 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 colorIdx={idx * 7 + 1}
                 position={1}
                 onDelete={() => {
-                  const mobileImg = (uploadedImages[idx] || []).find(i => i.isMobileTitle);
+                  const mobileImg = (uploadedImages[albumKey] || []).find(i => i.isMobileTitle);
                   if (mobileImg?.id) apiSetMobileTitleImage(mobileImg.id); // toggle off
                 }}
                 onSetAppIcon={() => {
-                  const mobileImg = (uploadedImages[idx] || []).find(i => i.isMobileTitle);
+                  const mobileImg = (uploadedImages[albumKey] || []).find(i => i.isMobileTitle);
                   if (mobileImg?.id) setAppIcon(mobileImg.id);
                 }}
                 onApplyWatermark={() => {}}

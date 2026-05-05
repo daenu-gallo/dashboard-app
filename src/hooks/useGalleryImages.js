@@ -34,13 +34,15 @@ export function useGalleryImages(galleryId) {
 
       if (error) throw error;
 
-      // Group by album_index
+      // Group by album_id (stable) with fallback to album_index (legacy)
       const grouped = {};
       (data || []).forEach(img => {
-        const idx = img.album_index;
-        if (!grouped[idx]) grouped[idx] = [];
-        grouped[idx].push({
+        const key = img.album_id || `idx_${img.album_index}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push({
           id: img.id,
+          albumId: img.album_id,
+          albumIndex: img.album_index,
           src: UPLOAD_API + img.original_url + '?v=3',
           thumbSrc: UPLOAD_API + img.thumb_url + '?v=3',
           name: img.filename,
@@ -148,8 +150,10 @@ export function useGalleryImages(galleryId) {
           const formData = new FormData();
           formData.append('images', item.files[i]);
 
+          // Use albumId (UUID) if available, fall back to albumIndex
+          const albumParam = item.albumId || item.albumIndex;
           const response = await fetch(
-            `${UPLOAD_API}/api/upload/${galleryId}/${item.albumIndex}`,
+            `${UPLOAD_API}/api/upload/${galleryId}/${albumParam}`,
             {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` },
@@ -199,12 +203,13 @@ export function useGalleryImages(galleryId) {
   }, [galleryId, loadImages]);
 
   // Public API: enqueue an album upload
-  const uploadImages = useCallback(async (albumIndex, files, onProgress, albumName) => {
+  const uploadImages = useCallback(async (albumIdOrIndex, files, onProgress, albumName, albumId) => {
     if (!galleryId || !files?.length) return [];
 
     const queueItem = {
-      albumIndex,
-      albumName: albumName || `Album ${albumIndex + 1}`,
+      albumIndex: typeof albumIdOrIndex === 'number' ? albumIdOrIndex : null,
+      albumId: albumId || (typeof albumIdOrIndex === 'string' ? albumIdOrIndex : null),
+      albumName: albumName || `Album`,
       files: Array.from(files),
       status: 'queued',
       completed: 0,
