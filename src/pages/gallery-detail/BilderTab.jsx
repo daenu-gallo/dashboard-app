@@ -412,7 +412,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     loadAlbums();
   }, [supabaseGallery?.id]);
 
-  // Sync album changes back to Supabase (debounced)
+  // Sync album changes back to Supabase (debounced) — SAFE UPSERT (no delete cascade!)
   const albumSyncTimer = useRef(null);
   const albumSyncFirstRender = useRef(true);
   useEffect(() => {
@@ -421,19 +421,49 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current);
     albumSyncTimer.current = setTimeout(async () => {
       try {
-        // Delete all existing albums for this gallery and re-insert
-        await supabase.from('albums').delete().eq('gallery_id', supabaseGallery.id);
-        if (albums.length > 0) {
-          const albumsToInsert = albums.map((a, idx) => ({
+        // 1. Get existing albums from DB
+        const { data: existingAlbums } = await supabase
+          .from('albums')
+          .select('id, sort_order')
+          .eq('gallery_id', supabaseGallery.id);
+
+        const existingIds = new Set((existingAlbums || []).map(a => a.id));
+
+        // 2. Update or insert each album
+        for (let idx = 0; idx < albums.length; idx++) {
+          const album = albums[idx];
+          const albumData = {
             gallery_id: supabaseGallery.id,
-            name: albumNames[idx] || a.name,
+            name: albumNames[idx] || album.name,
             sort_order: idx,
             toggles: {
               ...(albumToggles[idx] || {}),
               _text: albumTexts[idx] || undefined,
             },
-          }));
-          await supabase.from('albums').insert(albumsToInsert);
+          };
+
+          if (album._supabaseId && existingIds.has(album._supabaseId)) {
+            // Update existing album (preserves ID and linked images!)
+            await supabase.from('albums').update(albumData).eq('id', album._supabaseId);
+            existingIds.delete(album._supabaseId);
+          } else {
+            // Insert new album
+            const { data: inserted } = await supabase
+              .from('albums')
+              .insert(albumData)
+              .select('id')
+              .single();
+            // Store the new ID locally
+            if (inserted) {
+              album._supabaseId = inserted.id;
+            }
+          }
+        }
+
+        // 3. Delete only albums that no longer exist in the UI
+        // (these were explicitly removed by the user)
+        for (const orphanId of existingIds) {
+          await supabase.from('albums').delete().eq('id', orphanId);
         }
       } catch (err) {
         console.error('[BilderTab] Album sync error:', err);

@@ -143,15 +143,17 @@ export function useGalleryImages(galleryId) {
       const allResults = [];
       let totalSkipped = 0;
 
-      for (let i = 0; i < item.files.length; i++) {
-        if (!mountedRef.current) break;
+      // Upload files in parallel (3 concurrent uploads for ~3x speed)
+      const CONCURRENCY = 3;
+      const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
+      let completedCount = 0;
 
+      const uploadSingleFile = async (file, fileIdx) => {
+        if (!mountedRef.current) return;
         try {
           const formData = new FormData();
-          formData.append('images', item.files[i]);
+          formData.append('images', file);
 
-          // Use albumId with 'aid_' prefix if available, fall back to albumIndex
-          const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
           const response = await fetch(
             `${UPLOAD_API}/api/upload/${galleryId}/${albumParam}`,
             {
@@ -163,23 +165,30 @@ export function useGalleryImages(galleryId) {
 
           if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            console.error(`[Upload] File ${i + 1}/${item.files.length} failed:`, err.error || response.status);
+            console.error(`[Upload] File ${fileIdx + 1}/${item.files.length} failed:`, err.error || response.status);
           } else {
             const result = await response.json();
             if (result.images) allResults.push(...result.images);
             if (result.skippedDuplicates) totalSkipped += result.skippedDuplicates;
           }
         } catch (err) {
-          console.error(`[Upload] File ${i + 1}/${item.files.length} error:`, err);
+          console.error(`[Upload] File ${fileIdx + 1}/${item.files.length} error:`, err);
         }
 
-        // Update progress
-        const completed = i + 1;
+        // Update progress atomically
+        completedCount++;
         if (mountedRef.current) {
-          setUploadQueue(prev => prev.map((q, j) => j === nextIdx ? { ...q, completed } : q));
-          setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed });
-          if (item.onProgress) item.onProgress(completed, item.files.length);
+          setUploadQueue(prev => prev.map((q, j) => j === nextIdx ? { ...q, completed: completedCount } : q));
+          setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed: completedCount });
+          if (item.onProgress) item.onProgress(completedCount, item.files.length);
         }
+      };
+
+      // Process files in batches of CONCURRENCY
+      for (let i = 0; i < item.files.length; i += CONCURRENCY) {
+        if (!mountedRef.current) break;
+        const batch = item.files.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map((file, batchIdx) => uploadSingleFile(file, i + batchIdx)));
       }
 
       // Mark as done (include skipped info)
