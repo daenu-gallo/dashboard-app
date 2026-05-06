@@ -836,24 +836,30 @@ const CustomerView = ({ domainMode = null }) => {
 
 
 
+  const [downloadProgress, setDownloadProgress] = useState(null); // { current, total }
+
   const prepareZipDownload = async (images, zipName) => {
     if (!images || images.length === 0) return;
 
     const zip = new JSZip();
+    setDownloadProgress({ current: 0, total: images.length });
 
     // Fetch images from URLs (NAS) and add to ZIP
     for (let idx = 0; idx < images.length; idx++) {
       const img = images[idx];
       const name = img.name || `IMG_${String(idx + 1).padStart(4, '0')}.jpg`;
       try {
-        const response = await fetch(img.src);
+        const response = await fetch(img.src, { mode: 'cors', credentials: 'omit' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
         zip.file(name, blob);
       } catch (err) {
-        console.warn(`[ZIP] Failed to fetch image ${name}:`, err);
+        console.warn(`[ZIP] Failed to fetch image ${idx + 1}/${images.length} (${name}):`, err);
       }
+      setDownloadProgress({ current: idx + 1, total: images.length });
     }
 
+    setDownloadProgress(null);
     const blob = await zip.generateAsync({ type: 'blob' });
     const filename = (zipName || galleryKey || 'Galerie') + '.zip';
 
