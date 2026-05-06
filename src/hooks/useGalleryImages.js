@@ -268,12 +268,15 @@ export function useGalleryImages(galleryId) {
 
   // ── Set title/mobile/app-icon flags ──
   const updateImageFlag = useCallback(async (imageId, flag, value = true) => {
+    console.log(`[UpdateFlag] Setting ${flag}=${value} on image ${imageId}`);
     const token = await getToken();
-    if (!token) return false;
+    if (!token) { console.error('[UpdateFlag] No auth token!'); return false; }
 
     try {
+      const url = `${UPLOAD_API}/api/images/${imageId}`;
+      console.log(`[UpdateFlag] PATCH ${url}`);
       const response = await fetch(
-        `${UPLOAD_API}/api/images/${imageId}`,
+        url,
         {
           method: 'PATCH',
           headers: {
@@ -284,8 +287,13 @@ export function useGalleryImages(galleryId) {
         }
       );
 
-      if (!response.ok) throw new Error('Update failed');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        console.error(`[UpdateFlag] Failed: ${response.status}`, errBody);
+        throw new Error('Update failed');
+      }
 
+      console.log(`[UpdateFlag] Success! Refreshing images...`);
       // Refresh to get updated flags
       await loadImages();
       return true;
