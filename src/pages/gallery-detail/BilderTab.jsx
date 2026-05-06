@@ -815,19 +815,21 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               draggable
               onDragStart={e => {
                 if (e.target.closest('.album-name-input') || e.target.closest('select') || e.target.closest('.album-trash-btn')) { e.preventDefault(); return; }
-                e.dataTransfer.setData('albumDragIdx', String(idx));
+                e.dataTransfer.setData('application/album-drag', String(idx));
+                e.dataTransfer.effectAllowed = 'move';
                 e.currentTarget.closest('.album-section').style.opacity = '0.4';
               }}
               onDragEnd={e => { e.currentTarget.closest('.album-section').style.opacity = '1'; }}
               onDragOver={e => {
-                if (!e.dataTransfer.types.includes('albumDragIdx')) return;
+                if (!e.dataTransfer.types.includes('application/album-drag')) return;
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 e.currentTarget.style.borderBottom = '3px solid #4a7c59';
               }}
               onDragLeave={e => { e.currentTarget.style.borderBottom = ''; }}
               onDrop={e => {
                 e.currentTarget.style.borderBottom = '';
-                const from = Number(e.dataTransfer.getData('albumDragIdx'));
+                const from = Number(e.dataTransfer.getData('application/album-drag'));
                 if (isNaN(from) || from === idx) return;
                 e.preventDefault();
                 // With album_id, no need to reassign image indexes!
@@ -855,6 +857,26 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               }}
             >
               <div className="album-header-left" style={{ cursor: 'grab' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', marginRight: 2, gap: 0 }}>
+                  <button
+                    className="album-move-btn"
+                    onClick={(e) => { e.stopPropagation(); moveAlbum(idx, -1); }}
+                    disabled={idx === 0}
+                    title="Album nach oben"
+                    style={{ background: 'none', border: 'none', padding: '0 2px', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 0.7, lineHeight: 1 }}
+                  >
+                    <ChevronUp size={12} />
+                  </button>
+                  <button
+                    className="album-move-btn"
+                    onClick={(e) => { e.stopPropagation(); moveAlbum(idx, 1); }}
+                    disabled={idx === albums.length - 1}
+                    title="Album nach unten"
+                    style={{ background: 'none', border: 'none', padding: '0 2px', cursor: idx === albums.length - 1 ? 'default' : 'pointer', opacity: idx === albums.length - 1 ? 0.3 : 0.7, lineHeight: 1 }}
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                </div>
                 <GripVertical size={14} style={{ color: '#bbb', flexShrink: 0, marginRight: 4 }} />
                 <button
                   className="album-chevron-btn"
