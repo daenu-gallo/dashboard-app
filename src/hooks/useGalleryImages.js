@@ -333,11 +333,11 @@ export function useGalleryImages(galleryId) {
     }
   }, [loadImages]);
 
-  const setTitleImage = useCallback((imageId) =>
-    updateImageFlag(imageId, 'is_title_image'), [updateImageFlag]);
+  const setTitleImage = useCallback((imageId, value = true) =>
+    updateImageFlag(imageId, 'is_title_image', value), [updateImageFlag]);
 
-  const setMobileTitleImage = useCallback((imageId) =>
-    updateImageFlag(imageId, 'is_mobile_title'), [updateImageFlag]);
+  const setMobileTitleImage = useCallback((imageId, value = true) =>
+    updateImageFlag(imageId, 'is_mobile_title', value), [updateImageFlag]);
 
   const setAppIcon = useCallback((imageId) =>
     updateImageFlag(imageId, 'is_app_icon'), [updateImageFlag]);

@@ -1039,11 +1039,11 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 position={0}
                 onDelete={() => {
                   const titleImg = (uploadedImages[albumKey] || []).find(i => i.isTitleImage);
-                  if (titleImg?.id) apiSetTitleImage(titleImg.id); // toggle off
+                  if (titleImg?.id) apiSetTitleImage(titleImg.id, false);
                 }}
                 onSetAppIcon={() => {
                   const titleImg = (uploadedImages[albumKey] || []).find(i => i.isTitleImage);
-                  if (titleImg?.id) setAppIcon(titleImg.id);
+                  if (titleImg?.id) apiSetAppIcon(titleImg.id);
                 }}
                 onApplyWatermark={() => {}}
               />
@@ -1056,11 +1056,11 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 position={1}
                 onDelete={() => {
                   const mobileImg = (uploadedImages[albumKey] || []).find(i => i.isMobileTitle);
-                  if (mobileImg?.id) apiSetMobileTitleImage(mobileImg.id); // toggle off
+                  if (mobileImg?.id) apiSetMobileTitleImage(mobileImg.id, false);
                 }}
                 onSetAppIcon={() => {
                   const mobileImg = (uploadedImages[albumKey] || []).find(i => i.isMobileTitle);
-                  if (mobileImg?.id) setAppIcon(mobileImg.id);
+                  if (mobileImg?.id) apiSetAppIcon(mobileImg.id);
                 }}
                 onApplyWatermark={() => {}}
               />
