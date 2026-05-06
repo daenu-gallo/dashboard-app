@@ -574,24 +574,25 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const moveAlbum = (fromIdx, direction) => {
     const toIdx = fromIdx + direction;
     if (toIdx < 0 || toIdx >= albums.length) return;
-    // With album_id, no need to reassign image indexes!
-    // Images stay linked to their album UUID regardless of position.
+    // Swap albums (these carry _supabaseId, so images follow automatically)
     setAlbums(prev => {
       const newAlbums = [...prev];
       [newAlbums[fromIdx], newAlbums[toIdx]] = [newAlbums[toIdx], newAlbums[fromIdx]];
       return newAlbums;
     });
-    // Also swap videos/names (images are from Supabase, keyed by album_index which follows album order)
-    setUploadedVideos(prev => {
+    // Swap all index-based maps to match new album order
+    const swapMap = (prev) => {
       const n = { ...prev };
-      [n[fromIdx], n[toIdx]] = [n[toIdx] || [], n[fromIdx] || []];
+      const tmp = n[fromIdx];
+      n[fromIdx] = n[toIdx];
+      n[toIdx] = tmp;
       return n;
-    });
-    setAlbumNames(prev => {
-      const n = { ...prev };
-      [n[fromIdx], n[toIdx]] = [n[toIdx], n[fromIdx]];
-      return n;
-    });
+    };
+    setAlbumNames(swapMap);
+    setAlbumToggles(swapMap);
+    setAlbumTexts(swapMap);
+    setUploadedVideos(swapMap);
+    setExpandedAlbums(swapMap);
   };
 
   const toggleAlbum = (idx) => {
