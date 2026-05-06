@@ -144,16 +144,46 @@ export function useGalleryImages(galleryId) {
       const allResults = [];
       let totalSkipped = 0;
 
-      const CONCURRENCY = 3;
+      const CONCURRENCY = 5;
       const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
       let completedCount = 0;
-      console.log(`[Upload] Starting album "${item.albumName}": ${item.files.length} files, albumParam=${albumParam}, albumId=${item.albumId}, albumIndex=${item.albumIndex}`);
+      console.log(`[Upload] Starting album "${item.albumName}": ${item.files.length} files, albumParam=${albumParam}`);
+
+      // Client-side resize: shrink large images before upload for massive speed boost
+      const resizeImage = (file, maxDim = 4000, quality = 0.85) => new Promise((resolve) => {
+        // Only resize images, skip non-images
+        if (!file.type.startsWith('image/')) { resolve(file); return; }
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          // Skip resize if already small enough
+          if (img.width <= maxDim && img.height <= maxDim) { resolve(file); return; }
+          const scale = maxDim / Math.max(img.width, img.height);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: file.lastModified }));
+            } else {
+              resolve(file); // fallback to original
+            }
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+      });
 
       const uploadSingleFile = async (file, fileIdx) => {
         if (!mountedRef.current) return;
         try {
+          // Resize before upload (DSLR 20-40MB → ~2-3MB)
+          const resized = await resizeImage(file);
           const formData = new FormData();
-          formData.append('images', file);
+          formData.append('images', resized);
 
           const response = await fetch(
             `${UPLOAD_API}/api/upload/${galleryId}/${albumParam}`,
