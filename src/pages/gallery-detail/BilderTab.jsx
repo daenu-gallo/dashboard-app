@@ -1033,7 +1033,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               {/* Tile 1: Titelbild */}
               <PhotoCard
                 key="titelbild"
-                src={nasaTitleImages[idx]?.titelbild || null}
+                src={nasaTitleImages[albumKey]?.titelbild || null}
                 filename={'Titelbild'}
                 colorIdx={idx * 7}
                 position={0}
@@ -1050,7 +1050,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
               {/* Tile 2: Mobile Titelbild */}
               <PhotoCard
                 key="mobile-titelbild"
-                src={nasaTitleImages[idx]?.mobile || null}
+                src={nasaTitleImages[albumKey]?.mobile || null}
                 filename={'Mobile Titelbild'}
                 colorIdx={idx * 7 + 1}
                 position={1}
