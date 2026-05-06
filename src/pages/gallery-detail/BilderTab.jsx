@@ -593,6 +593,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     setAlbumTexts(swapMap);
     setUploadedVideos(swapMap);
     setExpandedAlbums(swapMap);
+    setSortDirection(swapMap);
   };
 
   const toggleAlbum = (idx) => {
@@ -608,26 +609,26 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     const albumName = albumNames[albumIdx] || album?.name || `Album ${albumIdx + 1}`;
     const albumId = album?._supabaseId;
 
-    if (!fileInputRefs.current[albumIdx]) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.multiple = true;
-      input.accept = 'image/*';
-      input.style.display = 'none';
-      input.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length > 0) {
-          // Auto-expand the album so images are visible immediately
-          setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
-          // Upload using album_id for stable DB linking
-          uploadImages(albumIdx, files, null, albumName, albumId);
-        }
-        input.value = '';
-      });
-      document.body.appendChild(input);
-      fileInputRefs.current[albumIdx] = input;
+    // Always create fresh input to avoid stale closures after album reorder
+    if (fileInputRefs.current[albumIdx]) {
+      fileInputRefs.current[albumIdx].remove();
     }
-    fileInputRefs.current[albumIdx].click();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+        setExpandedAlbums(prev => ({ ...prev, [albumIdx]: true }));
+        uploadImages(albumIdx, files, null, albumName, albumId);
+      }
+      input.value = '';
+    });
+    document.body.appendChild(input);
+    fileInputRefs.current[albumIdx] = input;
+    input.click();
   };
 
   const removeImage = (albumIdx, imgIdx) => {
