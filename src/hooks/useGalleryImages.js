@@ -126,7 +126,8 @@ export function useGalleryImages(galleryId) {
     queueProcessingRef.current = true;
 
     const token = await getToken();
-    if (!token) { queueProcessingRef.current = false; return; }
+    if (!token) { console.error('[Upload] No auth token available!'); queueProcessingRef.current = false; return; }
+    console.log('[Upload] Queue processing started, token obtained');
 
     while (true) {
       // Find next queued item
@@ -143,10 +144,10 @@ export function useGalleryImages(galleryId) {
       const allResults = [];
       let totalSkipped = 0;
 
-      // Upload files in parallel (3 concurrent uploads for ~3x speed)
       const CONCURRENCY = 3;
       const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
       let completedCount = 0;
+      console.log(`[Upload] Starting album "${item.albumName}": ${item.files.length} files, albumParam=${albumParam}, albumId=${item.albumId}, albumIndex=${item.albumIndex}`);
 
       const uploadSingleFile = async (file, fileIdx) => {
         if (!mountedRef.current) return;
@@ -226,6 +227,7 @@ export function useGalleryImages(galleryId) {
     };
 
     setUploadQueue(prev => [...prev, queueItem]);
+    console.log(`[Upload] Enqueued: ${files.length} files for album "${albumName}" (idx=${albumIndex}, id=${albumId})`);
 
     // Kick off processing (no-op if already running)
     // Use setTimeout to ensure state is updated before processing
