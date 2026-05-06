@@ -789,7 +789,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         const totalCount = albumImages.length;
 
         return (
-          <div key={idx} className="album-section" style={albumToggles[idx]?.hidden ? { opacity: 0.5 } : {}}
+          <div key={album._supabaseId || `album-${idx}`} className="album-section" style={albumToggles[idx]?.hidden ? { opacity: 0.5 } : {}}
             onDragOver={e => {
               // Only handle file drops, not internal drag reorder
               if (e.dataTransfer.types.includes('Files')) {
