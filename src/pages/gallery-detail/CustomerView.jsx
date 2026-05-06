@@ -331,7 +331,7 @@ const CustomerView = ({ domainMode = null }) => {
       if (data) {
         const grouped = {};
         data.forEach(img => {
-          const idx = img.album_index;
+          const idx = img.album_id || `idx_${img.album_index}`;
           if (!grouped[idx]) grouped[idx] = [];
           grouped[idx].push({
             src: UPLOAD_API + img.original_url + '?v=3',

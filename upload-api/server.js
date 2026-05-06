@@ -723,7 +723,7 @@ app.patch('/api/images/:imageId', authenticate, async (req, res) => {
     // Verify ownership
     const { data: img } = await supabase
       .from('images')
-      .select('user_id, gallery_id, album_index')
+      .select('user_id, gallery_id, album_id, album_index')
       .eq('id', imageId)
       .single();
 
@@ -732,17 +732,22 @@ app.patch('/api/images/:imageId', authenticate, async (req, res) => {
     }
 
     // If setting a flag, clear it from other images in same gallery+album first
+    // Use album_id (stable) with fallback to album_index (legacy)
+    const albumFilter = img.album_id
+      ? (q) => q.eq('album_id', img.album_id)
+      : (q) => q.eq('album_index', img.album_index);
+
     if (updates.is_title_image) {
-      await supabase.from('images')
+      let q = supabase.from('images')
         .update({ is_title_image: false })
-        .eq('gallery_id', img.gallery_id)
-        .eq('album_index', img.album_index);
+        .eq('gallery_id', img.gallery_id);
+      await albumFilter(q);
     }
     if (updates.is_mobile_title) {
-      await supabase.from('images')
+      let q = supabase.from('images')
         .update({ is_mobile_title: false })
-        .eq('gallery_id', img.gallery_id)
-        .eq('album_index', img.album_index);
+        .eq('gallery_id', img.gallery_id);
+      await albumFilter(q);
     }
     if (updates.is_app_icon) {
       await supabase.from('images')
