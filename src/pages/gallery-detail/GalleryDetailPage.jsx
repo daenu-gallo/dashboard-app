@@ -9,6 +9,7 @@ import StatistikenTab from './StatistikenTab';
 
 import VerschickenTab from './VerschickenTab';
 import { useGalleries } from '../../contexts/GalleryContext';
+import { useGalleryImages } from '../../hooks/useGalleryImages';
 import { supabase } from '../../lib/supabaseClient';
 import './GalleryDetail.css';
 
@@ -29,6 +30,9 @@ const GalleryDetailPage = () => {
   
   const gallery = getGalleryBySlug(slug);
   const [dynamicCounts, setDynamicCounts] = useState({ albums: 0, photos: 0 });
+
+  // Load images for VerschickenTab preview
+  const { images: galleryImages } = useGalleryImages(gallery?.id);
 
 
 
@@ -83,7 +87,7 @@ const GalleryDetailPage = () => {
       case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
       case 'statistiken': return <StatistikenTab galleryId={gallery.id} />;
-      case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={{}} appIconSrc={appIconSrc} />;
+      case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={galleryImages} appIconSrc={appIconSrc} />;
       default: return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
     }
   };

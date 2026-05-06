@@ -314,7 +314,7 @@ const CustomerView = ({ domainMode = null }) => {
   };
 
   // Albums from Supabase
-  const albums = supaAlbums.map(a => ({ name: a.name, count: 0, previewCount: 2, totalPhotos: 2 }));
+  const albums = supaAlbums.map(a => ({ name: a.name, count: 0, previewCount: 2, totalPhotos: 2, _supabaseId: a.id }));
   const albumNames = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.name }), {});
   const albumToggles = supaAlbums.reduce((acc, a, idx) => ({ ...acc, [idx]: a.toggles || {} }), {});
 
