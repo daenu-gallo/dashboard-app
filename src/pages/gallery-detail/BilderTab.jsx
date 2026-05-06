@@ -635,7 +635,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     const albumKey = album?._supabaseId || albumIdx;
     const img = (uploadedImages[albumKey] || uploadedImages[albumIdx] || [])[imgIdx];
     if (img?.id) {
-      apiDeleteImage(albumIdx, img.id);
+      apiDeleteImage(albumKey, img.id);
     }
   };
 

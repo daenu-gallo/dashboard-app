@@ -773,7 +773,8 @@ const CustomerView = ({ domainMode = null }) => {
     const all = [];
     albums.forEach((album, aIdx) => {
       if (albumToggles[aIdx]?.hidden) return;
-      const imgs = uploadedImages[aIdx] || [];
+      const albumKey = album._supabaseId || aIdx;
+      const imgs = uploadedImages[albumKey] || [];
       imgs.forEach(img => { if (img && img.src) all.push(img); });
     });
     return all;
@@ -785,7 +786,8 @@ const CustomerView = ({ domainMode = null }) => {
     let globalIdx = 0;
     for (let a = 0; a < albums.length; a++) {
       if (albumToggles[a]?.hidden) continue;
-      const imgs = uploadedImages[a] || [];
+      const albumKey = albums[a]?._supabaseId || a;
+      const imgs = uploadedImages[albumKey] || [];
       if (a === aIdx) { globalIdx += pIdx; break; }
       globalIdx += imgs.filter(i => i && i.src).length;
     }
@@ -895,7 +897,8 @@ const CustomerView = ({ domainMode = null }) => {
       albums.forEach((album, aIdx) => {
         if (albumToggles[aIdx]?.hidden) return;
         if (!downloadAlbumChecks[aIdx]) return;
-        const albumImgs = uploadedImages[aIdx] || [];
+        const albumKey = album._supabaseId || aIdx;
+        const albumImgs = uploadedImages[albumKey] || [];
         albumImgs.forEach(img => { if (img && img.src) images.push(img); });
       });
     } else if (downloadChoice === 'selection') {
@@ -939,7 +942,8 @@ const CustomerView = ({ domainMode = null }) => {
   const allPhotos = [];
   albums.forEach((album, idx) => {
     if (albumToggles[idx]?.hidden) return;
-    const imgs = uploadedImages[idx] || [];
+    const albumKey = album._supabaseId || idx;
+    const imgs = uploadedImages[albumKey] || [];
     imgs.forEach(img => {
       if (img && img.src) allPhotos.push(img);
     });
@@ -1379,7 +1383,8 @@ const CustomerView = ({ domainMode = null }) => {
         if (albumToggles[aIdx]?.hidden) return null;
 
         const albumName = albumNames[aIdx] || (typeof album === 'string' ? album : album.name) || `Album ${aIdx + 1}`;
-        const albumImages = uploadedImages[aIdx] || [];
+        const albumKey = album._supabaseId || aIdx;
+        const albumImages = uploadedImages[albumKey] || [];
         const albumVideos = uploadedVideos[aIdx] || [];
 
         return (
@@ -1526,7 +1531,8 @@ const CustomerView = ({ domainMode = null }) => {
                   {albums.map((album, aIdx) => {
                     if (albumToggles[aIdx]?.hidden) return null;
                     const name = albumNames[aIdx] || (typeof album === 'string' ? album : album.name) || `Album ${aIdx + 1}`;
-                    const count = (uploadedImages[aIdx] || []).filter(i => i && i.src).length;
+                    const albumKey = album._supabaseId || aIdx;
+                    const count = (uploadedImages[albumKey] || []).filter(i => i && i.src).length;
                     return (
                       <label key={aIdx} className="cv-download-album-check">
                         <input
