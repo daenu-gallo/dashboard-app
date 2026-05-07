@@ -14,6 +14,7 @@ import nodemailer from 'nodemailer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import cron from 'node-cron';
+import archiver from 'archiver';
 
 const execAsync = promisify(exec);
 
@@ -613,6 +614,101 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
     }
   });
   stream.pipe(res);
+});
+
+// ── GET /api/download/:gallerySlug ──
+// Server-side ZIP download: streams images directly from NAS
+// Query params: ?albums=id1,id2 (optional: specific album IDs, empty = all)
+// No auth required (public gallery download for customers)
+app.get('/api/download/:gallerySlug', async (req, res) => {
+  const { gallerySlug } = req.params;
+  const albumFilter = req.query.albums ? req.query.albums.split(',') : null;
+
+  try {
+    // Look up gallery
+    const { data: gallery } = await supabase
+      .from('galleries')
+      .select('id, user_id, slug')
+      .eq('slug', gallerySlug.toLowerCase())
+      .maybeSingle();
+
+    if (!gallery) return res.status(404).json({ error: 'Gallery not found' });
+
+    // Fetch images (optionally filtered by album_id)
+    let query = supabase
+      .from('images')
+      .select('id, filename, original_url, album_id, album_index')
+      .eq('gallery_id', gallery.id)
+      .order('album_index', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (albumFilter && albumFilter.length > 0) {
+      query = query.in('album_id', albumFilter);
+    }
+
+    const { data: images, error } = await query;
+    if (error) throw error;
+    if (!images || images.length === 0) {
+      return res.status(404).json({ error: 'No images found' });
+    }
+
+    // Fetch album names for folder structure
+    const { data: albums } = await supabase
+      .from('albums')
+      .select('id, name, sort_order')
+      .eq('gallery_id', gallery.id)
+      .order('sort_order', { ascending: true });
+    const albumNameMap = {};
+    (albums || []).forEach(a => { albumNameMap[a.id] = a.name; });
+
+    // Set response headers for ZIP download
+    const zipName = encodeURIComponent(gallerySlug) + '.zip';
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    // Create ZIP archive stream
+    const archive = archiver('zip', { zlib: { level: 1 } }); // level 1 = fast (images are already compressed)
+    archive.on('error', err => {
+      console.error('[ZIP] Archive error:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'ZIP generation failed' });
+    });
+    archive.pipe(res);
+
+    // Add each image from NAS to the ZIP
+    let added = 0;
+    for (const img of images) {
+      const filePath = path.join(
+        NAS_BASE,
+        gallery.user_id,
+        gallery.slug,
+        String(img.album_index),
+        'original',
+        path.basename(img.original_url)
+      );
+
+      try {
+        await fs.access(filePath);
+        // Use album name as folder in ZIP
+        const folderName = albumNameMap[img.album_id] || `Album_${img.album_index}`;
+        const safeFolderName = folderName.replace(/[<>:"/\\|?*]/g, '_');
+        archive.file(filePath, { name: `${safeFolderName}/${img.filename}` });
+        added++;
+      } catch {
+        console.warn(`[ZIP] File not found: ${filePath}`);
+      }
+    }
+
+    if (added === 0) {
+      archive.abort();
+      return res.status(404).json({ error: 'No files accessible on NAS' });
+    }
+
+    console.log(`[ZIP] Streaming ${added}/${images.length} images for gallery "${gallerySlug}"`);
+    await archive.finalize();
+  } catch (err) {
+    console.error('[ZIP] Error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Download failed' });
+  }
 });
 
 // ── DELETE /api/images/:imageId ──

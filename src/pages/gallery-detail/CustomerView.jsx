@@ -894,20 +894,36 @@ const CustomerView = ({ domainMode = null }) => {
     if (!downloadChoice) return;
     setZipReady(null);
 
-    let images = [];
-    let zipName = galleryKey;
+    const UPLOAD_API_BASE = UPLOAD_API || '';
 
     if (downloadChoice === 'gallery') {
-      images = getAllPhotos();
+      // Server-side ZIP: all images
+      const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}`;
+      window.open(url, '_blank');
+      setShowDownloadModal(false);
+      triggerDownloadToast();
+      return;
     } else if (downloadChoice === 'albums') {
+      // Server-side ZIP: selected album IDs
+      const selectedAlbumIds = [];
       albums.forEach((album, aIdx) => {
         if (albumToggles[aIdx]?.hidden) return;
         if (!downloadAlbumChecks[aIdx]) return;
-        const albumKey = album._supabaseId || aIdx;
-        const albumImgs = uploadedImages[albumKey] || [];
-        albumImgs.forEach(img => { if (img && img.src) images.push(img); });
+        if (album._supabaseId) selectedAlbumIds.push(album._supabaseId);
       });
-    } else if (downloadChoice === 'selection') {
+      if (selectedAlbumIds.length === 0) return;
+      const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}?albums=${selectedAlbumIds.join(',')}`;
+      window.open(url, '_blank');
+      setShowDownloadModal(false);
+      triggerDownloadToast();
+      return;
+    }
+
+    // Fallback for selection/single: client-side ZIP
+    let images = [];
+    let zipName = galleryKey;
+
+    if (downloadChoice === 'selection') {
       const userSel = customerUser ? selections.find(s => s.userEmail === customerUser.email) : null;
       images = userSel?.photos || [];
       zipName = (galleryKey || 'Auswahl') + '_Auswahl';
