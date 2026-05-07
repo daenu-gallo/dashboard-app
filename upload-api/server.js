@@ -621,6 +621,11 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
 // Query params: ?albums=id1,id2 (optional: specific album IDs, empty = all)
 // No auth required (public gallery download for customers)
 app.get('/api/download/:gallerySlug', async (req, res) => {
+  // Override Helmet headers for file download
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('Cross-Origin-Opener-Policy');
+
   const { gallerySlug } = req.params;
   const albumFilter = req.query.albums ? req.query.albums.split(',') : null;
 

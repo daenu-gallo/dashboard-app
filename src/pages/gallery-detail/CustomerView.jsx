@@ -890,6 +890,13 @@ const CustomerView = ({ domainMode = null }) => {
     setZipReady({ url, filename });
   };
 
+  // Helper: trigger file download (Content-Disposition: attachment on server prevents navigation)
+  const triggerServerDownload = (url) => {
+    window.location.href = url;
+    setShowDownloadModal(false);
+    triggerDownloadToast();
+  };
+
   const handleDownloadSubmit = async () => {
     if (!downloadChoice) return;
     setZipReady(null);
@@ -899,9 +906,7 @@ const CustomerView = ({ domainMode = null }) => {
     if (downloadChoice === 'gallery') {
       // Server-side ZIP: all images
       const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}`;
-      window.open(url, '_blank');
-      setShowDownloadModal(false);
-      triggerDownloadToast();
+      triggerServerDownload(url);
       return;
     } else if (downloadChoice === 'albums') {
       // Server-side ZIP: selected album IDs
@@ -913,9 +918,7 @@ const CustomerView = ({ domainMode = null }) => {
       });
       if (selectedAlbumIds.length === 0) return;
       const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}?albums=${selectedAlbumIds.join(',')}`;
-      window.open(url, '_blank');
-      setShowDownloadModal(false);
-      triggerDownloadToast();
+      triggerServerDownload(url);
       return;
     }
 
