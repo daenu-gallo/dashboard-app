@@ -892,7 +892,7 @@ const CustomerView = ({ domainMode = null }) => {
 
   // Helper: trigger file download (Content-Disposition: attachment on server prevents navigation)
   const triggerServerDownload = (url) => {
-    window.open(url, '_blank');
+    window.location.href = url;
     setShowDownloadModal(false);
     triggerDownloadToast();
   };
