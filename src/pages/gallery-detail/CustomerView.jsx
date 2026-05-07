@@ -902,10 +902,11 @@ const CustomerView = ({ domainMode = null }) => {
     setZipReady(null);
 
     const UPLOAD_API_BASE = UPLOAD_API || '';
+    const gallerySlug = supaGallery?.slug || slug;
 
     if (downloadChoice === 'gallery') {
       // Server-side ZIP: all images
-      const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}`;
+      const url = `${UPLOAD_API_BASE}/api/download/${gallerySlug}`;
       triggerServerDownload(url);
       return;
     } else if (downloadChoice === 'albums') {
@@ -917,7 +918,7 @@ const CustomerView = ({ domainMode = null }) => {
         if (album._supabaseId) selectedAlbumIds.push(album._supabaseId);
       });
       if (selectedAlbumIds.length === 0) return;
-      const url = `${UPLOAD_API_BASE}/api/download/${galleryKey}?albums=${selectedAlbumIds.join(',')}`;
+      const url = `${UPLOAD_API_BASE}/api/download/${gallerySlug}?albums=${selectedAlbumIds.join(',')}`;
       triggerServerDownload(url);
       return;
     }

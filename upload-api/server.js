@@ -648,7 +648,8 @@ app.get('/api/download/:gallerySlug', async (req, res) => {
       .order('sort_order', { ascending: true });
 
     if (albumFilter && albumFilter.length > 0) {
-      query = query.in('album_id', albumFilter);
+      const albumIds = albumFilter.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      if (albumIds.length > 0) query = query.in('album_id', albumIds);
     }
 
     const { data: images, error } = await query;
