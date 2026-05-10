@@ -671,7 +671,7 @@ const CustomerView = ({ domainMode = null }) => {
   const [passwordError, setPasswordError] = useState(false);
 
   // App install hint
-  const [showAppHint, setShowAppHint] = useState(() => window.innerWidth < 768);
+  const [showAppHint, setShowAppHint] = useState(true);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
 
   // Sidebar visibility — only show after scrolling past hero
