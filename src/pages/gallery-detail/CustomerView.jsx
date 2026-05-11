@@ -5,6 +5,7 @@ import { usePersistedState } from '../../hooks/usePersistedState';
 import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
 import { useMetaTags } from '../../hooks/useMetaTags';
+import { useDynamicManifest } from '../../hooks/useDynamicManifest';
 import { useTrackView } from '../../hooks/useTrackView';
 import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
@@ -364,6 +365,17 @@ const CustomerView = ({ domainMode = null }) => {
     siteName: brandName || 'Fotohahn Gallery',
   });
 
+  // ── PWA: Dynamic manifest so "Add to Home Screen" opens this gallery ──
+  useDynamicManifest({
+    name: settings.titel ? `${settings.titel}${brandName ? ` | ${brandName}` : ''}` : 'Fotogalerie',
+    shortName: settings.titel ? settings.titel.substring(0, 12) : 'Galerie',
+    startUrl: typeof window !== 'undefined' ? window.location.pathname : `/${slug}`,
+    themeColor: designSecondary || '#1a1a1a',
+    backgroundColor: designPrimary || '#f0f0f4',
+    description: `${totalPhotos} Fotos${brandName ? ` von ${brandName}` : ''}`,
+    iconUrl: globalBrand?.logoDark || globalBrand?.logoLight || '',
+  });
+
   // Legal links – use internal routes
   const impressumUrl = '/legal/impressum';
   const datenschutzUrl = '/legal/datenschutz';
@@ -531,12 +543,16 @@ const CustomerView = ({ domainMode = null }) => {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [couponInput, setCouponInput] = useState('');
 
-  // Load shop products from photographer's price list
+  // Load shop products from photographer's price list (only if shop toggle is ON)
   useEffect(() => {
-    if (!supaGallery?.user_id) return;
+    if (!supaGallery?.user_id || !toggles.shop) {
+      setShopEnabled(false);
+      setShopProducts([]);
+      return;
+    }
     (async () => {
       try {
-        // Check if photographer has shop enabled
+        // Check if photographer has shop settings
         const { data: shopSettings } = await supabase
           .from('shop_settings')
           .select('*')
@@ -544,7 +560,6 @@ const CustomerView = ({ domainMode = null }) => {
           .maybeSingle();
 
         if (shopSettings) {
-          setShopEnabled(true);
           setShopProvider(shopSettings.provider || 'gelato');
         }
 
@@ -569,13 +584,15 @@ const CustomerView = ({ domainMode = null }) => {
               provider: priceLists[0].provider || 'gelato',
             }));
           setShopProducts(items);
-          if (items.length > 0) setShopEnabled(true);
+          setShopEnabled(items.length > 0);
+        } else {
+          setShopEnabled(false);
         }
       } catch (err) {
         console.error('[CustomerView] Shop load error:', err);
       }
     })();
-  }, [supaGallery?.user_id]);
+  }, [supaGallery?.user_id, toggles.shop]);
 
   // Cart helpers
   const addToCart = (product, photo) => {
@@ -1345,9 +1362,8 @@ const CustomerView = ({ domainMode = null }) => {
                 <div key={idx} className={`cv-hero-slide ${currentSlide === idx ? 'active' : ''}`}>
                   <div className="cv-hero-image" style={{ overflow: 'hidden' }}>
                     <img
-                      src={photo.src}
+                      src={photo.thumbSrc || photo.src}
                       alt={photo.name || ''}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
                     />
                   </div>
@@ -1460,7 +1476,7 @@ const CustomerView = ({ domainMode = null }) => {
                         openLightbox(aIdx, pIdx);
                       }
                     }} style={{ cursor: 'pointer' }}>
-                      <img src={img.src} alt={img.name || ''} loading="lazy" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
+                      <img src={img.thumbSrc || img.src} alt={img.name || ''} loading="lazy" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
                       {isPhotoSelected(img.src) && (
                         <span className="cv-photo-heart-badge">♥</span>
                       )}
@@ -1513,7 +1529,7 @@ const CustomerView = ({ domainMode = null }) => {
               <div className={`cv-photo-grid ${designDisplay === 'kacheln' ? 'cv-tiles' : 'cv-masonry'}`} style={{ padding: '1rem 60px' }}>
                 {selPhotos.map((photo, pIdx) => (
                   <div key={pIdx} className="cv-photo">
-                    <img src={photo.src} alt={photo.name || ''} loading="lazy" decoding="async" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
+                    <img src={photo.thumbSrc || photo.src} alt={photo.name || ''} loading="lazy" decoding="async" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
                     <span className="cv-photo-heart-badge">♥</span>
                     <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
                   </div>

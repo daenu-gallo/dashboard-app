@@ -23,6 +23,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     download: sbToggles.download !== undefined ? sbToggles.download : true,
     downloadPin: sbToggles.downloadPin || false,
     bilderschutz: !!sbToggles.bilderschutz,
+    shop: !!sbToggles.shop,
     wasserzeichen: !!sbToggles.wasserzeichen && !!sbToggles.selectedWatermarkId,
     selectedWatermarkId: sbToggles.selectedWatermarkId || '',
   });
@@ -221,6 +222,7 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
     { key: 'download', label: 'Download' },
     { key: 'downloadPin', label: 'Download PIN' },
     { key: 'bilderschutz', label: 'Bilderschutz (kein Rechtsklick)' },
+    { key: 'shop', label: 'Shop (Fotoprodukte verkaufen)' },
   ];
 
   return (
