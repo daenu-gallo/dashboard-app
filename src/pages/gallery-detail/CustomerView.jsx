@@ -365,17 +365,6 @@ const CustomerView = ({ domainMode = null }) => {
     siteName: brandName || 'Fotohahn Gallery',
   });
 
-  // ── PWA: Dynamic manifest so "Add to Home Screen" opens this gallery ──
-  useDynamicManifest({
-    name: settings.titel ? `${settings.titel}${brandName ? ` | ${brandName}` : ''}` : 'Fotogalerie',
-    shortName: settings.titel ? settings.titel.substring(0, 12) : 'Galerie',
-    startUrl: typeof window !== 'undefined' ? window.location.pathname : `/${slug}`,
-    themeColor: designSecondary || '#1a1a1a',
-    backgroundColor: designPrimary || '#f0f0f4',
-    description: `${totalPhotos} Fotos${brandName ? ` von ${brandName}` : ''}`,
-    iconUrl: globalBrand?.logoDark || globalBrand?.logoLight || '',
-  });
-
   // Legal links – use internal routes
   const impressumUrl = '/legal/impressum';
   const datenschutzUrl = '/legal/datenschutz';
@@ -502,6 +491,17 @@ const CustomerView = ({ domainMode = null }) => {
     '--cv-spacing': spacingPx,
     fontFamily: designFont + ', sans-serif',
   };
+
+  // ── PWA: Dynamic manifest so "Add to Home Screen" opens this gallery ──
+  useDynamicManifest({
+    name: settings.titel ? `${settings.titel}${brandName ? ` | ${brandName}` : ''}` : 'Fotogalerie',
+    shortName: settings.titel ? settings.titel.substring(0, 12) : 'Galerie',
+    startUrl: typeof window !== 'undefined' ? window.location.pathname : `/${slug}`,
+    themeColor: designSecondary || '#1a1a1a',
+    backgroundColor: designPrimary || '#f0f0f4',
+    description: `${totalPhotos} Fotos${brandName ? ` von ${brandName}` : ''}`,
+    iconUrl: globalBrand?.logoDark || globalBrand?.logoLight || '',
+  });
 
   // Language — handle both German dropdown values ('Englisch') and native names ('English')
   const langMap = {
@@ -1513,6 +1513,72 @@ const CustomerView = ({ domainMode = null }) => {
           </section>
         );
       })}
+
+      {/* ====== SHOP: PRODUCT SHOWCASE (like Scrappbook) ====== */}
+      {shopEnabled && shopProducts.length > 0 && !showSelectionView && (() => {
+        // Group products by category
+        const categories = {};
+        shopProducts.forEach(p => {
+          if (!categories[p.category]) categories[p.category] = [];
+          categories[p.category].push(p);
+        });
+        // Pick preview photos from the gallery (cycle through them)
+        const previewPhotos = allPhotos.slice(0, 8);
+
+        // Category display config with icons/emojis
+        const categoryConfig = {
+          'Digitale Pakete': { icon: '📱', desc: 'Deine Fotos in höchster Auflösung', color: '#4a90d9' },
+          'Ausdrucke': { icon: '🖼️', desc: 'Hochwertige Fotoabzüge', color: '#e67e22' },
+          'Leinwand': { icon: '🎨', desc: 'Dein Foto auf edler Leinwand', color: '#8e44ad' },
+          'Poster': { icon: '📐', desc: 'Grossformatige Kunstdrucke', color: '#27ae60' },
+          'Postkarten': { icon: '💌', desc: 'Persönliche Grüsse versenden', color: '#e74c3c' },
+        };
+
+        return (
+          <section className="cv-shop-showcase">
+            <div className="cv-shop-showcase-header">
+              <h2 className="cv-shop-showcase-title">SHOP</h2>
+              <p className="cv-shop-showcase-subtitle">
+                Bestelle deine Lieblingsfotos als hochwertige Fotoprodukte
+              </p>
+            </div>
+            <div className="cv-shop-showcase-grid">
+              {Object.entries(categories).map(([catName, products], catIdx) => {
+                const config = categoryConfig[catName] || { icon: '📦', desc: 'Fotoprodukte bestellen', color: '#5d9e5f' };
+                const previewImg = previewPhotos[catIdx % previewPhotos.length];
+                const cheapest = Math.min(...products.map(p => p.price));
+
+                return (
+                  <div
+                    key={catName}
+                    className="cv-shop-showcase-card"
+                    onClick={() => {
+                      // Open product modal with first available photo
+                      if (previewImg) openProductSelect(previewImg);
+                    }}
+                  >
+                    <div className="cv-shop-showcase-card-img">
+                      {previewImg ? (
+                        <img src={previewImg.thumbSrc || previewImg.src} alt="" />
+                      ) : (
+                        <div className="cv-shop-showcase-card-placeholder" />
+                      )}
+                      <div className="cv-shop-showcase-card-overlay" style={{ background: `linear-gradient(135deg, ${config.color}cc 0%, ${config.color}33 100%)` }}>
+                        <span className="cv-shop-showcase-card-icon">{config.icon}</span>
+                      </div>
+                    </div>
+                    <div className="cv-shop-showcase-card-body">
+                      <h3>{catName}</h3>
+                      <p>{config.desc}</p>
+                      <span className="cv-shop-showcase-card-price">ab CHF {cheapest.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ====== SELECTION VIEW ====== */}
       {showSelectionView && (() => {
