@@ -52,16 +52,31 @@ const Verkaufsautomatisierung = () => {
     setSaving(true);
     const payload = {
       ...settings,
+      // Convert empty strings to null for UUID fields (Supabase rejects empty strings for UUID)
+      price_list_id: settings.price_list_id || null,
+      // Convert comma-separated strings to arrays
       included_tags: settings.included_tags ? settings.included_tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       excluded_galleries: settings.excluded_galleries ? settings.excluded_galleries.split(',').map((t) => t.trim()).filter(Boolean) : [],
+      // Convert empty strings to null for optional text fields
+      coupon_marketing_code: settings.coupon_marketing_code || null,
+      coupon_marketing_start: settings.coupon_marketing_start || null,
+      coupon_marketing_end: settings.coupon_marketing_end || null,
+      post_purchase_coupon_code: settings.post_purchase_coupon_code || null,
+      email_sender_name: settings.email_sender_name || null,
+      email_reply_to: settings.email_reply_to || null,
     };
     // Remove non-DB fields
     delete payload.id;
     delete payload.user_id;
     delete payload.created_at;
     delete payload.updated_at;
-    await saveAutomation(payload);
+    const result = await saveAutomation(payload);
     setSaving(false);
+    if (result) {
+      alert('Einstellungen gespeichert ✓');
+    } else {
+      alert('Fehler beim Speichern — bitte versuche es erneut.');
+    }
   };
 
   return (

@@ -571,21 +571,25 @@ const CustomerView = ({ domainMode = null }) => {
           .order('created_at', { ascending: true })
           .limit(1);
 
+        console.log('[Shop] Price lists loaded:', priceLists);
+
         if (priceLists?.[0]?.price_list_items) {
           const items = priceLists[0].price_list_items
-            .filter(item => item.active !== false)
+            .filter(item => item.enabled !== false)
             .map(item => ({
               id: item.id,
               sku: item.product_sku,
               name: item.product_name,
               category: item.category || 'Prints',
-              price: item.custom_price || item.base_price || 0,
-              productionCost: item.base_price || 0,
-              provider: priceLists[0].provider || 'gelato',
+              price: parseFloat(item.selling_price) || parseFloat(item.purchase_price) || 0,
+              productionCost: parseFloat(item.purchase_price) || 0,
+              provider: item.lab || priceLists[0].provider || 'gelato',
             }));
+          console.log('[Shop] Products mapped:', items.length, items);
           setShopProducts(items);
           setShopEnabled(items.length > 0);
         } else {
+          console.log('[Shop] No price list items found');
           setShopEnabled(false);
         }
       } catch (err) {

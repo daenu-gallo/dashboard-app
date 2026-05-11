@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useShop } from '../../contexts/ShopContext';
+import { supabase } from '../../lib/supabaseClient';
 
 // Default product catalog (without photo albums, as specified)
 const DEFAULT_PRODUCTS = [
@@ -163,12 +164,48 @@ const Preislisten = () => {
 
   // Save individual item change
   const handleItemBlur = async (item) => {
+    if (!selectedListId) return;
+
     if (item.id) {
-      await updatePriceListItem(item.id, {
+      // Existing item — update in DB
+      const { error } = await updatePriceListItem(item.id, {
         lab: item.lab,
         selling_price: item.sellingPrice,
         enabled: item.enabled,
       });
+      if (error) console.error('[Preislisten] Update failed:', error);
+    } else {
+      // New item (no DB id yet) — insert into DB
+      try {
+        const { data, error } = await supabase
+          .from('price_list_items')
+          .insert({
+            price_list_id: selectedListId,
+            product_sku: item.product_sku,
+            product_name: item.product_name,
+            category: item.category,
+            lab: item.lab,
+            purchase_price: item.purchasePrice,
+            selling_price: item.sellingPrice,
+            enabled: item.enabled,
+          })
+          .select()
+          .single();
+        if (error) {
+          console.error('[Preislisten] Insert failed:', error);
+        } else if (data) {
+          // Update local state with the new DB id so future saves work
+          setLocalItems((prev) =>
+            prev.map((li) =>
+              li.product_sku === item.product_sku
+                ? { ...li, id: data.id }
+                : li
+            )
+          );
+        }
+      } catch (err) {
+        console.error('[Preislisten] Insert error:', err);
+      }
     }
   };
 

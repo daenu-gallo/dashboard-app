@@ -81,6 +81,7 @@ export const ShopProvider = ({ children }) => {
       .update(updates)
       .eq('id', itemId);
     if (error) console.error('[ShopContext] updatePriceListItem:', error);
+    return { error };
   }, []);
 
   // ─── Delete Price List ───
