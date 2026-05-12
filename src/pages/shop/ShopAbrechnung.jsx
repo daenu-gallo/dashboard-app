@@ -193,7 +193,11 @@ const ShopAbrechnung = () => {
                 <div className="payment-method-actions">
                   <div
                     className={`toggle-wrapper ${customerPayment.paypalEnabled ? 'on' : ''}`}
-                    onClick={() => setCustomerPayment({ ...customerPayment, paypalEnabled: !customerPayment.paypalEnabled })}
+                    onClick={() => {
+                      const updated = { ...customerPayment, paypalEnabled: !customerPayment.paypalEnabled };
+                      setCustomerPayment(updated);
+                      saveShopSettings({ customer_payment: updated });
+                    }}
                   />
                 </div>
               </div>
@@ -238,7 +242,11 @@ const ShopAbrechnung = () => {
                   <button className="edit-btn" title="Bearbeiten" onClick={() => setEditingBank(!editingBank)}><Pencil size={14} /></button>
                   <div
                     className={`toggle-wrapper ${customerPayment.bankEnabled ? 'on' : ''}`}
-                    onClick={() => setCustomerPayment({ ...customerPayment, bankEnabled: !customerPayment.bankEnabled })}
+                    onClick={() => {
+                      const updated = { ...customerPayment, bankEnabled: !customerPayment.bankEnabled };
+                      setCustomerPayment(updated);
+                      saveShopSettings({ customer_payment: updated });
+                    }}
                   />
                 </div>
               </div>

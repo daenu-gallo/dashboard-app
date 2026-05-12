@@ -95,7 +95,9 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
           domain: formData.domain || null,
           domain_path: formData.domainpfad || null,
           message: formData.mitteilung || null,
-          toggles,
+          message_visibility: formData.mitteilungSichtbarkeit || 'Alle',
+          download_pin_code: formData.downloadPinCode || null,
+          toggles: { ...toggles, hauptkunden },
           tags,
         });
       } catch (err) {
@@ -103,12 +105,13 @@ const EinstellungenTab = ({ gallery, supabaseGallery, updateGallery }) => {
       }
     }, 2000); // 2s debounce
     return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
-  }, [formData, toggles, tags]);
+  }, [formData, toggles, tags, hauptkunden]);
 
-  // Hauptkunden persisted state
-  const [hauptkunden, setHauptkunden] = usePersistedState(`gallery_${galleryKey}_hauptkunden`, [
-    { email: '', vorname: '', nachname: '', emailMarketing: false }
-  ]);
+  // Hauptkunden — stored in Supabase toggles JSONB
+  const [hauptkunden, setHauptkunden] = useState(
+    Array.isArray(sbToggles.hauptkunden) ? sbToggles.hauptkunden :
+    [{ email: '', vorname: '', nachname: '', emailMarketing: false }]
+  );
 
   const addHauptkunde = () => {
     setHauptkunden(prev => [...prev, { email: '', vorname: '', nachname: '', emailMarketing: false }]);

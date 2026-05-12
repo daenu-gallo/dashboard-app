@@ -293,7 +293,7 @@ const Preislisten = () => {
                             onChange={(e) => {
                               catItems.forEach((item) => {
                                 updateLocalItem(item.product_sku, 'enabled', e.target.checked);
-                                if (item.id) updatePriceListItem(item.id, { enabled: e.target.checked });
+                                handleItemBlur({ ...item, enabled: e.target.checked });
                               });
                             }}
                             style={{ accentColor: 'var(--color-primary)' }}
@@ -322,7 +322,7 @@ const Preislisten = () => {
                                   checked={item.enabled}
                                   onChange={(e) => {
                                     updateLocalItem(item.product_sku, 'enabled', e.target.checked);
-                                    if (item.id) updatePriceListItem(item.id, { enabled: e.target.checked });
+                                    handleItemBlur({ ...item, enabled: e.target.checked });
                                   }}
                                 />
                                 <div className="product-thumb" />
@@ -335,7 +335,7 @@ const Preislisten = () => {
                                 value={item.lab}
                                 onChange={(e) => {
                                   updateLocalItem(item.product_sku, 'lab', e.target.value);
-                                  if (item.id) updatePriceListItem(item.id, { lab: e.target.value });
+                                  handleItemBlur({ ...item, lab: e.target.value });
                                 }}
                               >
                                 <option value="gelato">Gelato</option>
