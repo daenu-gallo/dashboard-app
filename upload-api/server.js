@@ -28,6 +28,11 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:5173', 'http://localhost:3000'];
 
+// ── Gelato Print API ──
+const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
+const GELATO_API_BASE = 'https://order.gelatoapis.com/v3';
+const GELATO_PRODUCT_API = 'https://product.gelatoapis.com/v3';
+
 // Debug: Log env vars on startup
 console.log('🔧 Environment variables:');
 console.log(`   PORT=${PORT}`);
@@ -35,6 +40,7 @@ console.log(`   NAS_BASE_PATH=${NAS_BASE}`);
 console.log(`   SUPABASE_URL=${SUPABASE_URL ? SUPABASE_URL.substring(0, 30) + '...' : '❌ NOT SET'}`);
 console.log(`   SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_KEY ? '✅ SET' : '❌ NOT SET'}`);
 console.log(`   SUPABASE_JWT_SECRET=${JWT_SECRET ? '✅ SET' : '❌ NOT SET'}`);
+console.log(`   GELATO_API_KEY=${GELATO_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
 
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
@@ -1873,6 +1879,231 @@ async function checkNasHealth() {
   }
 }
 
+// ════════════════════════════════════════════════
+// ═══ GELATO PRINT API INTEGRATION ═══
+// ════════════════════════════════════════════════
+
+// Helper: Make authenticated Gelato API request
+async function gelatoFetch(url, options = {}) {
+  if (!GELATO_API_KEY) throw new Error('GELATO_API_KEY not configured');
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'X-API-KEY': GELATO_API_KEY,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    console.error(`[Gelato] API error ${res.status}:`, data);
+    throw new Error(data?.message || `Gelato API error ${res.status}`);
+  }
+  return data;
+}
+
+// ── GET /api/gelato/products — List available product catalogs ──
+app.get('/api/gelato/products', async (req, res) => {
+  try {
+    const catalogs = await gelatoFetch(`${GELATO_PRODUCT_API}/catalogs`);
+    res.json(catalogs);
+  } catch (err) {
+    console.error('[Gelato] Products error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/gelato/shipping-estimate — Get shipping prices ──
+app.post('/api/gelato/shipping-estimate', async (req, res) => {
+  try {
+    const { products, shippingAddress } = req.body;
+    if (!products?.length || !shippingAddress?.country) {
+      return res.status(400).json({ error: 'products and shippingAddress.country required' });
+    }
+    const estimate = await gelatoFetch(`${GELATO_API_BASE}/orders/quote`, {
+      method: 'POST',
+      body: JSON.stringify({
+        lineItems: products.map((p, i) => ({
+          itemReferenceId: `item_${i}`,
+          productUid: p.productUid,
+          quantity: p.quantity || 1,
+          fileUrl: p.fileUrl || 'https://via.placeholder.com/3000x2000',
+        })),
+        shippingAddress: {
+          firstName: shippingAddress.firstName || 'Test',
+          lastName: shippingAddress.lastName || 'User',
+          addressLine1: shippingAddress.addressLine1 || '',
+          city: shippingAddress.city || '',
+          postCode: shippingAddress.postCode || '',
+          country: shippingAddress.country,
+        },
+      }),
+    });
+    res.json(estimate);
+  } catch (err) {
+    console.error('[Gelato] Shipping estimate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/gelato/order — Create a print order ──
+app.post('/api/gelato/order', async (req, res) => {
+  try {
+    const {
+      galleryId,
+      userId,
+      customer,       // { firstName, lastName, email, addressLine1, city, postCode, country, phone }
+      items,          // [{ productSku, productUid, productName, quantity, fileUrl, price, productionCost }]
+      couponCode,
+      orderNote,
+    } = req.body;
+
+    if (!customer?.email || !items?.length) {
+      return res.status(400).json({ error: 'customer.email and items[] required' });
+    }
+
+    // Generate order number
+    const orderNumber = `FH-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+
+    // Calculate totals
+    const totalGross = items.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0);
+    const totalProductionCost = items.reduce((sum, i) => sum + (i.productionCost * (i.quantity || 1)), 0);
+    const totalProfit = totalGross - totalProductionCost;
+
+    // 1) Create order in Supabase first
+    let supabaseOrder = null;
+    if (supabase && userId) {
+      const { data, error } = await supabase.from('orders').insert({
+        user_id: userId,
+        gallery_id: galleryId || null,
+        order_number: orderNumber,
+        provider: 'gelato',
+        customer_name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+        customer_email: customer.email,
+        customer_address: {
+          addressLine1: customer.addressLine1,
+          city: customer.city,
+          postCode: customer.postCode,
+          country: customer.country,
+          phone: customer.phone,
+        },
+        total_gross: totalGross,
+        total_production_cost: totalProductionCost,
+        total_profit: totalProfit,
+        status: 'pending',
+        coupon_code: couponCode || null,
+      }).select().single();
+
+      if (error) console.error('[Gelato] Supabase order insert error:', error);
+      else supabaseOrder = data;
+
+      // Insert order items
+      if (supabaseOrder) {
+        const orderItems = items.map(item => ({
+          order_id: supabaseOrder.id,
+          product_sku: item.productSku || item.productUid,
+          product_name: item.productName,
+          quantity: item.quantity || 1,
+          unit_price: item.price,
+          production_cost: item.productionCost,
+          options: { fileUrl: item.fileUrl },
+        }));
+        await supabase.from('order_items').insert(orderItems);
+      }
+    }
+
+    // 2) Submit order to Gelato API
+    let gelatoOrder = null;
+    if (GELATO_API_KEY) {
+      try {
+        gelatoOrder = await gelatoFetch(`${GELATO_API_BASE}/orders`, {
+          method: 'POST',
+          body: JSON.stringify({
+            orderType: 'order',
+            orderReferenceId: orderNumber,
+            customerReferenceId: customer.email,
+            lineItems: items.map((item, i) => ({
+              itemReferenceId: `${orderNumber}_${i}`,
+              productUid: item.productUid,
+              quantity: item.quantity || 1,
+              fileUrl: item.fileUrl,
+            })),
+            shippingAddress: {
+              firstName: customer.firstName || '',
+              lastName: customer.lastName || '',
+              addressLine1: customer.addressLine1 || '',
+              city: customer.city || '',
+              postCode: customer.postCode || '',
+              country: customer.country || 'CH',
+              email: customer.email,
+              phone: customer.phone || '',
+            },
+          }),
+        });
+
+        // Update Supabase order with Gelato external ID
+        if (supabaseOrder && gelatoOrder?.id) {
+          await supabase.from('orders').update({
+            external_id: gelatoOrder.id,
+            status: 'processing',
+          }).eq('id', supabaseOrder.id);
+        }
+
+        console.log(`[Gelato] ✅ Order ${orderNumber} submitted → Gelato ID: ${gelatoOrder?.id}`);
+      } catch (gelatoErr) {
+        console.error(`[Gelato] ❌ Order ${orderNumber} Gelato submission failed:`, gelatoErr.message);
+        // Order is still in Supabase as 'pending' — can be retried
+        if (supabaseOrder) {
+          await supabase.from('orders').update({
+            status: 'error',
+            invoice_numbers: `Gelato Error: ${gelatoErr.message}`,
+          }).eq('id', supabaseOrder.id);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      orderNumber,
+      orderId: supabaseOrder?.id,
+      gelatoId: gelatoOrder?.id || null,
+      total: totalGross,
+    });
+
+  } catch (err) {
+    console.error('[Gelato] Order creation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/gelato/order/:id — Check order status ──
+app.get('/api/gelato/order/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Try Gelato first
+    if (GELATO_API_KEY) {
+      try {
+        const order = await gelatoFetch(`${GELATO_API_BASE}/orders/${id}`);
+        return res.json(order);
+      } catch (e) {
+        // If not a Gelato ID, try Supabase
+      }
+    }
+    // Fallback: check Supabase by order_number or id
+    if (supabase) {
+      const { data } = await supabase.from('orders')
+        .select('*, order_items(*)')
+        .or(`id.eq.${id},order_number.eq.${id},external_id.eq.${id}`)
+        .single();
+      if (data) return res.json(data);
+    }
+    res.status(404).json({ error: 'Order not found' });
+  } catch (err) {
+    console.error('[Gelato] Order status error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
@@ -1882,6 +2113,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Monitoring: alle 5 Min → ${MONITOR_TARGETS.map(t => t.name).join(', ')}`);
   console.log(`   DB Host: ${DB_HOST}:${DB_PORT}`);
   console.log(`🛡️  NAS-Watchdog: alle ${NAS_CHECK_INTERVAL / 1000}s, Restart nach ${NAS_FAIL_THRESHOLD} Fehlern`);
+  console.log(`🖨️  Gelato Print API: ${GELATO_API_KEY ? '✅ Active' : '❌ Not configured'}`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();
