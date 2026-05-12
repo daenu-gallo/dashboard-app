@@ -1529,56 +1529,51 @@ const CustomerView = ({ domainMode = null }) => {
         // Pick preview photos from the gallery (cycle through them)
         const previewPhotos = allPhotos.slice(0, 8);
 
-        // Category display config with icons/emojis
+        // Category display config with product images
         const categoryConfig = {
-          'Digitale Pakete': { icon: '📱', desc: 'Deine Fotos in höchster Auflösung', color: '#4a90d9' },
-          'Ausdrucke': { icon: '🖼️', desc: 'Hochwertige Fotoabzüge', color: '#e67e22' },
-          'Leinwand': { icon: '🎨', desc: 'Dein Foto auf edler Leinwand', color: '#8e44ad' },
-          'Poster': { icon: '📐', desc: 'Grossformatige Kunstdrucke', color: '#27ae60' },
-          'Postkarten': { icon: '💌', desc: 'Persönliche Grüsse versenden', color: '#e74c3c' },
+          'Digitale Pakete': { image: '/shop/digital.png', label: 'Digitale Pakete' },
+          'Ausdrucke': { image: '/shop/prints.png', label: 'Ausdrucke' },
+          'Leinwand': { image: '/shop/canvas.png', label: 'Leinwand' },
+          'Poster': { image: '/shop/poster.png', label: 'Poster' },
+          'Postkarten': { image: '/shop/postcards.png', label: 'Postkarten' },
         };
 
         return (
           <section className="cv-shop-showcase">
             <div className="cv-shop-showcase-header">
-              <h2 className="cv-shop-showcase-title">SHOP</h2>
-              <p className="cv-shop-showcase-subtitle">
-                Bestelle deine Lieblingsfotos als hochwertige Fotoprodukte
-              </p>
+              <h2 className="cv-shop-showcase-title">Bestelle deine Lieblingsbilder:</h2>
             </div>
-            <div className="cv-shop-showcase-grid">
-              {Object.entries(categories).map(([catName, products], catIdx) => {
-                const config = categoryConfig[catName] || { icon: '📦', desc: 'Fotoprodukte bestellen', color: '#5d9e5f' };
-                const previewImg = previewPhotos[catIdx % previewPhotos.length];
-                const cheapest = Math.min(...products.map(p => p.price));
+            <div className="cv-shop-category-scroll">
+              <div className="cv-shop-category-track">
+                {Object.entries(categories).map(([catName, products]) => {
+                  const config = categoryConfig[catName] || { image: '/shop/prints.png', label: catName };
+                  const cheapest = Math.min(...products.map(p => p.price));
 
-                return (
-                  <div
-                    key={catName}
-                    className="cv-shop-showcase-card"
-                    onClick={() => {
-                      // Open product modal with first available photo
-                      if (previewImg) openProductSelect(previewImg);
-                    }}
-                  >
-                    <div className="cv-shop-showcase-card-img">
-                      {previewImg ? (
-                        <img src={previewImg.thumbSrc || previewImg.src} alt="" />
-                      ) : (
-                        <div className="cv-shop-showcase-card-placeholder" />
-                      )}
-                      <div className="cv-shop-showcase-card-overlay" style={{ background: `linear-gradient(135deg, ${config.color}cc 0%, ${config.color}33 100%)` }}>
-                        <span className="cv-shop-showcase-card-icon">{config.icon}</span>
+                  return (
+                    <div
+                      key={catName}
+                      className="cv-shop-category-card"
+                      onClick={() => {
+                        if (previewPhotos[0]) openProductSelect(previewPhotos[0]);
+                      }}
+                    >
+                      <div className="cv-shop-category-img">
+                        <img src={config.image} alt={config.label} loading="lazy" />
+                        <span className="cv-shop-category-label">{config.label}</span>
+                      </div>
+                      <div className="cv-shop-category-price">
+                        Ab: Fr. {cheapest.toFixed(2)}
                       </div>
                     </div>
-                    <div className="cv-shop-showcase-card-body">
-                      <h3>{catName}</h3>
-                      <p>{config.desc}</p>
-                      <span className="cv-shop-showcase-card-price">ab CHF {cheapest.toFixed(2)}</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              <button className="cv-shop-scroll-btn" onClick={(e) => {
+                const track = e.currentTarget.previousElementSibling;
+                if (track) track.scrollBy({ left: 260, behavior: 'smooth' });
+              }}>
+                <ChevronRight size={20} />
+              </button>
             </div>
           </section>
         );
