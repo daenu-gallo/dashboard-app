@@ -848,7 +848,7 @@ const VoreinstellungenTab = () => {
         if (presets.length > 0) {
           await supabase.from('presets').insert(presets.map(p => ({
             user_id: user.id, name: p.name, is_default: p.standard || false,
-            settings: { marke: p.marke, domain: p.domain, wasserzeichen: p.wasserzeichen, sprache: p.sprache, mitteilung: p.mitteilung, sortierung: p.sortierung, ablauf: p.ablauf, tags: p.tags, download: p.download, downloadPin: p.downloadPin, appHinweis: p.appHinweis, teilen: p.teilen, kommentar: p.kommentar, zeigeDateinamen: p.zeigeDateinamen },
+            settings: { marke: p.marke, domain: p.domain, wasserzeichen: p.wasserzeichen, sprache: p.sprache, mitteilung: p.mitteilung, sortierung: p.sortierung, ablauf: p.ablauf, tags: p.tags, download: p.download, downloadPin: p.downloadPin, appHinweis: p.appHinweis, teilen: p.teilen, kommentar: p.kommentar, zeigeDateinamen: p.zeigeDateinamen, shop: p.shop },
             design: { vorlage: p.vorlage, schriftart: p.schriftart, primaerfarbe: p.primaerfarbe, sekundaerfarbe: p.sekundaerfarbe, bildabstand: p.bildabstand, bilddarstellung: p.bilddarstellung },
             tracking: { gaCode: p.gaCode, gtmId: p.gtmId, fbPixel: p.fbPixel },
             albums: p.alben || [],
@@ -874,6 +874,7 @@ const VoreinstellungenTab = () => {
       download: p.download !== false, downloadPin: p.downloadPin || false,
       appHinweis: p.appHinweis !== false, teilen: p.teilen !== false,
       kommentar: p.kommentar !== false, zeigeDateinamen: p.zeigeDateinamen || false,
+      shop: p.shop || false,
 
       // Design
       vorlage: p.vorlage || 'Atelier', schriftart: p.schriftart || 'Inter', primaerfarbe: p.primaerfarbe || '#f0f0f4',
@@ -1040,6 +1041,7 @@ const VoreinstellungenTab = () => {
                       { key: 'download', label: 'Download' }, { key: 'downloadPin', label: 'Download PIN' },
                       { key: 'appHinweis', label: 'App-Hinweis' }, { key: 'teilen', label: 'Teilen' },
                       { key: 'kommentar', label: 'Kommentarfunktion' }, { key: 'zeigeDateinamen', label: 'Zeige Dateinamen' },
+                      { key: 'shop', label: 'Shop (Fotoprodukte verkaufen)' },
                     ].map(t => (
                       <div key={t.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div style={ts(detailModal[t.key])} onClick={() => ud(t.key, !detailModal[t.key])}><div style={tk(detailModal[t.key])} /></div>
