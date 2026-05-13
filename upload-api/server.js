@@ -15,6 +15,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import cron from 'node-cron';
 import archiver from 'archiver';
+import Stripe from 'stripe';
 
 const execAsync = promisify(exec);
 
@@ -33,6 +34,12 @@ const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 const GELATO_API_BASE = 'https://order.gelatoapis.com/v3';
 const GELATO_PRODUCT_API = 'https://product.gelatoapis.com/v3';
 
+// ── Stripe Payment ──
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
 // Debug: Log env vars on startup
 console.log('🔧 Environment variables:');
 console.log(`   PORT=${PORT}`);
@@ -41,6 +48,7 @@ console.log(`   SUPABASE_URL=${SUPABASE_URL ? SUPABASE_URL.substring(0, 30) + '.
 console.log(`   SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_KEY ? '✅ SET' : '❌ NOT SET'}`);
 console.log(`   SUPABASE_JWT_SECRET=${JWT_SECRET ? '✅ SET' : '❌ NOT SET'}`);
 console.log(`   GELATO_API_KEY=${GELATO_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
+console.log(`   STRIPE=${STRIPE_SECRET_KEY ? '✅ Active' : '❌ Not configured'}`);
 
 let supabase = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
@@ -2104,6 +2112,247 @@ app.get('/api/gelato/order/:id', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════
+// ██  STRIPE PAYMENT INTEGRATION
+// ══════════════════════════════════════════════════════════════════
+
+// ── GET /api/stripe/config — Return publishable key to frontend ──
+app.get('/api/stripe/config', (req, res) => {
+  res.json({ publishableKey: STRIPE_PUBLISHABLE_KEY });
+});
+
+// ── POST /api/stripe/create-checkout-session — Create Stripe payment session ──
+app.post('/api/stripe/create-checkout-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+  try {
+    const { galleryId, userId, customer, items, couponCode, returnUrl } = req.body;
+
+    if (!customer?.email || !items?.length) {
+      return res.status(400).json({ error: 'customer.email and items[] required' });
+    }
+
+    // Build Stripe line items from cart
+    const lineItems = items.map(item => ({
+      price_data: {
+        currency: 'chf',
+        product_data: {
+          name: item.productName,
+          metadata: {
+            sku: item.productSku,
+            productUid: item.productUid,
+            fileUrl: item.fileUrl,
+          },
+        },
+        unit_amount: Math.round(item.price * 100), // Stripe uses cents
+      },
+      quantity: item.quantity || 1,
+    }));
+
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: customer.email,
+      line_items: lineItems,
+      metadata: {
+        galleryId: String(galleryId || ''),
+        userId: String(userId || ''),
+        customerFirstName: customer.firstName || '',
+        customerLastName: customer.lastName || '',
+        customerAddress: customer.addressLine1 || '',
+        customerCity: customer.city || '',
+        customerPostCode: customer.postCode || '',
+        customerCountry: customer.country || 'CH',
+        customerPhone: customer.phone || '',
+        couponCode: couponCode || '',
+        // Store the full items data as JSON for the webhook
+        orderItems: JSON.stringify(items),
+      },
+      success_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=cancelled`,
+    });
+
+    console.log(`[Stripe] ✅ Checkout session created: ${session.id}`);
+    res.json({ sessionId: session.id, url: session.url });
+
+  } catch (err) {
+    console.error('[Stripe] Checkout session error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/stripe/webhook — Handle Stripe payment events ──
+// NOTE: This must use express.raw() for signature verification
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(500).send('Stripe not configured');
+
+  let event;
+  try {
+    if (STRIPE_WEBHOOK_SECRET) {
+      const sig = req.headers['stripe-signature'];
+      event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+    } else {
+      // Without webhook secret, parse the event directly (less secure, OK for initial setup)
+      event = JSON.parse(req.body.toString());
+      console.warn('[Stripe] ⚠️ Webhook secret not set — accepting unverified events');
+    }
+  } catch (err) {
+    console.error('[Stripe] Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the checkout.session.completed event
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    console.log(`[Stripe] 💰 Payment received! Session: ${session.id}, Amount: ${session.amount_total / 100} CHF`);
+
+    try {
+      const meta = session.metadata || {};
+      const items = JSON.parse(meta.orderItems || '[]');
+      const customer = {
+        firstName: meta.customerFirstName || '',
+        lastName: meta.customerLastName || '',
+        email: session.customer_email || session.customer_details?.email || '',
+        addressLine1: meta.customerAddress || '',
+        city: meta.customerCity || '',
+        postCode: meta.customerPostCode || '',
+        country: meta.customerCountry || 'CH',
+        phone: meta.customerPhone || '',
+      };
+
+      // Generate order number
+      const orderNumber = `FH-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+
+      // Calculate totals
+      const totalGross = (session.amount_total || 0) / 100;
+      const totalProductionCost = items.reduce((sum, i) => sum + ((i.productionCost || 0) * (i.quantity || 1)), 0);
+      const totalProfit = totalGross - totalProductionCost;
+
+      // 1) Save order in Supabase
+      let supabaseOrder = null;
+      if (supabase && meta.userId) {
+        const { data, error } = await supabase.from('orders').insert({
+          user_id: meta.userId,
+          gallery_id: meta.galleryId ? parseInt(meta.galleryId) : null,
+          order_number: orderNumber,
+          provider: 'gelato',
+          customer_name: `${customer.firstName} ${customer.lastName}`.trim(),
+          customer_email: customer.email,
+          customer_address: {
+            addressLine1: customer.addressLine1,
+            city: customer.city,
+            postCode: customer.postCode,
+            country: customer.country,
+            phone: customer.phone,
+          },
+          total_gross: totalGross,
+          total_production_cost: totalProductionCost,
+          total_profit: totalProfit,
+          status: 'paid',
+          stripe_session_id: session.id,
+          stripe_payment_intent: session.payment_intent,
+          coupon_code: meta.couponCode || null,
+        }).select().single();
+
+        if (error) console.error('[Stripe→Supabase] Order insert error:', error);
+        else supabaseOrder = data;
+
+        // Insert order items
+        if (supabaseOrder && items.length > 0) {
+          const orderItems = items.map(item => ({
+            order_id: supabaseOrder.id,
+            product_sku: item.productSku || item.productUid,
+            product_name: item.productName,
+            quantity: item.quantity || 1,
+            unit_price: item.price,
+            production_cost: item.productionCost || 0,
+            options: { fileUrl: item.fileUrl },
+          }));
+          await supabase.from('order_items').insert(orderItems);
+        }
+      }
+
+      // 2) Submit to Gelato for production (only physical products)
+      const physicalItems = items.filter(i => i.productUid && !i.productSku?.startsWith('digital_'));
+      if (GELATO_API_KEY && physicalItems.length > 0) {
+        try {
+          const gelatoOrder = await gelatoFetch(`${GELATO_API_BASE}/orders`, {
+            method: 'POST',
+            body: JSON.stringify({
+              orderType: 'order',
+              orderReferenceId: orderNumber,
+              customerReferenceId: customer.email,
+              lineItems: physicalItems.map((item, i) => ({
+                itemReferenceId: `${orderNumber}_${i}`,
+                productUid: item.productUid,
+                quantity: item.quantity || 1,
+                fileUrl: item.fileUrl,
+              })),
+              shippingAddress: {
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                addressLine1: customer.addressLine1,
+                city: customer.city,
+                postCode: customer.postCode,
+                country: customer.country,
+                email: customer.email,
+                phone: customer.phone,
+              },
+            }),
+          });
+
+          // Update order with Gelato ID
+          if (supabaseOrder && gelatoOrder?.id) {
+            await supabase.from('orders').update({
+              external_id: gelatoOrder.id,
+              status: 'processing',
+            }).eq('id', supabaseOrder.id);
+          }
+
+          console.log(`[Stripe→Gelato] ✅ Order ${orderNumber} → Gelato ID: ${gelatoOrder?.id}`);
+        } catch (gelatoErr) {
+          console.error(`[Stripe→Gelato] ❌ Gelato submission failed for ${orderNumber}:`, gelatoErr.message);
+          if (supabaseOrder) {
+            await supabase.from('orders').update({
+              status: 'paid_gelato_error',
+              invoice_numbers: `Gelato Error: ${gelatoErr.message}`,
+            }).eq('id', supabaseOrder.id);
+          }
+        }
+      }
+
+      // 3) Send confirmation email
+      if (emailTransporter && customer.email) {
+        try {
+          await emailTransporter.sendMail({
+            from: SMTP_FROM,
+            to: customer.email,
+            subject: `Bestellbestätigung ${orderNumber}`,
+            html: `
+              <h2>Vielen Dank für deine Bestellung!</h2>
+              <p>Bestellnummer: <strong>${orderNumber}</strong></p>
+              <p>Betrag: <strong>CHF ${totalGross.toFixed(2)}</strong></p>
+              <p>Deine Bestellung wird nun produziert und direkt zu dir versendet.</p>
+              <br/>
+              <p>Liebe Grüsse,<br/>Fotohahn</p>
+            `,
+          });
+          console.log(`[Stripe] 📧 Confirmation email sent to ${customer.email}`);
+        } catch (mailErr) {
+          console.error('[Stripe] Email send error:', mailErr.message);
+        }
+      }
+
+    } catch (processErr) {
+      console.error('[Stripe] Webhook processing error:', processErr);
+    }
+  }
+
+  res.json({ received: true });
+});
+
 // ── Start ──
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Upload-API running on port ${PORT}`);
@@ -2114,6 +2363,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   DB Host: ${DB_HOST}:${DB_PORT}`);
   console.log(`🛡️  NAS-Watchdog: alle ${NAS_CHECK_INTERVAL / 1000}s, Restart nach ${NAS_FAIL_THRESHOLD} Fehlern`);
   console.log(`🖨️  Gelato Print API: ${GELATO_API_KEY ? '✅ Active' : '❌ Not configured'}`);
+  console.log(`💳 Stripe Payments: ${STRIPE_SECRET_KEY ? '✅ Active' : '❌ Not configured'}`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();

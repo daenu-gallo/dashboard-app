@@ -661,13 +661,16 @@ const CustomerView = ({ domainMode = null }) => {
     setShowProductModal(true);
   };
 
-  // Submit order via Gelato API
+  // Submit order via Stripe Checkout
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (cart.length === 0 || !checkoutForm.email) return;
     setOrderSubmitting(true);
     try {
-      const orderPayload = {
+      // Build the current gallery URL for redirect after payment
+      const returnUrl = window.location.href.split('?')[0];
+
+      const payload = {
         galleryId: supaGallery.id,
         userId: supaGallery.user_id,
         customer: {
@@ -687,32 +690,42 @@ const CustomerView = ({ domainMode = null }) => {
           quantity: item.quantity,
           price: item.product.price,
           productionCost: item.product.productionCost || 0,
-          // Use original image URL (not thumbnail) for print production
           fileUrl: item.photo.originalSrc || item.photo.src,
         })),
         couponCode: couponInput || null,
+        returnUrl,
       };
 
-      const resp = await fetch(`${UPLOAD_API}/api/gelato/order`, {
+      const resp = await fetch(`${UPLOAD_API}/api/stripe/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
+        body: JSON.stringify(payload),
       });
       const result = await resp.json();
-      if (result.success) {
-        setOrderSuccess(true);
-        setCart([]);
-        setShowCheckout(false);
-        setShowCartDrawer(false);
+
+      if (result.url) {
+        // Redirect to Stripe Checkout page
+        window.location.href = result.url;
       } else {
-        alert('Fehler: ' + (result.error || 'Unbekannter Fehler'));
+        alert('Fehler: ' + (result.error || 'Stripe Checkout konnte nicht gestartet werden'));
       }
     } catch (err) {
-      console.error('[Shop] Order error:', err);
+      console.error('[Shop] Checkout error:', err);
       alert('Bestellfehler: ' + err.message);
     }
     setOrderSubmitting(false);
   };
+
+  // Check for payment success on page load (redirect from Stripe)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      setOrderSuccess(true);
+      setCart([]);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Password gate
   const [isAuthenticated, setIsAuthenticated] = useState(false);
