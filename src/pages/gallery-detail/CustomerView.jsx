@@ -574,6 +574,30 @@ const CustomerView = ({ domainMode = null }) => {
         console.log('[Shop] Price lists loaded:', priceLists);
 
         if (priceLists?.[0]?.price_list_items) {
+          // SKU → Gelato Product UID mapping (fallback if not stored in DB)
+          const GELATO_UID_MAP = {
+            'print_13x9': 'photoprints_130x90-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_18x13': 'photoprints_180x130-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_15x10': 'photoprints_150x100-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_19x13': 'photoprints_190x130-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_23x15': 'photoprints_230x150-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_30x20': 'photoprints_300x200-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_45x30': 'photoprints_450x300-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_sq_15x15': 'photoprints_150x150-mm_200-gsm-photo-gloss_4-0_ver',
+            'print_sq_21x21': 'photoprints_210x210-mm_200-gsm-photo-gloss_4-0_ver',
+            'canvas_30x20': 'canvas_300x200-mm_canvas-matte_4-0_ver',
+            'canvas_40x30': 'canvas_400x300-mm_canvas-matte_4-0_ver',
+            'canvas_60x40': 'canvas_600x400-mm_canvas-matte_4-0_ver',
+            'canvas_80x60': 'canvas_800x600-mm_canvas-matte_4-0_ver',
+            'canvas_100x75': 'canvas_1000x750-mm_canvas-matte_4-0_ver',
+            'poster_a4': 'flat_pf_a4_pt_170-gsm-coated-silk_cl_4-0_ver',
+            'poster_a3': 'flat_pf_a3_pt_170-gsm-coated-silk_cl_4-0_ver',
+            'poster_a2': 'flat_pf_a2_pt_170-gsm-coated-silk_cl_4-0_ver',
+            'poster_a1': 'flat_pf_a1_pt_170-gsm-coated-silk_cl_4-0_ver',
+            'postcard_a6': 'cards_pf_a6_pt_350-gsm-coated-silk_cl_4-0_ver',
+            'postcard_dl': 'cards_pf_dl_pt_350-gsm-coated-silk_cl_4-0_ver',
+          };
+
           const items = priceLists[0].price_list_items
             .filter(item => item.enabled !== false)
             .map(item => ({
@@ -583,6 +607,7 @@ const CustomerView = ({ domainMode = null }) => {
               category: item.category || 'Prints',
               price: parseFloat(item.selling_price) || parseFloat(item.purchase_price) || 0,
               productionCost: parseFloat(item.purchase_price) || 0,
+              gelatoUid: item.gelato_uid || GELATO_UID_MAP[item.product_sku] || '',
               provider: item.lab || priceLists[0].provider || 'gelato',
             }));
           console.log('[Shop] Products mapped:', items.length, items);
@@ -636,36 +661,39 @@ const CustomerView = ({ domainMode = null }) => {
     setShowProductModal(true);
   };
 
-  // Submit order
+  // Submit order via Gelato API
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (cart.length === 0 || !checkoutForm.email) return;
     setOrderSubmitting(true);
     try {
       const orderPayload = {
-        user_id: supaGallery.user_id,
-        gallery_id: supaGallery.id,
-        provider: shopProvider,
-        customer_name: checkoutForm.name,
-        customer_email: checkoutForm.email,
-        customer_address: {
-          strasse: checkoutForm.strasse,
-          plz: checkoutForm.plz,
-          ort: checkoutForm.ort,
-          land: checkoutForm.land,
+        galleryId: supaGallery.id,
+        userId: supaGallery.user_id,
+        customer: {
+          firstName: (checkoutForm.name || '').split(' ')[0] || '',
+          lastName: (checkoutForm.name || '').split(' ').slice(1).join(' ') || '',
+          email: checkoutForm.email,
+          addressLine1: checkoutForm.strasse || '',
+          city: checkoutForm.ort || '',
+          postCode: checkoutForm.plz || '',
+          country: checkoutForm.land || 'CH',
+          phone: checkoutForm.phone || '',
         },
-        coupon_code: couponInput || null,
         items: cart.map(item => ({
-          sku: item.product.sku,
-          name: item.product.name,
-          unit_price: item.product.price,
-          production_cost: item.product.productionCost,
+          productSku: item.product.sku,
+          productUid: item.product.gelatoUid || item.product.sku,
+          productName: item.product.name,
           quantity: item.quantity,
-          options: { imageUrl: item.photo.src, imageName: item.photo.name },
+          price: item.product.price,
+          productionCost: item.product.productionCost || 0,
+          // Use original image URL (not thumbnail) for print production
+          fileUrl: item.photo.originalSrc || item.photo.src,
         })),
+        couponCode: couponInput || null,
       };
 
-      const resp = await fetch(`${UPLOAD_API}/api/shop/order`, {
+      const resp = await fetch(`${UPLOAD_API}/api/gelato/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload),

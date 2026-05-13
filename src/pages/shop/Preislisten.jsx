@@ -3,54 +3,54 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useShop } from '../../contexts/ShopContext';
 import { supabase } from '../../lib/supabaseClient';
 
-// Default product catalog (without photo albums, as specified)
+// Default product catalog with Gelato Product UIDs
 const DEFAULT_PRODUCTS = [
   {
     category: 'Digitale Pakete',
     items: [
-      { sku: 'digital_single', name: 'Einzelnes Digitalfoto', purchasePrice: 0, defaultPrice: 2.00 },
-      { sku: 'digital_pack_10', name: 'Digitalpaket 10 Fotos', purchasePrice: 0, defaultPrice: 15.00 },
-      { sku: 'digital_pack_all', name: 'Alle Fotos digital', purchasePrice: 0, defaultPrice: 49.00 },
+      { sku: 'digital_single', name: 'Einzelnes Digitalfoto', purchasePrice: 0, defaultPrice: 2.00, gelato_uid: '' },
+      { sku: 'digital_pack_10', name: 'Digitalpaket 10 Fotos', purchasePrice: 0, defaultPrice: 15.00, gelato_uid: '' },
+      { sku: 'digital_pack_all', name: 'Alle Fotos digital', purchasePrice: 0, defaultPrice: 49.00, gelato_uid: '' },
     ],
   },
   {
     category: 'Ausdrucke',
     items: [
-      { sku: 'print_13x9', name: 'Fotoabzug classic 13x9cm', purchasePrice: 0.28, defaultPrice: 0.60 },
-      { sku: 'print_18x13', name: 'Fotoabzug classic 18x13cm', purchasePrice: 0.56, defaultPrice: 0.90 },
-      { sku: 'print_15x10', name: 'Fotoabzug classic 15x10cm', purchasePrice: 0.37, defaultPrice: 0.85 },
-      { sku: 'print_19x13', name: 'Fotoabzug classic 19x13cm', purchasePrice: 0.60, defaultPrice: 1.10 },
-      { sku: 'print_23x15', name: 'Fotoabzug classic 23x15cm', purchasePrice: 0.70, defaultPrice: 1.20 },
-      { sku: 'print_30x20', name: 'Fotoabzug classic 30x20cm', purchasePrice: 1.62, defaultPrice: 2.10 },
-      { sku: 'print_45x30', name: 'Fotoabzug classic 45x30cm', purchasePrice: 4.31, defaultPrice: 4.90 },
-      { sku: 'print_sq_15x15', name: 'Fotoabzüge quadratisch 15x15cm', purchasePrice: 0.66, defaultPrice: 1.10 },
-      { sku: 'print_sq_21x21', name: 'Fotoabzüge quadratisch 21x21cm', purchasePrice: 1.62, defaultPrice: 2.10 },
+      { sku: 'print_13x9', name: 'Fotoabzug classic 13x9cm', purchasePrice: 0.28, defaultPrice: 0.60, gelato_uid: 'photoprints_130x90-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_18x13', name: 'Fotoabzug classic 18x13cm', purchasePrice: 0.56, defaultPrice: 0.90, gelato_uid: 'photoprints_180x130-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_15x10', name: 'Fotoabzug classic 15x10cm', purchasePrice: 0.37, defaultPrice: 0.85, gelato_uid: 'photoprints_150x100-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_19x13', name: 'Fotoabzug classic 19x13cm', purchasePrice: 0.60, defaultPrice: 1.10, gelato_uid: 'photoprints_190x130-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_23x15', name: 'Fotoabzug classic 23x15cm', purchasePrice: 0.70, defaultPrice: 1.20, gelato_uid: 'photoprints_230x150-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_30x20', name: 'Fotoabzug classic 30x20cm', purchasePrice: 1.62, defaultPrice: 2.10, gelato_uid: 'photoprints_300x200-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_45x30', name: 'Fotoabzug classic 45x30cm', purchasePrice: 4.31, defaultPrice: 4.90, gelato_uid: 'photoprints_450x300-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_sq_15x15', name: 'Fotoabzüge quadratisch 15x15cm', purchasePrice: 0.66, defaultPrice: 1.10, gelato_uid: 'photoprints_150x150-mm_200-gsm-photo-gloss_4-0_ver' },
+      { sku: 'print_sq_21x21', name: 'Fotoabzüge quadratisch 21x21cm', purchasePrice: 1.62, defaultPrice: 2.10, gelato_uid: 'photoprints_210x210-mm_200-gsm-photo-gloss_4-0_ver' },
     ],
   },
   {
     category: 'Leinwand',
     items: [
-      { sku: 'canvas_30x20', name: 'Leinwand 30x20cm', purchasePrice: 12.50, defaultPrice: 29.00 },
-      { sku: 'canvas_40x30', name: 'Leinwand 40x30cm', purchasePrice: 18.00, defaultPrice: 39.00 },
-      { sku: 'canvas_60x40', name: 'Leinwand 60x40cm', purchasePrice: 28.00, defaultPrice: 59.00 },
-      { sku: 'canvas_80x60', name: 'Leinwand 80x60cm', purchasePrice: 42.00, defaultPrice: 89.00 },
-      { sku: 'canvas_100x75', name: 'Leinwand 100x75cm', purchasePrice: 58.00, defaultPrice: 119.00 },
+      { sku: 'canvas_30x20', name: 'Leinwand 30x20cm', purchasePrice: 12.50, defaultPrice: 29.00, gelato_uid: 'canvas_300x200-mm_canvas-matte_4-0_ver' },
+      { sku: 'canvas_40x30', name: 'Leinwand 40x30cm', purchasePrice: 18.00, defaultPrice: 39.00, gelato_uid: 'canvas_400x300-mm_canvas-matte_4-0_ver' },
+      { sku: 'canvas_60x40', name: 'Leinwand 60x40cm', purchasePrice: 28.00, defaultPrice: 59.00, gelato_uid: 'canvas_600x400-mm_canvas-matte_4-0_ver' },
+      { sku: 'canvas_80x60', name: 'Leinwand 80x60cm', purchasePrice: 42.00, defaultPrice: 89.00, gelato_uid: 'canvas_800x600-mm_canvas-matte_4-0_ver' },
+      { sku: 'canvas_100x75', name: 'Leinwand 100x75cm', purchasePrice: 58.00, defaultPrice: 119.00, gelato_uid: 'canvas_1000x750-mm_canvas-matte_4-0_ver' },
     ],
   },
   {
     category: 'Poster',
     items: [
-      { sku: 'poster_a4', name: 'Poster A4', purchasePrice: 3.50, defaultPrice: 9.00 },
-      { sku: 'poster_a3', name: 'Poster A3', purchasePrice: 6.00, defaultPrice: 15.00 },
-      { sku: 'poster_a2', name: 'Poster A2', purchasePrice: 10.00, defaultPrice: 25.00 },
-      { sku: 'poster_a1', name: 'Poster A1', purchasePrice: 18.00, defaultPrice: 39.00 },
+      { sku: 'poster_a4', name: 'Poster A4', purchasePrice: 3.50, defaultPrice: 9.00, gelato_uid: 'flat_pf_a4_pt_170-gsm-coated-silk_cl_4-0_ver' },
+      { sku: 'poster_a3', name: 'Poster A3', purchasePrice: 6.00, defaultPrice: 15.00, gelato_uid: 'flat_pf_a3_pt_170-gsm-coated-silk_cl_4-0_ver' },
+      { sku: 'poster_a2', name: 'Poster A2', purchasePrice: 10.00, defaultPrice: 25.00, gelato_uid: 'flat_pf_a2_pt_170-gsm-coated-silk_cl_4-0_ver' },
+      { sku: 'poster_a1', name: 'Poster A1', purchasePrice: 18.00, defaultPrice: 39.00, gelato_uid: 'flat_pf_a1_pt_170-gsm-coated-silk_cl_4-0_ver' },
     ],
   },
   {
     category: 'Postkarten',
     items: [
-      { sku: 'postcard_a6', name: 'Postkarte A6', purchasePrice: 0.45, defaultPrice: 1.50 },
-      { sku: 'postcard_dl', name: 'Postkarte DIN lang', purchasePrice: 0.55, defaultPrice: 1.80 },
+      { sku: 'postcard_a6', name: 'Postkarte A6', purchasePrice: 0.45, defaultPrice: 1.50, gelato_uid: 'cards_pf_a6_pt_350-gsm-coated-silk_cl_4-0_ver' },
+      { sku: 'postcard_dl', name: 'Postkarte DIN lang', purchasePrice: 0.55, defaultPrice: 1.80, gelato_uid: 'cards_pf_dl_pt_350-gsm-coated-silk_cl_4-0_ver' },
     ],
   },
 ];
@@ -66,6 +66,7 @@ function buildDefaultItems() {
         lab: 'gelato',
         purchase_price: item.purchasePrice,
         selling_price: item.defaultPrice,
+        gelato_uid: item.gelato_uid || '',
         enabled: true,
       });
     });
