@@ -1319,6 +1319,23 @@ const CustomerView = ({ domainMode = null }) => {
               <Mail size={16} /><span>{t.contact}</span>
             </button>
 
+            {/* Shop — only visible when shop is enabled */}
+            {shopEnabled && shopProducts.length > 0 && (
+              <button className="cv-menu-item" onClick={() => {
+                setMenuOpen(false);
+                // Scroll to the shop showcase section
+                const shopEl = document.querySelector('.cv-shop-showcase');
+                if (shopEl) {
+                  shopEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                  setShowCartDrawer(true);
+                }
+              }}>
+                <ShoppingCart size={16} /><span>{t.shop}</span>
+                {cartCount > 0 && <span style={{ marginLeft: 'auto', background: 'var(--cv-accent, #5a8a5c)', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700 }}>{cartCount}</span>}
+              </button>
+            )}
+
             {/* Account */}
             <button className="cv-menu-item" onClick={() => { if (!customerUser) setShowLoginModal(true); else alert(`Angemeldet als: ${customerUser.name}`); setMenuOpen(false); }}>
               <User size={16} /><span>{t.createAccount}</span>
