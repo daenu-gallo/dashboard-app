@@ -74,6 +74,8 @@ export const GalleryProvider = ({ children }) => {
       downloadPin: preset ? preset.downloadPin || false : false,
       wasserzeichen: preset ? !!preset.wasserzeichen : false,
       selectedWatermarkId: preset?.wasserzeichen || null,
+      bilderschutz: preset ? preset.bilderschutz || false : false,
+      shop: preset ? preset.shop || false : false,
     };
 
     const design = {
