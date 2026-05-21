@@ -1357,7 +1357,7 @@ const CustomerView = ({ domainMode = null }) => {
             </button>
             <div className="cv-contact-photo">
               {globalBrand.teamBild ? (
-                <img src={globalBrand.teamBild} alt="Team" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                <img src={globalBrand.teamBild} alt="Team" />
               ) : (
                 <div className="cv-contact-photo-placeholder">
                   <ImageIcon size={40} style={{ color: '#ccc' }} />
@@ -1375,7 +1375,9 @@ const CustomerView = ({ domainMode = null }) => {
             </div>
             <div className="cv-contact-info">
               <h3>{globalBrand.firmenname || brandName}</h3>
-              <p className="cv-contact-name">{globalBrand.firmenname || brandName}</p>
+              {globalBrand.kontaktperson && globalBrand.kontaktperson !== (globalBrand.firmenname || brandName) && (
+                <p className="cv-contact-name">{globalBrand.kontaktperson}</p>
+              )}
               <p className="cv-contact-detail">{globalBrand.telefon || '+41796662009'}</p>
               <p className="cv-contact-detail">{globalBrand.email || ''}</p>
               <div className="cv-contact-socials">

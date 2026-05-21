@@ -351,7 +351,7 @@ const PhotoCard = ({ src, filename, colorIdx, onDelete, position, onSetTitelbild
 };
 
 /* ---- Main BilderTab ---- */
-const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, onAppIconChange }) => {
+const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, onAppIconChange, galleryImagesHook }) => {
   const galleryKey = gallery?.title || 'default';
   const { globalBrand } = useBrand();
   const [expandedAlbums, setExpandedAlbums] = usePersistedState(`gallery_${galleryKey}_expanded`, {});
@@ -472,7 +472,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     return () => { if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current); };
   }, [albums, albumNames, albumToggles, albumTexts, albumsLoaded]);
 
-  // ── Media: Images from NAS via Upload-API ──
+  // ── Media: Images from NAS via Upload-API (hook provided by parent to survive tab switches) ──
   const galleryId = supabaseGallery?.id;
   const {
     images: uploadedImages,
@@ -487,7 +487,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     setMobileTitleImage: apiSetMobileTitleImage,
     setAppIcon: apiSetAppIcon,
     refreshImages,
-  } = useGalleryImages(galleryId);
+  } = galleryImagesHook;
 
   // Videos still in localStorage (embeds / YouTube URLs, not large files)
   const [uploadedVideos, setUploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});

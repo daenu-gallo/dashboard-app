@@ -31,8 +31,12 @@ const GalleryDetailPage = () => {
   const gallery = getGalleryBySlug(slug);
   const [dynamicCounts, setDynamicCounts] = useState({ albums: 0, photos: 0 });
 
-  // Load images for VerschickenTab preview
-  const { images: galleryImages } = useGalleryImages(gallery?.id);
+  // Load images at parent level so upload state survives tab switches
+  const galleryImagesHook = useGalleryImages(gallery?.id);
+  const { images: galleryImages, uploadQueue, uploadProgress } = galleryImagesHook;
+
+  // Check if any upload is active (for showing persistent progress bar)
+  const isUploading = uploadQueue?.some(q => q.status === 'uploading' || q.status === 'queued');
 
 
 
@@ -82,7 +86,7 @@ const GalleryDetailPage = () => {
     // They will be migrated in the NAS image phase  
     const legacyGallery = { title: gallery.title, slug: gallery.slug };
     switch (activeTab) {
-      case 'bilder': return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;
+      case 'bilder': return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} galleryImagesHook={galleryImagesHook} />;
       case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
@@ -155,6 +159,35 @@ const GalleryDetailPage = () => {
           </button>
         ))}
       </nav>
+
+      {/* Persistent Upload Progress Bar (visible on ALL tabs) */}
+      {isUploading && uploadProgress && (
+        <div style={{
+          background: 'linear-gradient(135deg, #e8f5e9, #f1f8e9)',
+          borderBottom: '1px solid #c8e6c9',
+          padding: '0.6rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          fontSize: '0.85rem',
+          color: '#2e7d32',
+          fontWeight: 500,
+          cursor: 'pointer',
+        }}
+        onClick={() => setActiveTab('bilder')}
+        title="Klicke um zum Upload zu wechseln"
+        >
+          <div style={{ animation: 'spin 1s linear infinite', width: 18, height: 18, border: '2px solid #a5d6a7', borderTopColor: '#2e7d32', borderRadius: '50%' }} />
+          <span>
+            ⬆ Upload: {uploadProgress.albumName} — {uploadProgress.completed}/{uploadProgress.total} Bilder
+          </span>
+          <div style={{ flex: 1, height: 6, background: '#c8e6c9', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ width: `${Math.round((uploadProgress.completed / uploadProgress.total) * 100)}%`, height: '100%', background: '#4caf50', borderRadius: 3, transition: 'width 0.3s ease' }} />
+          </div>
+          <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{Math.round((uploadProgress.completed / uploadProgress.total) * 100)}%</span>
+          {activeTab !== 'bilder' && <span style={{ fontSize: '0.75rem', color: '#66bb6a', marginLeft: 'auto' }}>→ Bilder Tab</span>}
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="gallery-tab-content">

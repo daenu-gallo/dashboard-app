@@ -1,8 +1,9 @@
 {
-  "name": "Fotohahn Dashboard",
+  "name": "Fotohahn Galerie",
   "short_name": "Fotohahn",
-  "description": "Professionelle Galerie-Verwaltung für Fotografen",
+  "description": "Professionelle Foto-Galerien",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f1419",
   "theme_color": "#528c68",

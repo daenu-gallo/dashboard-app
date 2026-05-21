@@ -30,9 +30,10 @@ const GalleryHomePage = ({ domainMode }) => {
           return;
         }
 
-        if (domainMode.type === 'custom') {
-          // Custom domain: strip "galerie." prefix to find brand website
-          const brandDomain = domainMode.domain.replace(/^galerie\./, '').replace(/^app\./, '');
+        if (domainMode.type === 'gallery-home' || domainMode.type === 'custom') {
+          // gallery-home: e.g. "galerie.fotohahn.ch" → strip "galerie." → "fotohahn.ch"
+          // custom: e.g. "app.muellerfoto.ch" → strip "app." or "galerie." → "muellerfoto.ch"
+          const brandDomain = domainMode.domain.replace(/^(galerie|app)\./, '');
           const { data: brandData } = await supabase
             .from('brands')
             .select('*')
