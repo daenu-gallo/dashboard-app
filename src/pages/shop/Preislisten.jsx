@@ -268,11 +268,13 @@ const Preislisten = () => {
           <table className="product-table">
             <thead>
               <tr>
-                <th style={{ width: 260 }}>Produkt</th>
+                <th style={{ width: 240 }}>Produkt</th>
                 <th>Labor</th>
-                <th>Einkaufspreis</th>
-                <th>Verkaufspreis</th>
-                <th>Brutto Marge ⓘ</th>
+                <th>Einkauf</th>
+                <th>Verkauf</th>
+                <th>Brutto Marge</th>
+                <th title="Stripe Gebühr: 2.9% + CHF 0.30 pro Transaktion">Stripe Gebühr</th>
+                <th title="Reingewinn = Verkaufspreis - Einkaufspreis - Stripe Gebühr">Reingewinn ✦</th>
               </tr>
             </thead>
             <tbody>
@@ -286,7 +288,7 @@ const Preislisten = () => {
                   <React.Fragment key={cat.category}>
                     {/* Category Header */}
                     <tr className="category-row">
-                      <td colSpan={4}>
+                      <td colSpan={6}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <input
                             type="checkbox"
@@ -312,10 +314,14 @@ const Preislisten = () => {
                     {/* Product Rows */}
                     {!isCollapsed &&
                       catItems.map((item) => {
-                        const margin = ((item.sellingPrice || 0) - (item.purchasePrice || 0)).toFixed(2);
-                        const isNegative = parseFloat(margin) < 0;
+                        const selling = item.sellingPrice || 0;
+                        const purchase = item.purchasePrice || 0;
+                        const bruttoMargin = selling - purchase;
+                        const stripeFee = selling > 0 ? (selling * 0.029 + 0.30) : 0;
+                        const netProfit = selling - purchase - stripeFee;
+                        const isNegative = netProfit < 0;
                         return (
-                          <tr key={item.product_sku}>
+                          <tr key={item.product_sku} style={{ opacity: item.enabled ? 1 : 0.45 }}>
                             <td>
                               <div className="product-row">
                                 <input
@@ -343,8 +349,8 @@ const Preislisten = () => {
                                 <option value="nphoto">nPhoto</option>
                               </select>
                             </td>
-                            <td style={{ color: 'var(--text-secondary)' }}>
-                              Fr. {(item.purchasePrice || 0).toFixed(2)}
+                            <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                              Fr. {purchase.toFixed(2)}
                             </td>
                             <td>
                               <input
@@ -358,8 +364,20 @@ const Preislisten = () => {
                               />
                             </td>
                             <td>
-                              <span className={`margin-badge ${isNegative ? 'negative' : ''}`}>
-                                Fr. {margin}
+                              <span className={`margin-badge ${bruttoMargin < 0 ? 'negative' : ''}`}>
+                                Fr. {bruttoMargin.toFixed(2)}
+                              </span>
+                            </td>
+                            <td style={{ color: '#e57373', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              {selling > 0 ? `- Fr. ${stripeFee.toFixed(2)}` : '—'}
+                            </td>
+                            <td>
+                              <span style={{
+                                fontWeight: 600,
+                                color: isNegative ? '#ef4444' : '#2e7d32',
+                                fontSize: '0.85rem',
+                              }}>
+                                Fr. {netProfit.toFixed(2)}
                               </span>
                             </td>
                           </tr>
