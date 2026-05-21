@@ -1586,16 +1586,16 @@ const CustomerView = ({ domainMode = null }) => {
           if (!categories[p.category]) categories[p.category] = [];
           categories[p.category].push(p);
         });
-        // Pick preview photos from the gallery (cycle through them)
+        // Pick preview photos from the gallery (cycle through them for each category)
         const previewPhotos = allPhotos.slice(0, 8);
 
-        // Category display config with product images
-        const categoryConfig = {
-          'Digitale Pakete': { image: '/shop/digital.png', label: 'Digitale Pakete' },
-          'Ausdrucke': { image: '/shop/prints.png', label: 'Ausdrucke' },
-          'Leinwand': { image: '/shop/canvas.png', label: 'Leinwand' },
-          'Poster': { image: '/shop/poster.png', label: 'Poster' },
-          'Postkarten': { image: '/shop/postcards.png', label: 'Postkarten' },
+        // Category labels (no static images needed — we use gallery photos)
+        const categoryLabels = {
+          'Digitale Pakete': 'Digitale Pakete',
+          'Ausdrucke': 'Ausdrucke',
+          'Leinwand': 'Leinwand',
+          'Poster': 'Poster',
+          'Postkarten': 'Postkarten',
         };
 
         return (
@@ -1604,10 +1604,19 @@ const CustomerView = ({ domainMode = null }) => {
               <h2 className="cv-shop-showcase-title">Bestelle deine Lieblingsbilder:</h2>
             </div>
             <div className="cv-shop-category-scroll">
+              <button className="cv-shop-scroll-btn cv-shop-scroll-left" onClick={(e) => {
+                const track = e.currentTarget.nextElementSibling;
+                if (track) track.scrollBy({ left: -260, behavior: 'smooth' });
+              }}>
+                <ChevronLeft size={20} />
+              </button>
               <div className="cv-shop-category-track">
-                {Object.entries(categories).map(([catName, products]) => {
-                  const config = categoryConfig[catName] || { image: '/shop/prints.png', label: catName };
+                {Object.entries(categories).map(([catName, products], catIdx) => {
+                  const label = categoryLabels[catName] || catName;
                   const cheapest = Math.min(...products.map(p => p.price));
+                  // Use a different gallery photo for each category card
+                  const bgPhoto = previewPhotos[catIdx % previewPhotos.length];
+                  const bgSrc = bgPhoto?.thumbSrc || bgPhoto?.src || '';
 
                   return (
                     <div
@@ -1618,8 +1627,12 @@ const CustomerView = ({ domainMode = null }) => {
                       }}
                     >
                       <div className="cv-shop-category-img">
-                        <img src={config.image} alt={config.label} loading="lazy" />
-                        <span className="cv-shop-category-label">{config.label}</span>
+                        {bgSrc ? (
+                          <img src={bgSrc} alt={label} loading="lazy" style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', background: '#ddd' }} />
+                        )}
+                        <span className="cv-shop-category-label">{label}</span>
                       </div>
                       <div className="cv-shop-category-price">
                         Ab: Fr. {cheapest.toFixed(2)}
@@ -1628,7 +1641,7 @@ const CustomerView = ({ domainMode = null }) => {
                   );
                 })}
               </div>
-              <button className="cv-shop-scroll-btn" onClick={(e) => {
+              <button className="cv-shop-scroll-btn cv-shop-scroll-right" onClick={(e) => {
                 const track = e.currentTarget.previousElementSibling;
                 if (track) track.scrollBy({ left: 260, behavior: 'smooth' });
               }}>
