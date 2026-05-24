@@ -78,6 +78,20 @@ export const useDynamicManifest = ({
       }
     }
 
+    // ── Dynamic Favicon: replace browser tab icon with gallery/brand logo ──
+    let previousFavicon = null;
+    if (iconUrl) {
+      const favicon = document.querySelector('link[rel="icon"]');
+      if (favicon) {
+        previousFavicon = favicon.href;
+        favicon.href = iconUrl;
+        // Also set type for non-SVG icons
+        if (!iconUrl.endsWith('.svg')) {
+          favicon.type = 'image/png';
+        }
+      }
+    }
+
     // Cleanup: restore original manifest on unmount
     return () => {
       newLink.remove();
@@ -92,6 +106,11 @@ export const useDynamicManifest = ({
       }
       if (themeMeta && previousTheme) {
         themeMeta.content = previousTheme;
+      }
+      // Restore original favicon
+      if (previousFavicon) {
+        const favicon = document.querySelector('link[rel="icon"]');
+        if (favicon) favicon.href = previousFavicon;
       }
     };
   }, [name, shortName, startUrl, themeColor, backgroundColor, description, iconUrl]);
