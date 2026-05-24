@@ -134,6 +134,62 @@ app.use(generalLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 
+// ── GET /api/manifest ── Dynamic Web App Manifest ──
+// Generates a per-gallery manifest so iOS "Add to Home Screen" preserves the correct URL.
+// Scrappbook uses the same pattern: absolute URLs in start_url and scope.
+// Usage: <link rel="manifest" href="https://api.fotohahn.ch/api/manifest?origin=https://galerie.fotohahn.ch&start=/hochzeit&name=Hochzeit">
+app.get('/api/manifest', (req, res) => {
+  const {
+    origin = 'https://galerie.fotohahn.ch',
+    start = '/',
+    name = 'Fotogalerie',
+    short = '',
+    desc = '',
+    theme = '#1a1a1a',
+    bg = '#0f1419',
+    icon = '',
+  } = req.query;
+
+  // Build absolute URLs (like Scrappbook does)
+  const absoluteStart = start.startsWith('http') ? start : `${origin}${start}`;
+  const absoluteScope = start.startsWith('http') ? start : `${origin}${start}`;
+
+  const manifest = {
+    name: name,
+    short_name: (short || name).substring(0, 12),
+    description: desc || `Fotogalerie – ${name}`,
+    start_url: absoluteStart,
+    scope: absoluteScope,
+    display: 'standalone',
+    background_color: bg,
+    theme_color: theme,
+    orientation: 'any',
+    icons: [
+      {
+        src: `${origin}${icon || '/logo192.png'}`,
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: `${origin}/logo512.png`,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
+    categories: ['photography'],
+    lang: 'de',
+    dir: 'ltr',
+  };
+
+  // CORS: allow the gallery domain to fetch this manifest
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json(manifest);
+});
+
 // ── Request logging (security audit trail) ──
 app.use((req, res, next) => {
   const start = Date.now();

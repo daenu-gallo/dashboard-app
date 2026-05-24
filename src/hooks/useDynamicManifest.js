@@ -1,22 +1,16 @@
 import { useEffect } from 'react';
 
+const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
+
 /**
- * useDynamicManifest – Dynamically generates a web app manifest so that
- * "Add to Home Screen" preserves the current gallery URL as start_url.
+ * useDynamicManifest – Points the manifest link to a server-side endpoint
+ * that generates a real manifest.json with the correct start_url.
  *
- * Uses multiple strategies for cross-browser compatibility:
- * - Replaces <link rel="manifest"> with data: URL (works on most browsers)
- * - Sets Apple-specific meta tags for iOS Safari (which ignores dynamic manifests)
- * - Updates theme-color and apple-touch-icon
+ * iOS Safari ignores blob: and data: URL manifests. The ONLY way to make
+ * "Add to Home Screen" preserve the gallery URL is a real HTTP manifest.
  *
- * @param {Object} options
- * @param {string} options.name - App name (e.g. gallery title)
- * @param {string} options.shortName - Short name for home screen
- * @param {string} options.startUrl - The URL to open when launching from home screen
- * @param {string} [options.themeColor] - Theme color
- * @param {string} [options.backgroundColor] - Background color
- * @param {string} [options.description] - App description
- * @param {string} [options.iconUrl] - URL for the app icon (optional)
+ * The server endpoint (upload-api) returns a proper manifest.json with
+ * the gallery-specific start_url, name, and theme colors.
  */
 export const useDynamicManifest = ({
   name,
@@ -30,64 +24,31 @@ export const useDynamicManifest = ({
   useEffect(() => {
     if (!name || !startUrl) return;
 
-    // Build a dynamic manifest object
-    const manifest = {
+    // Build the server-side manifest URL with query params
+    const params = new URLSearchParams({
+      start: startUrl,
       name: name,
-      short_name: shortName || name.substring(0, 12),
-      description: description || `Fotogalerie – ${name}`,
-      start_url: startUrl,
-      scope: '/',
-      display: 'standalone',
-      background_color: backgroundColor,
-      theme_color: themeColor,
-      orientation: 'any',
-      icons: [
-        {
-          src: iconUrl || '/logo192.png',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any maskable',
-        },
-        {
-          src: '/logo512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any maskable',
-        },
-      ],
-      categories: ['photography'],
-      lang: 'de',
-      dir: 'ltr',
-    };
+      short: shortName || name.substring(0, 12),
+      desc: description || `Fotogalerie – ${name}`,
+      theme: themeColor,
+      bg: backgroundColor,
+    });
+    if (iconUrl) params.set('icon', iconUrl);
 
-    // ── Strategy 1: Replace manifest link with data: URL ──
-    // Remove ALL existing manifest links (iOS caches the first one it sees)
+    const manifestUrl = `${UPLOAD_API}/api/manifest?${params.toString()}`;
+
+    // Remove ALL existing manifest links
     const existingLinks = document.querySelectorAll('link[rel="manifest"]');
     const previousHrefs = Array.from(existingLinks).map(l => l.href);
     existingLinks.forEach(l => l.remove());
 
-    // Create new manifest link with data: URL (more compatible than blob: on iOS)
-    const manifestJson = JSON.stringify(manifest);
-    const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(manifestJson)}`;
+    // Create new manifest link pointing to the server endpoint
     const newLink = document.createElement('link');
     newLink.rel = 'manifest';
-    newLink.href = dataUrl;
+    newLink.href = manifestUrl;
     document.head.appendChild(newLink);
 
-    // ── Strategy 2: Apple-specific meta tags for iOS Safari ──
-    // iOS Safari often ignores the manifest for "Add to Home Screen"
-    // and instead uses these meta tags + current URL as start URL.
-
-    // apple-mobile-web-app-capable: makes it open as standalone app
-    let awacMeta = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
-    if (!awacMeta) {
-      awacMeta = document.createElement('meta');
-      awacMeta.name = 'apple-mobile-web-app-capable';
-      document.head.appendChild(awacMeta);
-    }
-    awacMeta.content = 'yes';
-
-    // apple-mobile-web-app-title: sets the app name on home screen
+    // Update apple-mobile-web-app-title for iOS home screen name
     let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     const previousAppleTitle = titleMeta ? titleMeta.content : null;
     if (!titleMeta) {
@@ -97,23 +58,14 @@ export const useDynamicManifest = ({
     }
     titleMeta.content = shortName || name.substring(0, 12);
 
-    // apple-mobile-web-app-status-bar-style
-    let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (!statusMeta) {
-      statusMeta = document.createElement('meta');
-      statusMeta.name = 'apple-mobile-web-app-status-bar-style';
-      document.head.appendChild(statusMeta);
-    }
-    statusMeta.content = 'black-translucent';
-
-    // ── Strategy 3: Update theme-color meta tag ──
+    // Update theme-color meta tag
     let themeMeta = document.querySelector('meta[name="theme-color"]');
     const previousTheme = themeMeta ? themeMeta.content : null;
     if (themeMeta) {
       themeMeta.content = themeColor;
     }
 
-    // ── Strategy 4: Update apple-touch-icon ──
+    // Update apple-touch-icon if custom icon provided
     if (iconUrl) {
       let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
       if (appleIcon) {
@@ -128,20 +80,16 @@ export const useDynamicManifest = ({
 
     // Cleanup: restore original manifest on unmount
     return () => {
-      // Remove our dynamic link
       newLink.remove();
-      // Restore original manifest links
       previousHrefs.forEach(href => {
         const restored = document.createElement('link');
         restored.rel = 'manifest';
         restored.href = href;
         document.head.appendChild(restored);
       });
-      // Restore Apple title
       if (titleMeta && previousAppleTitle !== null) {
         titleMeta.content = previousAppleTitle;
       }
-      // Restore theme
       if (themeMeta && previousTheme) {
         themeMeta.content = previousTheme;
       }

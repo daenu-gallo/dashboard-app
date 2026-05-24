@@ -1586,10 +1586,25 @@ const CustomerView = ({ domainMode = null }) => {
           if (!categories[p.category]) categories[p.category] = [];
           categories[p.category].push(p);
         });
-        // Pick preview photos from the gallery (cycle through them for each category)
-        const previewPhotos = allPhotos.slice(0, 8);
 
-        // Category labels (no static images needed — we use gallery photos)
+        // Product mockup images for each category (like Scrappbook)
+        const categoryMockups = {
+          'Ausdrucke': '/shop-mockups/ausdrucke.png',
+          'Poster': '/shop-mockups/poster.png',
+          'Postkarten': '/shop-mockups/postkarten.png',
+          'Leinwand': '/shop-mockups/leinwand.png',
+          'Fotobuch': '/shop-mockups/fotobuch.png',
+          'Fotobuch Exklusiv': '/shop-mockups/fotobuch.png',
+          'Digitale Pakete': '/shop-mockups/digital.png',
+          'Dateien': '/shop-mockups/digital.png',
+          'Wanddeko': '/shop-mockups/leinwand.png',
+          'Kalender': '/shop-mockups/poster.png',
+          'Grußkarten': '/shop-mockups/postkarten.png',
+          'Leporello': '/shop-mockups/ausdrucke.png',
+          'Triplex': '/shop-mockups/ausdrucke.png',
+        };
+
+        // Category labels
         const categoryLabels = {
           'Digitale Pakete': 'Digitale Pakete',
           'Ausdrucke': 'Ausdrucke',
@@ -1597,6 +1612,9 @@ const CustomerView = ({ domainMode = null }) => {
           'Poster': 'Poster',
           'Postkarten': 'Postkarten',
         };
+
+        // Fallback: use gallery photos if no mockup exists for a category
+        const previewPhotos = allPhotos.slice(0, 8);
 
         return (
           <section className="cv-shop-showcase">
@@ -1614,9 +1632,10 @@ const CustomerView = ({ domainMode = null }) => {
                 {Object.entries(categories).map(([catName, products], catIdx) => {
                   const label = categoryLabels[catName] || catName;
                   const cheapest = Math.min(...products.map(p => p.price));
-                  // Use a different gallery photo for each category card
-                  const bgPhoto = previewPhotos[catIdx % previewPhotos.length];
-                  const bgSrc = bgPhoto?.thumbSrc || bgPhoto?.src || '';
+                  // Use product mockup image, or fall back to a gallery photo
+                  const mockupSrc = categoryMockups[catName];
+                  const fallbackPhoto = previewPhotos[catIdx % previewPhotos.length];
+                  const bgSrc = mockupSrc || fallbackPhoto?.thumbSrc || fallbackPhoto?.src || '';
 
                   return (
                     <div
