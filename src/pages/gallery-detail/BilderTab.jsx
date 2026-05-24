@@ -392,13 +392,22 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
           const names = {};
           const toggles = {};
           const texts = {};
+          const loadedVideos = {};
           data.forEach((a, idx) => {
             names[idx] = a.name;
             if (a.toggles) {
               toggles[idx] = a.toggles;
               if (a.toggles._text) texts[idx] = a.toggles._text;
+              // Load videos from Supabase (persisted in toggles._videos)
+              if (a.toggles._videos && a.toggles._videos.length > 0) {
+                loadedVideos[idx] = a.toggles._videos;
+              }
             }
           });
+          // Merge Supabase videos into localStorage (Supabase takes priority)
+          if (Object.keys(loadedVideos).length > 0) {
+            setUploadedVideos(prev => ({ ...prev, ...loadedVideos }));
+          }
           setAlbumNames(names);
           setAlbumToggles(toggles);
           setAlbumTexts(texts);
@@ -432,6 +441,12 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
         // 2. Update or insert each album
         for (let idx = 0; idx < albums.length; idx++) {
           const album = albums[idx];
+          // Build videos array for this album (only embed URLs, skip local data: URIs)
+          const albumVids = (uploadedVideos[idx] || []).filter(v => v.type === 'embed').map(v => ({
+            type: v.type,
+            url: v.url,
+            name: v.name || 'Video',
+          }));
           const albumData = {
             gallery_id: supabaseGallery.id,
             name: albumNames[idx] || album.name,
@@ -439,6 +454,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
             toggles: {
               ...(albumToggles[idx] || {}),
               _text: albumTexts[idx] || undefined,
+              _videos: albumVids.length > 0 ? albumVids : undefined,
             },
           };
 
@@ -470,7 +486,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
       }
     }, 2000);
     return () => { if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current); };
-  }, [albums, albumNames, albumToggles, albumTexts, albumsLoaded]);
+  }, [albums, albumNames, albumToggles, albumTexts, uploadedVideos, albumsLoaded]);
 
   // ── Media: Images from NAS via Upload-API (hook provided by parent to survive tab switches) ──
   const galleryId = supabaseGallery?.id;

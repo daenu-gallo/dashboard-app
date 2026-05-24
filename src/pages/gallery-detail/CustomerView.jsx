@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send, ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
@@ -346,8 +346,16 @@ const CustomerView = ({ domainMode = null }) => {
     })();
   }, [supaGallery?.id]);
 
-  // Videos still from localStorage (embeds/YouTube URLs)
-  const [uploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
+  // Videos from Supabase album toggles (embed URLs saved as _videos)
+  const uploadedVideos = useMemo(() => {
+    const videos = {};
+    supaAlbums.forEach((album, idx) => {
+      if (album.toggles?._videos && album.toggles._videos.length > 0) {
+        videos[idx] = album.toggles._videos;
+      }
+    });
+    return videos;
+  }, [supaAlbums]);
 
   // Brand: use Supabase data (must be before useMetaTags which references brandName)
   const activeBrand = supaBrand || { name: '' };
