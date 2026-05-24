@@ -488,6 +488,54 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     return () => { if (albumSyncTimer.current) clearTimeout(albumSyncTimer.current); };
   }, [albums, albumNames, albumToggles, albumTexts, uploadedVideos, albumsLoaded]);
 
+  // ── One-time migration: push existing localStorage videos to Supabase ──
+  // The main sync skips the first render, so localStorage videos that were added
+  // before the Supabase sync was implemented need to be explicitly migrated.
+  const videoMigrationDone = useRef(false);
+  useEffect(() => {
+    if (videoMigrationDone.current) return;
+    if (!albumsLoaded || !supabaseGallery?.id) return;
+    
+    // Check if there are localStorage videos that aren't in Supabase yet
+    const hasLocalVideos = Object.values(uploadedVideos).some(vids => 
+      Array.isArray(vids) && vids.length > 0 && vids.some(v => v.type === 'embed')
+    );
+    if (!hasLocalVideos) return;
+
+    // Check if any album already has _videos in Supabase
+    const hasSupabaseVideos = albums.some((_, idx) => {
+      const toggles = albumToggles[idx];
+      return toggles?._videos && toggles._videos.length > 0;
+    });
+    if (hasSupabaseVideos) { videoMigrationDone.current = true; return; }
+
+    // Migrate: save localStorage videos to Supabase
+    videoMigrationDone.current = true;
+    console.log('[BilderTab] Migrating localStorage videos to Supabase...');
+    
+    (async () => {
+      for (let idx = 0; idx < albums.length; idx++) {
+        const album = albums[idx];
+        if (!album._supabaseId) continue;
+        const vids = (uploadedVideos[idx] || []).filter(v => v.type === 'embed');
+        if (vids.length === 0) continue;
+        
+        const cleanVids = vids.map(v => ({
+          type: v.type,
+          url: v.url,
+          name: v.name || 'Video',
+        }));
+
+        const currentToggles = albumToggles[idx] || {};
+        await supabase.from('albums').update({
+          toggles: { ...currentToggles, _videos: cleanVids },
+        }).eq('id', album._supabaseId);
+        
+        console.log(`[BilderTab] Migrated ${cleanVids.length} video(s) for album "${albumNames[idx] || album.name}"`);
+      }
+    })();
+  }, [albumsLoaded, supabaseGallery?.id, albums, uploadedVideos, albumToggles, albumNames]);
+
   // ── Media: Images from NAS via Upload-API (hook provided by parent to survive tab switches) ──
   const galleryId = supabaseGallery?.id;
   const {
