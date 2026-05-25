@@ -69,14 +69,16 @@ class ErrorBoundary extends React.Component {
               </button>
             </div>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details style={{ marginTop: '2rem', textAlign: 'left', color: '#666', fontSize: '0.8rem' }}>
+            {this.state.error && (
+              <details style={{ marginTop: '2rem', textAlign: 'left', color: '#666', fontSize: '0.8rem' }} open>
                 <summary style={{ cursor: 'pointer', color: '#888' }}>Fehlerdetails</summary>
                 <pre style={{
                   marginTop: '0.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)',
                   borderRadius: 8, overflow: 'auto', maxHeight: 200,
                 }}>
                   {this.state.error.toString()}
+                  {'\n'}
+                  {this.state.error.stack}
                 </pre>
               </details>
             )}
