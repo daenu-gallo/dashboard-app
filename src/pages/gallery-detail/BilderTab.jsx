@@ -369,6 +369,9 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
   const [albumTexts, setAlbumTexts] = useState({});
   const [albumsLoaded, setAlbumsLoaded] = useState(false);
 
+  // Videos still in localStorage (embeds / YouTube URLs, not large files)
+  const [uploadedVideos, setUploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
+
   // Load albums from Supabase on mount
   useEffect(() => {
     if (!supabaseGallery?.id) return;
@@ -534,8 +537,6 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     refreshImages,
   } = galleryImagesHook;
 
-  // Videos still in localStorage (embeds / YouTube URLs, not large files)
-  const [uploadedVideos, setUploadedVideos] = usePersistedState(`gallery_${galleryKey}_videos`, {});
   const [videoModalAlbum, setVideoModalAlbum] = useState(null);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
