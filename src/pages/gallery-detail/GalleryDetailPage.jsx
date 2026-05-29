@@ -6,7 +6,7 @@ import EinstellungenTab from './EinstellungenTab';
 import DesignTab from './DesignTab';
 import AuswahlenTab from './AuswahlenTab';
 import StatistikenTab from './StatistikenTab';
-
+import ShopTab from './ShopTab';
 import VerschickenTab from './VerschickenTab';
 import { useGalleries } from '../../contexts/GalleryContext';
 import { useGalleryImages } from '../../hooks/useGalleryImages';
@@ -17,6 +17,7 @@ const tabs = [
   { id: 'bilder', label: 'Bilder' },
   { id: 'einstellungen', label: 'Einstellungen' },
   { id: 'design', label: 'Design' },
+  { id: 'shop', label: 'Shop' },
   { id: 'auswahlen', label: 'Auswahlen' },
   { id: 'statistiken', label: 'Statistiken' },
   { id: 'verschicken', label: 'Verschicken' },
@@ -90,6 +91,7 @@ const GalleryDetailPage = () => {
       case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
+      case 'shop': return <ShopTab gallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'statistiken': return <StatistikenTab galleryId={gallery.id} />;
       case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={galleryImages} appIconSrc={appIconSrc} />;
       default: return <BilderTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} onCountsChange={setDynamicCounts} onAppIconChange={setOverrideIcon} />;

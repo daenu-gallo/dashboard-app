@@ -3,8 +3,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader, DatabaseBackup, HardDrive, Activity } from 'lucide-react';
+import { Camera, FolderOpen, Eye, CalendarDays, ExternalLink, TrendingUp, Clock, RotateCcw, Send, Shield, CheckCircle, AlertCircle, Loader, DatabaseBackup, HardDrive, Activity, ShoppingBag } from 'lucide-react';
 import { useBrand } from '../contexts/BrandContext';
+import { useShop } from '../contexts/ShopContext';
 import './Dashboard.css';
 
 const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
@@ -17,6 +18,21 @@ const DashboardPage = () => {
   const [recentViews, setRecentViews] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Shop orders
+  const { orders, fetchOrders } = useShop();
+  const [shopStats, setShopStats] = useState({ count: 0, revenue: 0 });
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const revenue = orders.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
+      setShopStats({ count: orders.length, revenue });
+    }
+  }, [orders]);
 
   // Admin state
   const [isAdmin, setIsAdmin] = useState(false);
@@ -385,6 +401,97 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Shop Orders Widget */}
+      {shopStats.count > 0 && (
+        <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h3 className="chart-title" style={{ margin: 0 }}>
+              <ShoppingBag size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+              Shop-Bestellungen
+            </h3>
+            <button
+              onClick={() => navigate('/shop?tab=bestellungen')}
+              style={{
+                background: 'none', border: 'none', color: 'var(--color-primary)',
+                cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem',
+              }}
+            >
+              Alle ansehen <ExternalLink size={12} />
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{
+              background: 'rgba(82, 140, 104, 0.08)', border: '1px solid rgba(82, 140, 104, 0.2)',
+              borderRadius: 8, padding: '0.75rem', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#528c68' }}>{shopStats.count}</div>
+              <div style={{ fontSize: '0.75rem', color: '#888' }}>Bestellungen</div>
+            </div>
+            <div style={{
+              background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)',
+              borderRadius: 8, padding: '0.75rem', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6' }}>Fr. {shopStats.revenue.toFixed(2)}</div>
+              <div style={{ fontSize: '0.75rem', color: '#888' }}>Umsatz (Brutto)</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {orders.slice(0, 5).map((order, i) => (
+              <div
+                key={order.id || i}
+                onClick={() => navigate('/shop?tab=bestellungen')}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.6rem 0.8rem', background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 8, cursor: 'pointer', transition: 'background 0.2s',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <ShoppingBag size={14} style={{ color: '#528c68', opacity: 0.7 }} />
+                  <span style={{ fontWeight: 500, fontSize: '0.8rem' }}>
+                    {order.order_number || `#${(i + 1).toString().padStart(4, '0')}`}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#888' }}>
+                    {order.customer_name || order.customer_email || 'Kunde'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{
+                    fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: 4,
+                    background: order.status === 'delivered' ? 'rgba(34,197,94,0.15)' :
+                               order.status === 'shipped' ? 'rgba(59,130,246,0.15)' :
+                               order.status === 'cancelled' ? 'rgba(239,68,68,0.15)' :
+                               'rgba(234,179,8,0.15)',
+                    color: order.status === 'delivered' ? '#22c55e' :
+                           order.status === 'shipped' ? '#3b82f6' :
+                           order.status === 'cancelled' ? '#ef4444' :
+                           '#eab308',
+                  }}>
+                    {order.status === 'delivered' ? 'Zugestellt' :
+                     order.status === 'shipped' ? 'Versendet' :
+                     order.status === 'cancelled' ? 'Storniert' :
+                     order.status === 'processing' ? 'In Bearbeitung' :
+                     'Neu'}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: '0.8rem', color: '#528c68', minWidth: 70, textAlign: 'right' }}>
+                    Fr. {(parseFloat(order.total_amount) || 0).toFixed(2)}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#888', whiteSpace: 'nowrap' }}>
+                    <Clock size={10} style={{ marginRight: 3, verticalAlign: -1 }} />
+                    {formatTimeAgo(order.created_at)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
