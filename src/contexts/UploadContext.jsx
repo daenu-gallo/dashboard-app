@@ -17,6 +17,7 @@ export function UploadProvider({ children }) {
   const queueProcessingRef = useRef(false);
   const uploadQueueRef = useRef([]);
   const wakeLockRef = useRef(null);
+  const cancelledRef = useRef(false);
   // Store callbacks to refresh images after upload completes
   const refreshCallbacksRef = useRef({});
 
@@ -113,6 +114,7 @@ export function UploadProvider({ children }) {
       const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
       let completedCount = 0;
       console.log(`[Upload] Starting album "${item.albumName}" for gallery ${item.galleryId}: ${item.files.length} files`);
+      cancelledRef.current = false;
 
       const uploadSingleFile = async (file, fileIdx) => {
         try {
@@ -148,9 +150,28 @@ export function UploadProvider({ children }) {
       };
 
       // Process in batches
+      let wasCancelled = false;
       for (let i = 0; i < item.files.length; i += CONCURRENCY) {
+        if (cancelledRef.current) {
+          console.log(`[Upload] ⛔ Upload abgebrochen bei Datei ${i}/${item.files.length}`);
+          wasCancelled = true;
+          break;
+        }
         const batch = item.files.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map((file, batchIdx) => uploadSingleFile(file, i + batchIdx)));
+      }
+
+      if (wasCancelled) {
+        // Mark current as cancelled, remove all queued items
+        setUploadQueue(prev => prev
+          .map((q, i) => i === nextIdx ? { ...q, status: 'done', newUploads: allResults.length, wasCancelled: true } : q)
+          .filter(q => q.status !== 'queued')
+        );
+        cancelledRef.current = false;
+        // Still refresh so already-uploaded images appear
+        const refreshFn = refreshCallbacksRef.current[item.galleryId];
+        if (refreshFn) { try { await refreshFn(); } catch { } }
+        break; // Exit the while loop
       }
 
       // Mark as done
@@ -201,12 +222,19 @@ export function UploadProvider({ children }) {
     delete refreshCallbacksRef.current[galleryId];
   }, []);
 
+  // ── Cancel upload ──
+  const cancelUpload = useCallback(() => {
+    cancelledRef.current = true;
+    console.log('[Upload] ⛔ Cancel requested');
+  }, []);
+
   return (
     <UploadContext.Provider value={{
       uploadQueue,
       uploadProgress,
       isUploading,
       enqueueUpload,
+      cancelUpload,
       registerRefresh,
       unregisterRefresh,
     }}>
