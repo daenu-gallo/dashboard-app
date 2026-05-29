@@ -2,6 +2,7 @@ import React from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import AnnouncementBanner from './AnnouncementBanner';
+import GlobalUploadBar from './GlobalUploadBar';
 import { useVersionCheck } from '../../hooks/useVersionCheck';
 import './MainLayout.css';
 
@@ -14,6 +15,7 @@ const MainLayout = ({ children }) => {
       <div className="main-content-wrapper">
         <Topbar />
         <AnnouncementBanner announcement={announcement} onDismiss={dismissAnnouncement} />
+        <GlobalUploadBar />
         <main className="main-content">
           {children}
         </main>

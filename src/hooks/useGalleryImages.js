@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useUpload } from '../contexts/UploadContext';
 
 const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
 
 /**
  * Hook to manage gallery images via Supabase + Upload-API (NAS storage).
- * Replaces usePersistedState('gallery_*_images') and related localStorage keys.
+ * Upload logic is delegated to the global UploadContext so uploads survive navigation.
  *
  * @param {string} galleryId - Supabase gallery UUID
- * @returns {{ images, titleImages, appIconUrl, loading, uploadProgress, uploadImages, deleteImage, setTitleImage, setMobileTitleImage, setAppIcon, reorderImages, refreshImages }}
+ * @returns {{ images, titleImages, appIconUrl, loading, uploadProgress, uploadQueue, uploadImages, deleteImage, setTitleImage, setMobileTitleImage, setAppIcon, reorderImages, refreshImages }}
  */
 export function useGalleryImages(galleryId) {
-  // images: { [albumIndex]: [{ id, src, thumbSrc, name, ... }] }
   const [images, setImages] = useState({});
   const [loading, setLoading] = useState(true);
-  const [uploadProgress, setUploadProgress] = useState(null);
   const mountedRef = useRef(true);
+
+  // Global upload context
+  const upload = useUpload();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -48,12 +50,11 @@ export function useGalleryImages(galleryId) {
           name: img.filename,
           width: img.width,
           height: img.height,
-          fileSizeKb: img.file_size_kb,
           sortOrder: img.sort_order,
+          fileSize: img.file_size_kb,
           isTitleImage: img.is_title_image,
-          isMobileTitle: img.is_mobile_title,
+          isMobileTitleImage: img.is_mobile_title,
           isAppIcon: img.is_app_icon,
-          _raw: img,
         });
       });
 
@@ -71,200 +72,25 @@ export function useGalleryImages(galleryId) {
     loadImages();
   }, [loadImages]);
 
+  // Register refresh callback with global upload context
+  useEffect(() => {
+    if (!galleryId || !upload) return;
+    upload.registerRefresh(galleryId, loadImages);
+    return () => upload.unregisterRefresh(galleryId);
+  }, [galleryId, loadImages, upload]);
+
   // ── Get auth token ──
   const getToken = async () => {
     const { data } = await supabase.auth.getSession();
     return data?.session?.access_token;
   };
 
-  // ── Upload Queue: one album at a time ──
-  const [uploadQueue, setUploadQueue] = useState([]); // [{ albumIndex, albumName, files, status: 'queued'|'uploading'|'done' }]
-  const queueProcessingRef = useRef(false);
-  const uploadQueueRef = useRef([]);
-  const wakeLockRef = useRef(null);
-
-  // Prevent device sleep during uploads (Wake Lock API)
-  const acquireWakeLock = async () => {
-    try {
-      if ('wakeLock' in navigator && !wakeLockRef.current) {
-        wakeLockRef.current = await navigator.wakeLock.request('screen');
-        console.log('[Upload] Wake lock acquired');
-      }
-    } catch (err) { console.warn('[Upload] Wake lock failed:', err.message); }
-  };
-  const releaseWakeLock = () => {
-    if (wakeLockRef.current) {
-      wakeLockRef.current.release().catch(() => {});
-      wakeLockRef.current = null;
-      console.log('[Upload] Wake lock released');
-    }
-  };
-
-  // Warn before closing/navigating during active uploads
-  const isUploading = uploadQueue.some(q => q.status === 'uploading' || q.status === 'queued');
-  useEffect(() => {
-    if (!isUploading) return;
-    const handler = (e) => {
-      e.preventDefault();
-      e.returnValue = 'Upload läuft noch. Wirklich verlassen?';
-      return e.returnValue;
-    };
-    window.addEventListener('beforeunload', handler);
-    acquireWakeLock();
-    return () => {
-      window.removeEventListener('beforeunload', handler);
-      releaseWakeLock();
-    };
-  }, [isUploading]);
-
-  // Keep ref in sync with state
-  useEffect(() => { uploadQueueRef.current = uploadQueue; }, [uploadQueue]);
-
-  // Process queue: upload one album at a time
-  const processQueue = useCallback(async () => {
-    if (queueProcessingRef.current) return; // Already processing
-    queueProcessingRef.current = true;
-
-    const token = await getToken();
-    if (!token) { console.error('[Upload] No auth token available!'); queueProcessingRef.current = false; return; }
-    console.log('[Upload] Queue processing started, token obtained');
-
-    while (true) {
-      // Find next queued item
-      const currentQueue = uploadQueueRef.current;
-      const nextIdx = currentQueue.findIndex(q => q.status === 'queued');
-      if (nextIdx === -1) break; // No more items
-
-      const item = currentQueue[nextIdx];
-
-      // Mark as uploading
-      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'uploading', completed: 0 } : q));
-      setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed: 0 });
-
-      const allResults = [];
-      let totalSkipped = 0;
-
-      const CONCURRENCY = 5;
-      const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
-      let completedCount = 0;
-      console.log(`[Upload] Starting album "${item.albumName}": ${item.files.length} files, albumParam=${albumParam}`);
-
-      // Client-side resize: shrink large images before upload for massive speed boost
-      const resizeImage = (file, maxDim = 4000, quality = 0.85) => new Promise((resolve) => {
-        // Only resize images, skip non-images
-        if (!file.type.startsWith('image/')) { resolve(file); return; }
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          // Skip resize if already small enough
-          if (img.width <= maxDim && img.height <= maxDim) { resolve(file); return; }
-          const scale = maxDim / Math.max(img.width, img.height);
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            if (blob) {
-              resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: file.lastModified }));
-            } else {
-              resolve(file); // fallback to original
-            }
-          }, 'image/jpeg', quality);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-        img.src = url;
-      });
-
-      const uploadSingleFile = async (file, fileIdx) => {
-        if (!mountedRef.current) return;
-        try {
-          // Resize before upload (DSLR 20-40MB → ~2-3MB)
-          const resized = await resizeImage(file);
-          const formData = new FormData();
-          formData.append('images', resized);
-
-          const response = await fetch(
-            `${UPLOAD_API}/api/upload/${galleryId}/${albumParam}`,
-            {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` },
-              body: formData,
-            }
-          );
-
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            console.error(`[Upload] File ${fileIdx + 1}/${item.files.length} failed:`, err.error || response.status);
-          } else {
-            const result = await response.json();
-            if (result.images) allResults.push(...result.images);
-            if (result.skippedDuplicates) totalSkipped += result.skippedDuplicates;
-          }
-        } catch (err) {
-          console.error(`[Upload] File ${fileIdx + 1}/${item.files.length} error:`, err);
-        }
-
-        // Update progress atomically
-        completedCount++;
-        if (mountedRef.current) {
-          setUploadQueue(prev => prev.map((q, j) => j === nextIdx ? { ...q, completed: completedCount } : q));
-          setUploadProgress({ albumIndex: item.albumIndex, albumName: item.albumName, total: item.files.length, completed: completedCount });
-          if (item.onProgress) item.onProgress(completedCount, item.files.length);
-        }
-      };
-
-      // Process files in batches of CONCURRENCY
-      for (let i = 0; i < item.files.length; i += CONCURRENCY) {
-        if (!mountedRef.current) break;
-        const batch = item.files.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map((file, batchIdx) => uploadSingleFile(file, i + batchIdx)));
-      }
-
-      // Mark as done (include skipped info)
-      setUploadQueue(prev => prev.map((q, i) => i === nextIdx ? { ...q, status: 'done', skippedDuplicates: totalSkipped, newUploads: allResults.length } : q));
-
-      // Refresh images from DB after each album
-      await loadImages();
-    }
-
-    // All done — clear queue after delay
-    if (mountedRef.current) {
-      setUploadProgress(null);
-      setTimeout(() => {
-        if (mountedRef.current) {
-          setUploadQueue(prev => prev.filter(q => q.status !== 'done'));
-        }
-      }, 3000);
-    }
-
-    queueProcessingRef.current = false;
-  }, [galleryId, loadImages]);
-
-  // Public API: enqueue an album upload
+  // ── Upload: delegate to global context ──
   const uploadImages = useCallback(async (albumIndex, files, onProgress, albumName, albumId) => {
-    if (!galleryId || !files?.length) return [];
-
-    const queueItem = {
-      albumIndex,
-      albumId: albumId || null,
-      albumName: albumName || `Album`,
-      files: Array.from(files),
-      status: 'queued',
-      completed: 0,
-      onProgress,
-    };
-
-    setUploadQueue(prev => [...prev, queueItem]);
-    console.log(`[Upload] Enqueued: ${files.length} files for album "${albumName}" (idx=${albumIndex}, id=${albumId})`);
-
-    // Kick off processing (no-op if already running)
-    // Use setTimeout to ensure state is updated before processing
-    setTimeout(() => processQueue(), 50);
-
+    if (!galleryId || !files?.length || !upload) return [];
+    upload.enqueueUpload(galleryId, albumIndex, files, onProgress, albumName, albumId);
     return [];
-  }, [galleryId, processQueue]);
+  }, [galleryId, upload]);
 
   // ── Delete image ──
   const deleteImage = useCallback(async (albumIndex, imageId) => {
@@ -282,7 +108,6 @@ export function useGalleryImages(galleryId) {
 
       if (!response.ok) throw new Error('Delete failed');
 
-      // Remove from local state instantly
       setImages(prev => {
         const albumImgs = [...(prev[albumIndex] || [])];
         const filtered = albumImgs.filter(img => img.id !== imageId);
@@ -304,7 +129,6 @@ export function useGalleryImages(galleryId) {
 
     try {
       const url = `${UPLOAD_API}/api/images/${imageId}`;
-      console.log(`[UpdateFlag] PATCH ${url}`);
       const response = await fetch(
         url,
         {
@@ -323,8 +147,6 @@ export function useGalleryImages(galleryId) {
         throw new Error('Update failed');
       }
 
-      console.log(`[UpdateFlag] Success! Refreshing images...`);
-      // Refresh to get updated flags
       await loadImages();
       return true;
     } catch (err) {
@@ -339,116 +161,42 @@ export function useGalleryImages(galleryId) {
   const setMobileTitleImage = useCallback((imageId, value = true) =>
     updateImageFlag(imageId, 'is_mobile_title', value), [updateImageFlag]);
 
-  const setAppIcon = useCallback((imageId) =>
-    updateImageFlag(imageId, 'is_app_icon'), [updateImageFlag]);
+  const setAppIcon = useCallback((imageId, value = true) =>
+    updateImageFlag(imageId, 'is_app_icon', value), [updateImageFlag]);
 
   // ── Reorder images ──
-  const reorderImages = useCallback(async (albumIndex, imageIds) => {
+  const reorderImages = useCallback(async (albumKey, reorderedImages) => {
+    setImages(prev => ({ ...prev, [albumKey]: reorderedImages }));
+
     const token = await getToken();
-    if (!token) return false;
+    if (!token) return;
 
     try {
-      const response = await fetch(
-        `${UPLOAD_API}/api/images/reorder`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ imageIds }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Reorder failed');
-
-      // Update local state order
-      setImages(prev => {
-        const albumImgs = prev[albumIndex] || [];
-        const ordered = imageIds.map(id => albumImgs.find(img => img.id === id)).filter(Boolean);
-        return { ...prev, [albumIndex]: ordered };
-      });
-
-      return true;
+      const updates = reorderedImages.map((img, idx) => ({
+        id: img.id,
+        sort_order: idx,
+      }));
+      for (const u of updates) {
+        await supabase.from('images').update({ sort_order: u.sort_order }).eq('id', u.id);
+      }
     } catch (err) {
       console.error('[Reorder] Error:', err);
-      return false;
     }
   }, []);
 
-  // ── Reassign album indexes (when albums are reordered) ──
-  const reassignAlbumIndexes = useCallback(async (indexMapping) => {
-    // indexMapping: { oldIndex: newIndex, ... }
-    // e.g., when adding album at front: { 0: 1, 1: 2, ..., N: N+1 }
-    // e.g., when swapping 2 and 3: { 2: 3, 3: 2 }
-    if (!galleryId) return false;
+  // Upload state from global context (filtered for this gallery)
+  const uploadQueue = upload?.uploadQueue?.filter(q => q.galleryId === galleryId) || [];
+  const uploadProgress = upload?.uploadProgress?.galleryId === galleryId ? upload.uploadProgress : null;
 
-    try {
-      // Get all images for this gallery
-      const { data: allImages, error } = await supabase
-        .from('images')
-        .select('id, album_index')
-        .eq('gallery_id', galleryId);
-
-      if (error) throw error;
-      if (!allImages?.length) return true;
-
-      // Find images that need updating
-      const updates = allImages
-        .filter(img => indexMapping[img.album_index] !== undefined)
-        .map(img => ({
-          id: img.id,
-          newIndex: indexMapping[img.album_index],
-        }));
-
-      if (updates.length === 0) return true;
-
-      // Use a temporary high offset to avoid collisions during reindex
-      const OFFSET = 10000;
-
-      // Step 1: Move all affected images to temp indexes
-      for (const { id, newIndex } of updates) {
-        await supabase
-          .from('images')
-          .update({ album_index: newIndex + OFFSET })
-          .eq('id', id);
-      }
-
-      // Step 2: Move from temp to final indexes
-      for (const { id, newIndex } of updates) {
-        await supabase
-          .from('images')
-          .update({ album_index: newIndex })
-          .eq('id', id);
-      }
-
-      // Refresh images
-      await loadImages();
-      return true;
-    } catch (err) {
-      console.error('[ReassignAlbumIndexes] Error:', err);
-      return false;
-    }
-  }, [galleryId, loadImages]);
-
-
-  // ── Computed values ──
-
-  // Title images per album: { [albumIndex]: { titelbild: url, mobile: url } }
+  // Computed
   const titleImages = {};
-  Object.entries(images).forEach(([albumIdx, imgs]) => {
+  Object.entries(images).forEach(([key, imgs]) => {
     const title = imgs.find(i => i.isTitleImage);
-    const mobile = imgs.find(i => i.isMobileTitle);
-    if (title || mobile) {
-      titleImages[albumIdx] = {
-        titelbild: title?.src || null,
-        mobile: mobile?.src || null,
-      };
-    }
+    if (title) titleImages[key] = title;
   });
 
-  // App icon URL (first image flagged as app icon across all albums)
-  const appIconImg = Object.values(images).flat().find(i => i.isAppIcon);
+  const allImages = Object.values(images).flat();
+  const appIconImg = allImages.find(i => i.isAppIcon);
   const appIconUrl = appIconImg?.thumbSrc || null;
 
   return {
@@ -464,7 +212,6 @@ export function useGalleryImages(galleryId) {
     setMobileTitleImage,
     setAppIcon,
     reorderImages,
-    reassignAlbumIndexes,
     refreshImages: loadImages,
   };
 }

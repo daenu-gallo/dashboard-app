@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './contexts/ToastContext';
 import { ShopProvider } from './contexts/ShopContext';
 import { BrandProvider } from './contexts/BrandContext';
+import { UploadProvider } from './contexts/UploadContext';
 import { useBrandFavicon } from './hooks/useBrandFavicon';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -180,9 +181,11 @@ function App() {
           <BrandProvider>
             <GalleryProvider>
               <ShopProvider>
-                <ToastProvider>
-                  <AppContent />
-                </ToastProvider>
+                <UploadProvider>
+                  <ToastProvider>
+                    <AppContent />
+                  </ToastProvider>
+                </UploadProvider>
               </ShopProvider>
             </GalleryProvider>
           </BrandProvider>
