@@ -188,11 +188,17 @@ export function useGalleryImages(galleryId) {
   const uploadQueue = upload?.uploadQueue?.filter(q => q.galleryId === galleryId) || [];
   const uploadProgress = upload?.uploadProgress?.galleryId === galleryId ? upload.uploadProgress : null;
 
-  // Computed
+  // Computed – return { titelbild, mobile } per album key (matches BilderTab expectations)
   const titleImages = {};
   Object.entries(images).forEach(([key, imgs]) => {
     const title = imgs.find(i => i.isTitleImage);
-    if (title) titleImages[key] = title;
+    const mobile = imgs.find(i => i.isMobileTitleImage);
+    if (title || mobile) {
+      titleImages[key] = {
+        titelbild: title?.thumbSrc || title?.src || null,
+        mobile: mobile?.thumbSrc || mobile?.src || null,
+      };
+    }
   });
 
   const allImages = Object.values(images).flat();
