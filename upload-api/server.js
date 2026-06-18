@@ -346,8 +346,10 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
     const basePath = buildNasPath(userId, slug, albumIndex);
     const originalDir = path.join(basePath, 'original');
     const thumbDir = path.join(basePath, 'thumb');
+    const mobileDir = path.join(basePath, 'mobile');
     await ensureDir(originalDir);
     await ensureDir(thumbDir);
+    await ensureDir(mobileDir);
 
     // Get current max sort_order for this gallery+album
     const { data: existing } = await supabase
@@ -403,7 +405,7 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
         .jpeg({ quality: 92, mozjpeg: true })
         .toFile(originalPath);
 
-      // Generate thumbnail (400px wide)
+      // Generate thumbnail (1200px wide — desktop)
       const thumbFilename = `thumb_${filename}`;
       const thumbPath = path.join(thumbDir, thumbFilename);
       await sharp(file.path)
@@ -411,6 +413,15 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
         .resize(1200, null, { withoutEnlargement: true })
         .jpeg({ quality: 90 })
         .toFile(thumbPath);
+
+      // Generate mobile thumbnail (600px wide — mobile devices)
+      const mobileFilename = `mobile_${filename}`;
+      const mobilePath = path.join(mobileDir, mobileFilename);
+      await sharp(file.path)
+        .rotate()
+        .resize(600, null, { withoutEnlargement: true })
+        .jpeg({ quality: 75, mozjpeg: true })
+        .toFile(mobilePath);
 
       // ── Write verification: confirm files actually persist on NAS ──
       const stat = await fs.stat(originalPath);
@@ -433,6 +444,7 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
       // Build URLs (relative to API base)
       const originalUrl = `/api/images/${userId}/${slug}/${albumIndex}/original/${filename}`;
       const thumbUrl = `/api/images/${userId}/${slug}/${albumIndex}/thumb/${thumbFilename}`;
+      const mobileThumbUrl = `/api/images/${userId}/${slug}/${albumIndex}/mobile/${mobileFilename}`;
 
       // Insert into Supabase
       const insertData = {
@@ -441,6 +453,7 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
         filename: file.originalname,
         original_url: originalUrl,
         thumb_url: thumbUrl,
+        mobile_thumb_url: mobileThumbUrl,
         file_size_kb: fileSizeKb,
         width,
         height,
@@ -527,7 +540,7 @@ async function getWatermarkConfig(userId, albumIndex, gallerySlug) {
 app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res) => {
   const { userId, slug, albumIndex, type, filename } = req.params;
 
-  if (!['original', 'thumb'].includes(type)) {
+  if (!['original', 'thumb', 'mobile'].includes(type)) {
     return res.status(400).json({ error: 'Invalid type' });
   }
 
@@ -672,7 +685,7 @@ app.get('/api/images/:userId/:slug/:albumIndex/:type/:filename', async (req, res
   // Default: serve without watermark (thumbnails, or when no watermark configured)
   clearTimeout(timeout);
   res.set({
-    'Cache-Control': 'public, max-age=604800',
+    'Cache-Control': 'public, max-age=2592000, immutable',
     'Content-Type': 'image/jpeg',
   });
 

@@ -6,7 +6,10 @@ import React, { useState, useRef, useEffect } from 'react';
  *
  * Props:
  * - src: image source URL
+ * - mobileSrc: alternative image source for mobile (screen width < 768px)
  * - alt: alt text
+ * - width: width for the wrapper div (prevents CLS)
+ * - height: height for the wrapper div (prevents CLS)
  * - className: CSS class
  * - style: inline styles
  * - onClick: click handler
@@ -14,9 +17,33 @@ import React, { useState, useRef, useEffect } from 'react';
  * - rootMargin: IntersectionObserver margin (default: '200px')
  * - ...rest: any other props passed to <img>
  */
+
+// Inject shimmer keyframes once
+const injectShimmerStyle = () => {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('lazy-image-shimmer-style')) return;
+  const style = document.createElement('style');
+  style.id = 'lazy-image-shimmer-style';
+  style.textContent = `
+    @keyframes lazyShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+const isMobile = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(max-width: 768px)').matches;
+};
+
 const LazyImage = ({
   src,
+  mobileSrc,
   alt = '',
+  width,
+  height,
   className = '',
   style = {},
   onClick,
@@ -27,6 +54,11 @@ const LazyImage = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const imgRef = useRef(null);
+
+  // Inject shimmer animation on first render
+  useEffect(() => {
+    injectShimmerStyle();
+  }, []);
 
   useEffect(() => {
     const el = imgRef.current;
@@ -52,6 +84,9 @@ const LazyImage = ({
     return () => observer.disconnect();
   }, [rootMargin]);
 
+  // Determine which src to use (mobile vs desktop)
+  const resolvedSrc = mobileSrc && isMobile() ? mobileSrc : src;
+
   const placeholderStyle = {
     width: '100%',
     height: '100%',
@@ -61,20 +96,24 @@ const LazyImage = ({
     ...style,
   };
 
+  const wrapperStyle = {
+    position: 'relative',
+    overflow: 'hidden',
+    ...(width != null ? { width } : {}),
+    ...(height != null ? { height } : {}),
+    ...(!isLoaded ? placeholderStyle : {}),
+  };
+
   return (
     <div
       ref={imgRef}
       className={`lazy-image-wrapper ${className}`}
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        ...(!isLoaded ? placeholderStyle : {}),
-      }}
+      style={wrapperStyle}
       onClick={onClick}
     >
       {isInView && (
         <img
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           className={className}
           style={{

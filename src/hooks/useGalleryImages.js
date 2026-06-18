@@ -47,6 +47,7 @@ export function useGalleryImages(galleryId) {
           albumIndex: img.album_index,
           src: UPLOAD_API + img.original_url + '?v=3',
           thumbSrc: UPLOAD_API + img.thumb_url + '?v=3',
+          mobileSrc: img.mobile_thumb_url ? (UPLOAD_API + img.mobile_thumb_url + '?v=3') : (UPLOAD_API + img.thumb_url + '?v=3'),
           name: img.filename,
           width: img.width,
           height: img.height,

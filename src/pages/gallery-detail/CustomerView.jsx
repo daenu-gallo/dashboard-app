@@ -10,6 +10,7 @@ import { useTrackView } from '../../hooks/useTrackView';
 import { supabase } from '../../lib/supabaseClient';
 import JSZip from 'jszip';
 import NotFoundPage from '../NotFoundPage';
+import LazyImage from '../../components/LazyImage';
 import './CustomerView.css';
 
 const UPLOAD_API = import.meta.env.VITE_UPLOAD_API_URL || '';
@@ -337,6 +338,7 @@ const CustomerView = ({ domainMode = null }) => {
           grouped[idx].push({
             src: UPLOAD_API + img.original_url + '?v=3',
             thumbSrc: UPLOAD_API + img.thumb_url + '?v=3',
+            mobileSrc: img.mobile_thumb_url ? (UPLOAD_API + img.mobile_thumb_url + '?v=3') : (UPLOAD_API + img.thumb_url + '?v=3'),
             name: img.filename,
             id: img.id,
           });
@@ -1162,6 +1164,27 @@ const CustomerView = ({ domainMode = null }) => {
     );
   }
 
+  // Lazy album section — only renders children when near viewport
+  const LazyAlbumSection = React.memo(({ id, className, children }) => {
+    const [isNear, setIsNear] = React.useState(false);
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+      const obs = new IntersectionObserver(([e]) => {
+        if (e.isIntersecting) { setIsNear(true); obs.disconnect(); }
+      }, { rootMargin: '600px' });
+      obs.observe(el);
+      return () => obs.disconnect();
+    }, []);
+    return (
+      <section id={id} className={className} ref={ref}
+        style={!isNear ? { minHeight: 200 } : undefined}>
+        {isNear ? children : <div style={{ minHeight: 200 }} />}
+      </section>
+    );
+  });
+
   return (
     <div
       className={`customer-view${toggles.bilderschutz ? ' cv-protected' : ''}`}
@@ -1430,25 +1453,29 @@ const CustomerView = ({ domainMode = null }) => {
         {allPhotos.length > 0 ? (
           <>
             <div className="cv-hero-slides">
-              {allPhotos.map((photo, idx) => (
-                <div key={idx} className={`cv-hero-slide ${currentSlide === idx ? 'active' : ''}`}>
-                  <div className="cv-hero-image" style={{ overflow: 'hidden' }}>
-                    <img
-                      src={photo.thumbSrc || photo.src}
-                      alt={photo.name || ''}
-                      onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
-                    />
+              {allPhotos.map((photo, idx) => {
+                // Only render slides near the current one (performance: avoid 200+ DOM nodes)
+                if (Math.abs(idx - currentSlide) > 1 && !(currentSlide === 0 && idx === allPhotos.length - 1) && !(currentSlide === allPhotos.length - 1 && idx === 0)) return null;
+                return (
+                  <div key={idx} className={`cv-hero-slide ${currentSlide === idx ? 'active' : ''}`}>
+                    <div className="cv-hero-image" style={{ overflow: 'hidden' }}>
+                      <img
+                        src={photo.thumbSrc || photo.src}
+                        alt={photo.name || ''}
+                        onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
+                      />
+                    </div>
+                    <h1 className="cv-hero-title">{displayTitle}</h1>
+                    {settings.shootingdatum && (
+                      <p className="cv-hero-date">
+                        {new Date(settings.shootingdatum).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
+                    <div className="cv-hero-line" />
+                    <WatermarkOverlay className="cv-hero-watermark" variant="hero" />
                   </div>
-                  <h1 className="cv-hero-title">{displayTitle}</h1>
-                  {settings.shootingdatum && (
-                    <p className="cv-hero-date">
-                      {new Date(settings.shootingdatum).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-                  )}
-                  <div className="cv-hero-line" />
-                  <WatermarkOverlay className="cv-hero-watermark" variant="hero" />
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {allPhotos.length > 1 && (
@@ -1501,8 +1528,8 @@ const CustomerView = ({ domainMode = null }) => {
         const albumImages = uploadedImages[albumKey] || [];
         const albumVideos = uploadedVideos[aIdx] || [];
 
-        return (
-          <section key={aIdx} id={`cv-album-${aIdx}`} className="cv-album-section">
+        const albumContent = (
+          <>
           <h2 className="cv-album-title">{albumName}</h2>
 
             {/* Embedded Videos */}
@@ -1548,7 +1575,13 @@ const CustomerView = ({ domainMode = null }) => {
                         openLightbox(aIdx, pIdx);
                       }
                     }} style={{ cursor: 'pointer' }}>
-                      <img src={img.thumbSrc || img.src} alt={img.name || ''} loading="lazy" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
+                      <LazyImage
+                        src={img.thumbSrc || img.src}
+                        mobileSrc={img.mobileSrc || img.thumbSrc || img.src}
+                        alt={img.name || ''}
+                        rootMargin="400px"
+                        onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
+                      />
                       {isPhotoSelected(img.src) && (
                         <span className="cv-photo-heart-badge">♥</span>
                       )}
@@ -1582,7 +1615,17 @@ const CustomerView = ({ domainMode = null }) => {
                 <span>{t.noPhotos}</span>
               </div>
             )}
+          </>
+        );
+
+        return aIdx === 0 ? (
+          <section key={aIdx} id={`cv-album-${aIdx}`} className="cv-album-section">
+            {albumContent}
           </section>
+        ) : (
+          <LazyAlbumSection key={aIdx} id={`cv-album-${aIdx}`} className="cv-album-section">
+            {albumContent}
+          </LazyAlbumSection>
         );
       })}
 
