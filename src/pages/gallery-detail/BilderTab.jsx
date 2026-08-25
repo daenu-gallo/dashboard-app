@@ -714,7 +714,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
           } else {
             setUploadedVideos(prev => ({
               ...prev,
-              [albumIdx]: [...(prev[albumIdx] || []), newVideo],
+              [albumIdx]: [newVideo], // Nur ein Video pro Album erlaubt
             }));
           }
         };
@@ -747,7 +747,7 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
     } else {
       setUploadedVideos(prev => ({
         ...prev,
-        [albumIdx]: [...(prev[albumIdx] || []), newVideo],
+        [albumIdx]: [newVideo], // Nur ein Video pro Album erlaubt
       }));
     }
     setEmbedModalAlbum(null);
