@@ -76,10 +76,18 @@ fi
 
 echo "[$(date)] Backup erfolgreich: $BACKUP_FILE ($(numfmt --to=iec $FILESIZE 2>/dev/null || echo "${FILESIZE} Bytes"))"
 
-# --- Alte Backups löschen (älter als RETENTION_DAYS Tage) ---
-DELETED=$(find "$BACKUP_DIR" -name "supabase_backup_*.sql.gz" -mtime +${RETENTION_DAYS} -delete -print | wc -l)
+# --- Alte Backups löschen (behalte nur die neuesten 5) ---
+MAX_BACKUPS=5
+# Liste alle Backups sortiert nach Zeit (neueste zuerst), überspringe die ersten 5, und lösche den Rest
+FILES_TO_DELETE=$(ls -t "$BACKUP_DIR"/supabase_backup_*.sql.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)))
+if [ -n "$FILES_TO_DELETE" ]; then
+  echo "$FILES_TO_DELETE" | xargs rm -f
+  DELETED=$(echo "$FILES_TO_DELETE" | wc -l)
+else
+  DELETED=0
+fi
 if [ "$DELETED" -gt 0 ]; then
-  echo "[$(date)] $DELETED alte Backups gelöscht (älter als ${RETENTION_DAYS} Tage)"
+  echo "[$(date)] $DELETED alte Backups gelöscht (nur die letzten $MAX_BACKUPS werden behalten)"
 fi
 
 # --- Aktuellen Stand anzeigen ---

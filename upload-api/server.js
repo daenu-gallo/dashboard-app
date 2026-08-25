@@ -1351,7 +1351,7 @@ const DB_PORT = process.env.DB_PORT || '5432';
 const DB_USER = process.env.DB_USER || 'postgres';
 const DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
 const BACKUP_DIR = path.join(NAS_BASE, '_backups', 'db');
-const BACKUP_RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
+const BACKUP_MAX_FILES = parseInt(process.env.BACKUP_MAX_FILES || '5', 10);
 
 async function runDatabaseBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -1366,7 +1366,16 @@ async function runDatabaseBackup() {
     // Ensure backup directory exists
     await fs.mkdir(BACKUP_DIR, { recursive: true });
 
-    // Run pg_dump with gzip compression
+    // 1. Connectivity Check: Prüfen, ob die DB überhaupt erreichbar ist
+    console.log(`[Backup] 🔍 Prüfe Verbindung zu ${DB_HOST}:${DB_PORT}...`);
+    try {
+      await execAsync(`pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER}`);
+    } catch (connErr) {
+      console.error(`[Backup] ❌ Netzwerkfehler: Datenbank-Host ${DB_HOST} ist nicht erreichbar.`);
+      return { success: false, error: `Network Error: Could not connect to ${DB_HOST}. Please check if containers are in the same Docker network.` };
+    }
+
+    // 2. Run pg_dump with gzip compression
     const cmd = `PGPASSWORD="${DB_PASSWORD}" pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres --clean --if-exists --no-owner --no-privileges --disable-triggers 2>&1 | gzip > "${filepath}"`;
     let result;
     try {
@@ -1414,18 +1423,21 @@ async function runDatabaseBackup() {
 function cleanupOldBackups() {
   try {
     if (!existsSync(BACKUP_DIR)) return 0;
-    const now = Date.now();
-    const maxAge = BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-    let deleted = 0;
+    
+    const files = readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('supabase_backup_') && f.endsWith('.sql.gz'))
+      .map(f => ({
+        name: f,
+        mtime: statSync(path.join(BACKUP_DIR, f)).mtimeMs
+      }))
+      .sort((a, b) => b.mtime - a.mtime); // Sort newest first
 
-    const files = readdirSync(BACKUP_DIR).filter(f => f.startsWith('supabase_backup_') && f.endsWith('.sql.gz'));
-    for (const file of files) {
-      const filepath = path.join(BACKUP_DIR, file);
-      const stat = statSync(filepath);
-      if (now - stat.mtimeMs > maxAge) {
-        unlinkSync(filepath);
-        deleted++;
-      }
+    if (files.length <= BACKUP_MAX_FILES) return 0;
+
+    let deleted = 0;
+    for (let i = BACKUP_MAX_FILES; i < files.length; i++) {
+      unlinkSync(path.join(BACKUP_DIR, files[i].name));
+      deleted++;
     }
     return deleted;
   } catch (err) {

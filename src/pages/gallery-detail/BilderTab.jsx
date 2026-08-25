@@ -27,9 +27,6 @@ const VideoModal = ({ onClose, onUploadLocal, onEmbedUrl }) => (
         <button className="video-modal-close" onClick={onClose}><X size={18} /></button>
       </div>
       <div className="video-modal-body">
-        <button className="video-modal-btn" onClick={onUploadLocal}>
-          Video hochladen (Festplatte)
-        </button>
         <button className="video-modal-btn embed" onClick={onEmbedUrl}>
           Video einbinden (Youtube, Vimeo, Pixellu)
         </button>
@@ -1134,11 +1131,13 @@ const BilderTab = ({ gallery, supabaseGallery, updateGallery, onCountsChange, on
                 />
               ))}
 
-              {/* Video hinzufügen */}
-              <div className="photo-card add-card video-add-card" onClick={() => setVideoModalAlbum(idx)}>
-                <Video size={22} />
-                <span>Video</span>
-              </div>
+              {/* Video hinzufügen - nur anzeigen, wenn noch kein Video vorhanden ist */}
+              {albumVideos.length === 0 && (
+                <div className="photo-card add-card video-add-card" onClick={() => setVideoModalAlbum(idx)}>
+                  <Video size={22} />
+                  <span>Video</span>
+                </div>
+              )}
             </div>
 
             {/* Expanded grid - uploaded images shown here */}
