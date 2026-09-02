@@ -1257,6 +1257,32 @@ app.post('/api/admin/migrate-album-ids', authenticate, async (req, res) => {
 });
 
 // ── GET /api/health ──
+// ── POST /api/webhooks/supabase ──
+// Minimal version for debugging crashes
+app.post('/api/webhooks/supabase', async (req, res) => {
+  console.log('[Webhook] 🚀 Request received');
+  try {
+    console.log('[Webhook] Checking secret...');
+    const secret = req.headers['x-webhook-secret'];
+    if (secret !== SUPABASE_WEBHOOK_SECRET) {
+      console.error('[Webhook] ❌ Unauthorized. Secret mismatch.');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('[Webhook] Secret OK. Processing body...');
+    const { type, table } = req.body;
+    console.log(`[Webhook] 🔔 Event: ${type} on ${table}`);
+
+    // Temporary: No email sending, just return success to see if it crashes
+    console.log('[Webhook] Sending success response...');
+    res.status(200).json({ success: true, message: 'Webhook received' });
+    console.log('[Webhook] ✅ Response sent successfully');
+  } catch (fatalErr) {
+    console.error('[Webhook] 💥 FATAL ERROR:', fatalErr);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 app.get('/api/health', async (req, res) => {
   let nasFiles = [];
   try {
@@ -1352,6 +1378,7 @@ const DB_USER = process.env.DB_USER || 'postgres';
 const DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
 const BACKUP_DIR = path.join(NAS_BASE, '_backups', 'db');
 const BACKUP_MAX_FILES = parseInt(process.env.BACKUP_MAX_FILES || '5', 10);
+const SUPABASE_WEBHOOK_SECRET = process.env.SUPABASE_WEBHOOK_SECRET || 'fotohahn-webhook-secret-2026';
 
 async function runDatabaseBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
