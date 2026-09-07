@@ -1015,7 +1015,7 @@ app.post('/api/admin/deploy/:service', authenticate, adminOnly, async (req, res)
   try {
     console.log(`🚀 Admin ${req.user.email} triggered deploy for ${service} (UUID: ${uuid})`);
     const response = await fetch(`${COOLIFY_BASE}/api/v1/deploy?uuid=${uuid}&force=true`, {
-      method: 'GET',
+      method: 'POST',
       headers: { 'Authorization': `Bearer ${COOLIFY_TOKEN}` },
     });
     const data = await response.json().catch(() => ({}));
