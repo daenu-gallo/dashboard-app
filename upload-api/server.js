@@ -1378,6 +1378,7 @@ const DB_USER = process.env.DB_USER || 'postgres';
 const DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
 const BACKUP_DIR = path.join(NAS_BASE, '_backups', 'db');
 const BACKUP_MAX_FILES = parseInt(process.env.BACKUP_MAX_FILES || '5', 10);
+const BACKUP_RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
 const SUPABASE_WEBHOOK_SECRET = process.env.SUPABASE_WEBHOOK_SECRET || 'fotohahn-webhook-secret-2026';
 
 async function runDatabaseBackup() {
