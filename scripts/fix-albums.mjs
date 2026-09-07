@@ -4,7 +4,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://db.fotohahn.ch';
-const SUPABASE_ANON_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc4ODgwODA0NywiZXhwIjo0OTQyNDA4MDQ3LCJyb2xlIjoiYW5vbiJ9.7AJK4vjxSHO2NTesMJA4vxrUuIw2vugNqOOWJ3zXRCk';
+const SUPABASE_ANON_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MzY5Nzk4MCwiZXhwIjo0OTI5MzcxNTgwLCJyb2xlIjoiYW5vbiJ9.jW01UhBOuPYmOA497gUagDCnRJYutEKYvBzT0uc50sY';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
