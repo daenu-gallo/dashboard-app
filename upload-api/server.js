@@ -371,20 +371,21 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
 
     const results = [];
     let skippedDuplicates = 0;
-    for (const file of req.files) {
+
+    // ── Process single file (extracted for parallel batch execution) ──
+    const processOneFile = async (file, sortOrder) => {
       // Skip duplicates (same original filename already in this album)
       if (existingFilenames.has(file.originalname)) {
         console.log(`⏭️ Skipping duplicate: ${file.originalname}`);
         await fs.unlink(file.path).catch(() => {});
-        skippedDuplicates++;
-        continue;
+        return { skipped: true };
       }
       // Validate magic bytes (real image check)
       const isRealImage = await validateImageMagicBytes(file.path);
       if (!isRealImage) {
         console.warn(`⚠️ File rejected (invalid magic bytes): ${file.originalname}`);
         await fs.unlink(file.path).catch(() => {});
-        continue; // Skip this file
+        return null;
       }
 
       // Generate unique sanitized filename
@@ -408,7 +409,6 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
       // Run all 3 sharp pipelines in parallel (was sequential — ~2-3× faster)
       await Promise.all([
         // Original (re-encode to strip metadata, convert HEIC etc.)
-        // mozjpeg disabled for speed — standard libjpeg is ~40% faster at Q92
         sharp(inputBuffer)
           .rotate()
           .jpeg({ quality: 92 })
@@ -434,14 +434,10 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
 
       if (stat.size < 1000 || thumbStat.size < 500) {
         console.error(`[Upload] ❌ WRITE VERIFICATION FAILED: original=${stat.size}B, thumb=${thumbStat.size}B for ${filename}`);
-        // Try to read back the file to verify it's actually on NAS
         const readCheck = await fs.readFile(originalPath).catch(() => null);
         if (!readCheck || readCheck.length < 1000) {
           console.error(`[Upload] ❌ NAS READ-BACK FAILED — Dateien werden NICHT persistent gespeichert!`);
-          return res.status(503).json({ 
-            error: 'NAS-Speicher nicht verfügbar — Dateien können nicht gesichert werden. Bitte kontaktiere den Administrator.',
-            detail: 'Write verification failed — files are not persisting to NAS storage.'
-          });
+          throw new Error('NAS_WRITE_FAILED');
         }
       }
 
@@ -461,7 +457,7 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
         file_size_kb: fileSizeKb,
         width,
         height,
-        sort_order: nextSort++,
+        sort_order: sortOrder,
         user_id: userId,
       };
       if (albumId) insertData.album_id = albumId;
@@ -476,11 +472,26 @@ app.post('/api/upload/:galleryId/:albumParam', uploadLimiter, authenticate, uplo
         console.error('[Upload] DB insert error:', insertErr);
       }
 
-      results.push(imgRow || { filename, originalUrl, thumbUrl });
-
       // Clean up temp file
       await fs.unlink(file.path).catch(() => {});
+
+      return imgRow || { filename, originalUrl, thumbUrl };
+    };
+
+    // ── Parallel batch processing: 3 images at a time (was sequential) ──
+    const SERVER_PARALLEL = 3;
+    for (let i = 0; i < req.files.length; i += SERVER_PARALLEL) {
+      const batch = req.files.slice(i, i + SERVER_PARALLEL);
+      const batchResults = await Promise.all(
+        batch.map((file, batchIdx) => processOneFile(file, nextSort + i + batchIdx))
+      );
+      for (const r of batchResults) {
+        if (!r) continue;
+        if (r.skipped) { skippedDuplicates++; continue; }
+        results.push(r);
+      }
     }
+    nextSort += req.files.length;
 
     if (skippedDuplicates > 0) {
       console.log(`📋 ${skippedDuplicates} Duplikate übersprungen, ${results.length} neue Bilder hochgeladen`);

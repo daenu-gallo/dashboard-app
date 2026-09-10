@@ -65,6 +65,8 @@ export function UploadProvider({ children }) {
   // ── Client-side resize ──
   const resizeImage = (file, maxDim = 4000, quality = 0.85) => new Promise((resolve) => {
     if (!file.type.startsWith('image/')) { resolve(file); return; }
+    // Skip resize for small files (< 5MB) — server handles it anyway
+    if (file.size < 5 * 1024 * 1024) { resolve(file); return; }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -110,7 +112,7 @@ export function UploadProvider({ children }) {
 
       const allResults = [];
       let totalSkipped = 0;
-      const CONCURRENCY = 5;
+      const CONCURRENCY = 8;
       const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
       let completedCount = 0;
       console.log(`[Upload] Starting album "${item.albumName}" for gallery ${item.galleryId}: ${item.files.length} files`);
