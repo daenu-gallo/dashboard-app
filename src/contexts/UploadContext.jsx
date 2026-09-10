@@ -112,7 +112,7 @@ export function UploadProvider({ children }) {
 
       const allResults = [];
       let totalSkipped = 0;
-      const CONCURRENCY = 8;
+      const CONCURRENCY = 15;
       const albumParam = item.albumId ? `aid_${item.albumId}` : item.albumIndex;
       let completedCount = 0;
       console.log(`[Upload] Starting album "${item.albumName}" for gallery ${item.galleryId}: ${item.files.length} files`);
