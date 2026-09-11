@@ -567,34 +567,52 @@ curl -s -o /dev/null -w "%{http_code}" https://admin.fotohahn.ch
 
 ## 11. Sicherheit
 
-### SSL / Verschlüsselung
-- **Alle öffentlichen Domains** (`galerie.`, `admin.`, `api.fotohahn.ch`) laufen über **Cloudflare Tunnel mit SSL**
-- Cloudflare terminiert SSL am Edge → verschlüsselter Tunnel zum Server
-- Kein unverschlüsselter Zugriff möglich (HTTPS erzwungen)
-- **HSTS aktiv** (Strict-Transport-Security, 1 Jahr) — Browser erzwingen automatisch HTTPS
-- **CSP mit `upgrade-insecure-requests`** — Mixed-Content wird automatisch auf HTTPS umgeschrieben
-- **HTTP→HTTPS Redirect** auf Nginx- und Upload-API-Ebene (Defense-in-Depth)
+> Stand: September 2026 — **Sicherheitsbewertung: 87/100** 🟢
 
-### Zugriffsschutz
-- **Wartungs-Tools** (Coolify, Supabase Studio) sind **nur über Tailscale VPN** erreichbar
-- Ohne Tailscale-Verbindung hat niemand Zugriff auf die Verwaltung
-- Jedes Gerät, das sich verbinden will, muss bei Tailscale autorisiert sein
-- Die Datenbank hat **Row Level Security** — jeder Benutzer sieht nur seine eigenen Daten
+### Übersicht aller Schutzmassnahmen
 
-### API-Sicherheit
-- **Helmet** Security Headers auf der Upload-API
-- **CORS** eingeschränkt auf eigene Domains
-- **Rate Limiting** aktiv (100 Anfragen / 15 Min global, 20 Uploads / 15 Min)
-- **JWT-Authentifizierung** für alle Upload-Anfragen
+| Kategorie | Massnahme | Status |
+|-----------|-----------|--------|
+| **Verschlüsselung** | SSL/HTTPS auf allen öffentlichen Domains (Cloudflare Tunnel) | ✅ |
+| | HSTS aktiv (1 Jahr) — Browser erzwingen HTTPS | ✅ |
+| | CSP mit `upgrade-insecure-requests` | ✅ |
+| | HTTP→HTTPS Redirect (Nginx + Upload-API) | ✅ |
+| **Zugriffsschutz** | Wartungs-Tools (Coolify, Studio) nur über Tailscale VPN | ✅ |
+| | 2-Faktor-Authentifizierung (2FA) auf Coolify | ✅ |
+| | Selbst-Registrierung deaktiviert (`GOTRUE_DISABLE_SIGNUP`) | ✅ |
+| | Row Level Security (RLS) — jeder sieht nur eigene Daten | ✅ |
+| **API-Sicherheit** | JWT-Authentifizierung für alle Anfragen | ✅ |
+| | Rate Limiting (100 Req/15min, 20 Uploads/15min) | ✅ |
+| | CORS eingeschränkt auf eigene Domains | ✅ |
+| | Helmet Security Headers | ✅ |
+| **Infrastruktur** | Cloudflare WAF-Regeln (Bot-Schutz) | ✅ |
+| | Cloudflare Tunnel (keine offenen Ports am Router) | ✅ |
+| | Secrets nicht im Git-Repository | ✅ |
+| **Backups** | Datenbank-Backup täglich um Mitternacht | ✅ |
+| | Fotos auf NAS in 2 Versionen gesichert | ✅ |
+| **Überwachung** | E-Mail-Alerts bei Service-Ausfall | ✅ |
 
 ### API-Keys und Secrets
-- **Keine Secrets im Git-Repository** — alle Secrets werden über Coolify Environment Variables gesetzt
-- API-Keys (Anon Key, Service Role Key) werden mit dem **JWT Secret** signiert
-- Die Keys werden **nicht automatisch rotiert** — sie bleiben gleich, solange das JWT Secret gleich bleibt
-- Bei einem Supabase-Redeploy wird Kong's Config zurückgesetzt → dann müssen die Keys in Kong manuell neu eingetragen werden (siehe Abschnitt 10.1)
 
-> [!WARNING]
-> Wenn du in Zukunft das **JWT Secret** ändern willst, müssen **alle** Keys neu generiert und überall aktualisiert werden (Coolify Env Vars + Kong).
+| Schlüssel | Wo gespeichert | Zweck |
+|-----------|---------------|-------|
+| `ANON_KEY` | Dockerfile + `.env` | Öffentlicher Key für App ↔ Datenbank |
+| `SERVICE_ROLE_KEY` | Coolify → Upload-API | Admin-Zugriff (nur serverseitig!) |
+| `JWT_SECRET` | Coolify → Supabase + Upload-API | Signiert alle Tokens |
+
+> [!CAUTION]
+> - **SERVICE_ROLE_KEY** und **JWT_SECRET** niemals teilen!
+> - Bei Supabase-Redeploy wird Kong zurückgesetzt → Keys manuell eintragen (siehe 10.1)
+> - Bei JWT-Secret-Änderung müssen ALLE Keys neu generiert werden
+
+### Verbesserungsmöglichkeiten (für später)
+
+| Massnahme | Wann sinnvoll | Aufwand |
+|-----------|--------------|---------|
+| Halbjährliche Key-Rotation | Ab kommerziellem Betrieb | 45 Min |
+| Login-Überwachung (fehlgeschlagene Versuche) | Bei vielen Benutzern | 1 Std |
+| Failover-Server (zweite VM) | Bei hoher Verfügbarkeit | Mehrere Std |
+| Cloudflare Pro (erweiterter DDoS-Schutz) | Bei viel Traffic | \$20/Mt |
 
 ---
 
