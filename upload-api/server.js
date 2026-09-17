@@ -1378,7 +1378,10 @@ const DB_PASSWORD = process.env.DB_PASSWORD || 'postgres';
 const BACKUP_DIR = path.join(NAS_BASE, '_backups', 'db');
 const BACKUP_MAX_FILES = parseInt(process.env.BACKUP_MAX_FILES || '5', 10);
 const BACKUP_RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
-const SUPABASE_WEBHOOK_SECRET = process.env.SUPABASE_WEBHOOK_SECRET || 'fotohahn-webhook-secret-2026';
+const SUPABASE_WEBHOOK_SECRET = process.env.SUPABASE_WEBHOOK_SECRET || '';
+if (!SUPABASE_WEBHOOK_SECRET) {
+  console.warn('⚠️  SUPABASE_WEBHOOK_SECRET nicht gesetzt — Webhook-Endpunkt wird Anfragen ablehnen.');
+}
 
 async function runDatabaseBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -1606,6 +1609,373 @@ app.post('/api/admin/check-now', authenticate, adminOnly, async (req, res) => {
 // Uptime check cron: every 5 minutes
 cron.schedule('*/5 * * * *', () => {
   runUptimeCheck();
+}, { timezone: 'Europe/Zurich' });
+
+// ══════════════════════════════════════════
+// ── API Key Rotation System ──
+// ══════════════════════════════════════════
+
+// Zeitpunkt des Server-Starts (= letzter Key-Wechsel aus Sicht dieses Prozesses)
+const SERVER_START_TIME = new Date();
+
+// ── Hilfsfunktionen: JWT-Generierung (HS256, ohne externe Abhängigkeiten) ──
+function base64url(buf) {
+  return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function createSupabaseJWT(role, secret) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { typ: 'JWT', alg: 'HS256' };
+  const payload = {
+    iss: 'supabase',
+    iat: now,
+    exp: now + (200 * 365 * 24 * 3600), // ~200 Jahre
+    role,
+  };
+  const segments = [
+    base64url(Buffer.from(JSON.stringify(header))),
+    base64url(Buffer.from(JSON.stringify(payload))),
+  ];
+  const signature = crypto.createHmac('sha256', secret).update(segments.join('.')).digest();
+  segments.push(base64url(signature));
+  return segments.join('.');
+}
+
+// ── Coolify API: Env-Vars eines Services aktualisieren ──
+async function coolifyUpdateEnvVar(serviceUuid, key, value) {
+  if (!COOLIFY_TOKEN) throw new Error('COOLIFY_API_TOKEN nicht konfiguriert');
+  
+  // 1. Aktuelle Env-Vars abrufen
+  const getRes = await fetch(`${COOLIFY_BASE}/api/v1/applications/${serviceUuid}`, {
+    headers: { 'Authorization': `Bearer ${COOLIFY_TOKEN}`, 'Accept': 'application/json' },
+  });
+  if (!getRes.ok) throw new Error(`Coolify GET fehlgeschlagen: ${getRes.status}`);
+  
+  // 2. Env-Var aktualisieren über Coolify Env-Vars API
+  const updateRes = await fetch(`${COOLIFY_BASE}/api/v1/applications/${serviceUuid}/envs`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${COOLIFY_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ key, value, is_build_time: false, is_preview: false }),
+  });
+  
+  if (!updateRes.ok) {
+    const err = await updateRes.text().catch(() => '');
+    throw new Error(`Coolify ENV Update fehlgeschlagen für ${key}: ${updateRes.status} ${err}`);
+  }
+  
+  return true;
+}
+
+// ── Coolify API: Redeploy triggern ──
+async function coolifyRedeploy(serviceUuid, serviceName) {
+  if (!COOLIFY_TOKEN) throw new Error('COOLIFY_API_TOKEN nicht konfiguriert');
+  const response = await fetch(`${COOLIFY_BASE}/api/v1/deploy?uuid=${serviceUuid}&force=true`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${COOLIFY_TOKEN}` },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(`Redeploy für ${serviceName} fehlgeschlagen: ${response.status} ${data.message || ''}`);
+  }
+  console.log(`🚀 [KeyRotation] Redeploy für ${serviceName} gestartet`);
+  return true;
+}
+
+// ── Rotation durchführen ──
+async function rotateKeys({ triggeredBy = 'manual', dryRun = false } = {}) {
+  const startTime = Date.now();
+  const rotatedKeys = [];
+  const errors = [];
+  const details = { dryRun, startedAt: new Date().toISOString(), steps: [] };
+
+  console.log(`\n🔑 [KeyRotation] ════════════════════════════════`);
+  console.log(`🔑 [KeyRotation] Key-Rotation gestartet (${triggeredBy})${dryRun ? ' [DRY RUN]' : ''}`);
+  console.log(`🔑 [KeyRotation] ════════════════════════════════\n`);
+
+  // ── Schritt 1: Neues JWT Secret generieren ──
+  try {
+    const newJwtSecret = crypto.randomBytes(32).toString('hex');
+    const newAnonKey = createSupabaseJWT('anon', newJwtSecret);
+    const newServiceRoleKey = createSupabaseJWT('service_role', newJwtSecret);
+
+    details.steps.push({ step: 'jwt_generation', status: 'success' });
+    console.log('🔑 [KeyRotation] ✅ Neue Supabase-Keys generiert');
+
+    if (!dryRun) {
+      // Upload-API Env-Vars aktualisieren
+      const uploadUuid = COOLIFY_UUIDS['upload-api'];
+      if (uploadUuid) {
+        await coolifyUpdateEnvVar(uploadUuid, 'SUPABASE_JWT_SECRET', newJwtSecret);
+        await coolifyUpdateEnvVar(uploadUuid, 'SUPABASE_SERVICE_ROLE_KEY', newServiceRoleKey);
+        rotatedKeys.push('SUPABASE_JWT_SECRET', 'SUPABASE_SERVICE_ROLE_KEY');
+        details.steps.push({ step: 'coolify_upload_api_env', status: 'success' });
+        console.log('🔑 [KeyRotation] ✅ Upload-API Env-Vars in Coolify aktualisiert');
+      }
+
+      // Dashboard-App Env-Vars aktualisieren (VITE_SUPABASE_ANON_KEY)
+      const dashboardUuid = COOLIFY_UUIDS['dashboard-app'];
+      if (dashboardUuid) {
+        await coolifyUpdateEnvVar(dashboardUuid, 'VITE_SUPABASE_ANON_KEY', newAnonKey);
+        rotatedKeys.push('VITE_SUPABASE_ANON_KEY');
+        details.steps.push({ step: 'coolify_dashboard_env', status: 'success' });
+        console.log('🔑 [KeyRotation] ✅ Dashboard-App Env-Vars in Coolify aktualisiert');
+      }
+    } else {
+      rotatedKeys.push('SUPABASE_JWT_SECRET', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_ANON_KEY');
+      console.log('🔑 [KeyRotation] 🧪 [DRY RUN] Supabase-Keys würden aktualisiert');
+    }
+  } catch (err) {
+    errors.push({ key: 'SUPABASE_JWT', error: err.message });
+    details.steps.push({ step: 'supabase_keys', status: 'failed', error: err.message });
+    console.error(`🔑 [KeyRotation] ❌ Supabase-Key-Rotation fehlgeschlagen: ${err.message}`);
+  }
+
+  // ── Schritt 2: Coolify API Token rotieren ──
+  try {
+    // Coolify Token kann nur über Coolify UI rotiert werden — wir loggen es als Erinnerung
+    details.steps.push({ step: 'coolify_token', status: 'skipped', reason: 'Manuelle Rotation über Coolify UI nötig' });
+    console.log('🔑 [KeyRotation] ⚠️  COOLIFY_API_TOKEN: Manuell über Coolify UI rotieren');
+  } catch (err) {
+    errors.push({ key: 'COOLIFY_API_TOKEN', error: err.message });
+  }
+
+  // ── Schritt 3: Cloudflare API Token rotieren ──
+  try {
+    if (CF_API_TOKEN) {
+      // Cloudflare Tokens werden über CF Dashboard rotiert — Erinnerung loggen
+      details.steps.push({ step: 'cloudflare_token', status: 'skipped', reason: 'Manuell über Cloudflare Dashboard rotieren' });
+      console.log('🔑 [KeyRotation] ⚠️  CLOUDFLARE_API_TOKEN: Manuell über Cloudflare Dashboard rotieren');
+    }
+  } catch (err) {
+    errors.push({ key: 'CLOUDFLARE_API_TOKEN', error: err.message });
+  }
+
+  // ── Schritt 4: Stripe Keys ──
+  try {
+    if (STRIPE_SECRET_KEY) {
+      details.steps.push({ step: 'stripe_keys', status: 'skipped', reason: 'Manuell über Stripe Dashboard rotieren (Rolling Keys)' });
+      console.log('🔑 [KeyRotation] ⚠️  STRIPE_*: Manuell über Stripe Dashboard rotieren (Rolling Keys nutzen)');
+    }
+  } catch (err) {
+    errors.push({ key: 'STRIPE', error: err.message });
+  }
+
+  // ── Schritt 5: Gelato/nPhoto API Keys ──
+  try {
+    if (GELATO_API_KEY) {
+      details.steps.push({ step: 'gelato_key', status: 'skipped', reason: 'Manuell über Gelato Dashboard rotieren' });
+      console.log('🔑 [KeyRotation] ⚠️  GELATO_API_KEY: Manuell über Gelato Dashboard rotieren');
+    }
+  } catch (err) {
+    errors.push({ key: 'GELATO_API_KEY', error: err.message });
+  }
+
+  // ── Schritt 6: Redeploy triggern ──
+  if (!dryRun && rotatedKeys.length > 0) {
+    try {
+      const uploadUuid = COOLIFY_UUIDS['upload-api'];
+      const dashboardUuid = COOLIFY_UUIDS['dashboard-app'];
+
+      if (uploadUuid) await coolifyRedeploy(uploadUuid, 'upload-api');
+      if (dashboardUuid) await coolifyRedeploy(dashboardUuid, 'dashboard-app');
+      
+      details.steps.push({ step: 'redeploy', status: 'success' });
+      console.log('🔑 [KeyRotation] ✅ Redeploy für alle Services gestartet');
+    } catch (err) {
+      errors.push({ key: 'REDEPLOY', error: err.message });
+      details.steps.push({ step: 'redeploy', status: 'failed', error: err.message });
+      console.error(`🔑 [KeyRotation] ❌ Redeploy fehlgeschlagen: ${err.message}`);
+    }
+  }
+
+  // ── Ergebnis zusammenstellen ──
+  const status = errors.length === 0 ? 'success' : (rotatedKeys.length > 0 ? 'partial' : 'failed');
+  const durationMs = Date.now() - startTime;
+  details.durationMs = durationMs;
+  details.errors = errors;
+
+  const result = {
+    rotatedKeys,
+    triggeredBy,
+    status,
+    details,
+    manualActionRequired: [
+      'COOLIFY_API_TOKEN → Coolify UI',
+      'CLOUDFLARE_API_TOKEN → Cloudflare Dashboard',
+      'STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET → Stripe Dashboard (Rolling Keys)',
+      'GELATO_API_KEY → Gelato Dashboard',
+      'NPHOTO_API_KEY → nPhoto Kontakt',
+      'DB_PASSWORD → Supabase DB Config',
+    ],
+    nextRotation: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+  };
+
+  // ── Audit-Log in Supabase schreiben ──
+  if (supabase && !dryRun) {
+    try {
+      await supabase.from('key_rotation_log').insert({
+        rotated_keys: rotatedKeys,
+        triggered_by: triggeredBy,
+        status,
+        details,
+        next_rotation_at: result.nextRotation,
+      });
+      console.log('🔑 [KeyRotation] ✅ Audit-Log geschrieben');
+    } catch (err) {
+      console.error(`🔑 [KeyRotation] ⚠️  Audit-Log konnte nicht geschrieben werden: ${err.message}`);
+    }
+  }
+
+  // ── E-Mail-Benachrichtigung ──
+  if (emailTransporter) {
+    try {
+      const manualList = result.manualActionRequired.map(a => `• ${a}`).join('\n');
+      const rotatedList = rotatedKeys.length > 0 
+        ? rotatedKeys.map(k => `✅ ${k}`).join('\n') 
+        : '(Keine Keys automatisch rotiert)';
+      const errorList = errors.length > 0
+        ? errors.map(e => `❌ ${e.key}: ${e.error}`).join('\n')
+        : '(Keine Fehler)';
+
+      await emailTransporter.sendMail({
+        from: `"Fotohahn Security" <${SMTP_FROM}>`,
+        to: ADMIN_EMAIL,
+        subject: `🔑 Key-Rotation ${status === 'success' ? '✅ Erfolgreich' : status === 'partial' ? '⚠️ Teilweise' : '❌ Fehlgeschlagen'}${dryRun ? ' [DRY RUN]' : ''}`,
+        text: [
+          `Key-Rotation Bericht (${triggeredBy})${dryRun ? ' [DRY RUN]' : ''}`,
+          `Status: ${status}`,
+          `Dauer: ${durationMs}ms`,
+          '',
+          '═══ Automatisch rotiert ═══',
+          rotatedList,
+          '',
+          '═══ Manuelle Aktion erforderlich ═══',
+          manualList,
+          '',
+          '═══ Fehler ═══',
+          errorList,
+          '',
+          `Nächste Rotation: ${result.nextRotation}`,
+          `Zeit: ${new Date().toLocaleString('de-CH')}`,
+        ].join('\n'),
+        html: `
+          <h2>🔑 Key-Rotation Bericht</h2>
+          <p><strong>Trigger:</strong> ${triggeredBy} ${dryRun ? '<em>[DRY RUN]</em>' : ''}</p>
+          <p><strong>Status:</strong> <span style="color:${status === 'success' ? '#22c55e' : status === 'partial' ? '#f59e0b' : '#ef4444'}">${status}</span></p>
+          <p><strong>Dauer:</strong> ${durationMs}ms</p>
+          
+          <h3>✅ Automatisch rotiert</h3>
+          <pre style="background:#f0fdf4;padding:12px;border-radius:6px;">${rotatedList}</pre>
+          
+          <h3>⚠️ Manuelle Aktion erforderlich</h3>
+          <pre style="background:#fffbeb;padding:12px;border-radius:6px;">${manualList}</pre>
+          
+          ${errors.length > 0 ? `<h3>❌ Fehler</h3><pre style="background:#fef2f2;padding:12px;border-radius:6px;">${errorList}</pre>` : ''}
+          
+          <p style="color:#666;font-size:13px;">Nächste Rotation: ${result.nextRotation}</p>
+        `,
+      });
+      console.log('🔑 [KeyRotation] 📧 Benachrichtigung gesendet an', ADMIN_EMAIL);
+    } catch (mailErr) {
+      console.error(`🔑 [KeyRotation] ⚠️  E-Mail konnte nicht gesendet werden: ${mailErr.message}`);
+    }
+  }
+
+  console.log(`\n🔑 [KeyRotation] ════════════════════════════════`);
+  console.log(`🔑 [KeyRotation] Rotation abgeschlossen: ${status} (${durationMs}ms)`);
+  console.log(`🔑 [KeyRotation] Rotiert: ${rotatedKeys.join(', ') || 'keine'}`);
+  console.log(`🔑 [KeyRotation] ════════════════════════════════\n`);
+
+  return result;
+}
+
+// ── POST /api/admin/rotate-keys — Manuelle Key-Rotation ──
+app.post('/api/admin/rotate-keys', authenticate, adminOnly, async (req, res) => {
+  const dryRun = req.query.dry_run === 'true' || req.body?.dryRun === true;
+  console.log(`🔑 [KeyRotation] Manuelle Rotation gestartet von ${req.user.email}${dryRun ? ' [DRY RUN]' : ''}`);
+  try {
+    const result = await rotateKeys({ triggeredBy: `admin:${req.user.email}`, dryRun });
+    res.json(result);
+  } catch (err) {
+    console.error('🔑 [KeyRotation] ❌ Fehler:', err);
+    res.status(500).json({ error: 'Key-Rotation fehlgeschlagen', details: err.message });
+  }
+});
+
+// ── GET /api/admin/rotation-log — Rotations-History ──
+app.get('/api/admin/rotation-log', authenticate, adminOnly, async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Supabase nicht verbunden' });
+  try {
+    const { data, error } = await supabase
+      .from('key_rotation_log')
+      .select('*')
+      .order('rotated_at', { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    res.json({ rotations: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Rotation-Log konnte nicht geladen werden', details: err.message });
+  }
+});
+
+// ── GET /api/admin/key-health — Key-Alter und Rotations-Status ──
+app.get('/api/admin/key-health', authenticate, adminOnly, async (req, res) => {
+  let lastRotation = null;
+  let daysSinceRotation = null;
+
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('key_rotation_log')
+        .select('rotated_at, status')
+        .eq('status', 'success')
+        .order('rotated_at', { ascending: false })
+        .limit(1);
+      if (data?.[0]) {
+        lastRotation = data[0].rotated_at;
+        daysSinceRotation = Math.floor((Date.now() - new Date(lastRotation).getTime()) / (24 * 3600 * 1000));
+      }
+    } catch (err) {
+      console.error('🔑 [KeyHealth] Fehler beim Laden des Rotation-Logs:', err.message);
+    }
+  }
+
+  const keyStatus = {
+    SUPABASE_JWT_SECRET: JWT_SECRET ? '✅ SET' : '❌ MISSING',
+    SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_KEY ? '✅ SET' : '❌ MISSING',
+    GELATO_API_KEY: GELATO_API_KEY ? '✅ SET' : '❌ NOT SET',
+    STRIPE_SECRET_KEY: STRIPE_SECRET_KEY ? '✅ SET' : '❌ NOT SET',
+    STRIPE_WEBHOOK_SECRET: STRIPE_WEBHOOK_SECRET ? '✅ SET' : '❌ NOT SET',
+    COOLIFY_API_TOKEN: COOLIFY_TOKEN ? '✅ SET' : '❌ NOT SET',
+    CLOUDFLARE_API_TOKEN: CF_API_TOKEN ? '✅ SET' : '❌ NOT SET',
+    SUPABASE_WEBHOOK_SECRET: SUPABASE_WEBHOOK_SECRET ? '✅ SET' : '❌ NOT SET',
+  };
+
+  const WARNING_THRESHOLD_DAYS = 35;
+  const isOverdue = daysSinceRotation !== null && daysSinceRotation > WARNING_THRESHOLD_DAYS;
+
+  res.json({
+    lastRotation,
+    daysSinceRotation,
+    isOverdue,
+    warningThresholdDays: WARNING_THRESHOLD_DAYS,
+    serverStartedAt: SERVER_START_TIME.toISOString(),
+    keyStatus,
+    rotationSchedule: 'Monatlich am 1., 03:30 Uhr (Europe/Zurich)',
+  });
+});
+
+// ── Monatliche Key-Rotation (1. des Monats, 03:30 Uhr) ──
+cron.schedule('30 3 1 * *', async () => {
+  console.log('🔑 [KeyRotation] ⏰ Monatliche Auto-Rotation gestartet (Cron: 1. des Monats, 03:30)');
+  try {
+    await rotateKeys({ triggeredBy: 'cron' });
+  } catch (err) {
+    console.error('🔑 [KeyRotation] ❌ Auto-Rotation fehlgeschlagen:', err);
+  }
 }, { timezone: 'Europe/Zurich' });
 
 // ═══════════════════════════════════════════════
@@ -2472,6 +2842,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🛡️  NAS-Watchdog: alle ${NAS_CHECK_INTERVAL / 1000}s, Restart nach ${NAS_FAIL_THRESHOLD} Fehlern`);
   console.log(`🖨️  Gelato Print API: ${GELATO_API_KEY ? '✅ Active' : '❌ Not configured'}`);
   console.log(`💳 Stripe Payments: ${STRIPE_SECRET_KEY ? '✅ Active' : '❌ Not configured'}`);
+  console.log(`🔑 Key-Rotation: monatlich am 1., 03:30 Uhr (Europe/Zurich)`);
 
   // Auto-purge Cloudflare cache on startup (= after redeploy)
   purgeCloudflareCache();

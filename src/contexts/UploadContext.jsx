@@ -120,9 +120,10 @@ export function UploadProvider({ children }) {
 
       const uploadSingleFile = async (file, fileIdx) => {
         try {
-          const resized = await resizeImage(file);
+          // TURBO: skip client-side resize — server handles everything
+          // With 1Gbps upload, sending raw file is faster than Canvas resize (3-5s per image)
           const formData = new FormData();
-          formData.append('images', resized);
+          formData.append('images', file);
 
           const response = await fetch(
             `${UPLOAD_API}/api/upload/${item.galleryId}/${albumParam}`,

@@ -1864,14 +1864,12 @@
 /* ====== SCROLL ANIMATIONS ====== */
 .cv-fade-in {
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-  will-change: opacity, transform;
+  transition: opacity 0.5s ease;
+  will-change: opacity;
 }
 
 .cv-fade-in.cv-visible {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* Stagger effect for photos in grid */
@@ -1885,20 +1883,17 @@
 /* Album title slides in from left */
 .cv-slide-in {
   opacity: 0;
-  transform: translateX(-30px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-  will-change: opacity, transform;
+  transition: opacity 0.6s ease;
+  will-change: opacity;
 }
 
 .cv-slide-in.cv-visible {
   opacity: 0.7;
-  transform: translateX(0);
 }
 
 /* Footer fade */
 .cv-footer.cv-fade-in.cv-visible {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* Respect reduced motion */
@@ -1906,7 +1901,6 @@
   .cv-fade-in,
   .cv-slide-in {
     opacity: 1;
-    transform: none;
     transition: none;
   }
 }

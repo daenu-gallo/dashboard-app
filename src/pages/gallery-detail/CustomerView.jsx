@@ -1618,14 +1618,10 @@ const CustomerView = ({ domainMode = null }) => {
           </>
         );
 
-        return aIdx === 0 ? (
+        return (
           <section key={aIdx} id={`cv-album-${aIdx}`} className="cv-album-section">
             {albumContent}
           </section>
-        ) : (
-          <LazyAlbumSection key={aIdx} id={`cv-album-${aIdx}`} className="cv-album-section">
-            {albumContent}
-          </LazyAlbumSection>
         );
       })}
 
