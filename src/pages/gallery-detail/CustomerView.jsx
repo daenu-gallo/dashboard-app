@@ -550,7 +550,7 @@ const CustomerView = ({ domainMode = null }) => {
   const [productModalPhoto, setProductModalPhoto] = useState(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutForm, setCheckoutForm] = useState({ name: '', email: '', strasse: '', plz: '', ort: '', land: 'Schweiz' });
+  const [checkoutForm, setCheckoutForm] = useState({ name: '', email: '', phone: '', strasse: '', plz: '', ort: '', land: 'Schweiz' });
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [couponInput, setCouponInput] = useState('');
@@ -2195,6 +2195,10 @@ const CustomerView = ({ domainMode = null }) => {
                   <label>E-Mail *</label>
                   <input type="email" required value={checkoutForm.email} onChange={e => setCheckoutForm(p => ({ ...p, email: e.target.value }))} placeholder="max@example.com" />
                 </div>
+              </div>
+              <div className="cv-checkout-field">
+                <label>Telefon (für SMS Code von Stripe) *</label>
+                <input type="tel" required value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} placeholder="+41 79 123 45 67" />
               </div>
               <div className="cv-checkout-field">
                 <label>Strasse</label>

@@ -2633,6 +2633,9 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       mode: 'payment',
       payment_method_types: ['card'],
       customer_email: customer.email,
+      phone_number_collection: {
+        enabled: true,
+      },
       line_items: lineItems,
       metadata: {
         galleryId: String(galleryId || ''),
@@ -2697,7 +2700,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         city: meta.customerCity || '',
         postCode: meta.customerPostCode || '',
         country: meta.customerCountry || 'CH',
-        phone: meta.customerPhone || '',
+        phone: session.customer_details?.phone || meta.customerPhone || '',
       };
 
       // Generate order number
