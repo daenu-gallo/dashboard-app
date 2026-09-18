@@ -341,6 +341,8 @@ const CustomerView = ({ domainMode = null }) => {
             mobileSrc: img.mobile_thumb_url ? (UPLOAD_API + img.mobile_thumb_url + '?v=3') : (UPLOAD_API + img.thumb_url + '?v=3'),
             name: img.filename,
             id: img.id,
+            width: img.width,
+            height: img.height,
           });
         });
         setUploadedImages(grouped);
@@ -1574,12 +1576,13 @@ const CustomerView = ({ domainMode = null }) => {
                       } else {
                         openLightbox(aIdx, pIdx);
                       }
-                    }} style={{ cursor: 'pointer' }}>
+                    }} style={{ cursor: 'pointer', aspectRatio: img.width && img.height ? `${img.width} / ${img.height}` : 'auto' }}>
                       <LazyImage
                         src={img.thumbSrc || img.src}
                         mobileSrc={img.mobileSrc || img.thumbSrc || img.src}
                         alt={img.name || ''}
                         rootMargin="400px"
+                        style={{ width: '100%', height: '100%', display: 'block' }}
                         onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined}
                       />
                       {isPhotoSelected(img.src) && (
@@ -1731,13 +1734,20 @@ const CustomerView = ({ domainMode = null }) => {
             </button>
             {selPhotos.length > 0 ? (
               <div className={`cv-photo-grid ${designDisplay === 'kacheln' ? 'cv-tiles' : 'cv-masonry'}`} style={{ padding: '1rem 60px' }}>
-                {selPhotos.map((photo, pIdx) => (
-                  <div key={pIdx} className="cv-photo">
-                    <img src={photo.thumbSrc || photo.src} alt={photo.name || ''} loading="lazy" decoding="async" onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
-                    <span className="cv-photo-heart-badge">♥</span>
-                    <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
-                  </div>
-                ))}
+                {selPhotos.map((photo, pIdx) => {
+                  let w, h;
+                  Object.values(uploadedImages).forEach(imgs => {
+                    const match = imgs.find(i => i.src === photo.src);
+                    if (match) { w = match.width; h = match.height; }
+                  });
+                  return (
+                    <div key={pIdx} className="cv-photo" style={{ aspectRatio: w && h ? `${w} / ${h}` : 'auto' }}>
+                      <img src={photo.thumbSrc || photo.src} alt={photo.name || ''} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} onDragStart={toggles.bilderschutz ? (e) => e.preventDefault() : undefined} />
+                      <span className="cv-photo-heart-badge">♥</span>
+                      <WatermarkOverlay className="cv-photo-watermark" variant="photo" />
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="cv-album-empty" style={{ margin: '2rem 60px' }}>

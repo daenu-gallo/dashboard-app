@@ -99,8 +99,8 @@ const LazyImage = ({
   const wrapperStyle = {
     position: 'relative',
     overflow: 'hidden',
-    ...(width != null ? { width } : {}),
-    ...(height != null ? { height } : {}),
+    width: width != null ? width : '100%',
+    height: height != null ? height : '100%',
     ...(!isLoaded ? placeholderStyle : {}),
   };
 
