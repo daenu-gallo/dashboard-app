@@ -679,33 +679,6 @@ const CustomerView = ({ domainMode = null }) => {
     })();
   }, [supaGallery?.user_id, toggles.shop]);
 
-  const handleCommentSubmit = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim() || !commentPhoto || !customerUser) return;
-    setCommentSubmitting(true);
-    try {
-      const { error } = await supabase.from('gallery_comments').insert({
-        gallery_id: supaGallery.id,
-        photo_name: commentPhoto.name,
-        photo_src: commentPhoto.src,
-        customer_name: customerUser.name,
-        customer_email: customerUser.email,
-        comment: commentText.trim()
-      });
-      if (error) {
-        console.error('Comment error:', error);
-        alert('Fehler beim Senden des Kommentars. Eventuell ist die Datenbank-Tabelle noch nicht erstellt.');
-      } else {
-        alert('Kommentar erfolgreich gesendet!');
-        setShowCommentModal(false);
-        setCommentText('');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCommentSubmitting(false);
-    }
-  };
 
   // Cart helpers
   const addToCart = (product, photo) => {
@@ -736,33 +709,6 @@ const CustomerView = ({ domainMode = null }) => {
     }));
   };
 
-  // Sync abandoned carts
-  useEffect(() => {
-    if (!supaGallery?.id || !customerUser?.email) return;
-    
-    const saveCart = async () => {
-      try {
-        if (cart.length === 0) {
-          await supabase.from('abandoned_carts')
-            .update({ converted: true })
-            .eq('gallery_id', supaGallery.id)
-            .eq('customer_email', customerUser.email);
-        } else {
-          await supabase.from('abandoned_carts').upsert({
-            gallery_id: supaGallery.id,
-            customer_email: customerUser.email,
-            cart_data: cart,
-            last_updated: new Date().toISOString(),
-            reminder_sent: false,
-            converted: false
-          }, { onConflict: 'gallery_id, customer_email' });
-        }
-      } catch(err) {
-        // Ignoriere Fehler (z.B. wenn Tabelle noch fehlt)
-      }
-    };
-    saveCart();
-  }, [cart, customerUser, supaGallery?.id]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -947,6 +893,63 @@ const CustomerView = ({ domainMode = null }) => {
   };
 
   const pendingSelection = useRef(null);
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim() || !commentPhoto || !customerUser) return;
+    setCommentSubmitting(true);
+    try {
+      const { error } = await supabase.from('gallery_comments').insert({
+        gallery_id: supaGallery.id,
+        photo_name: commentPhoto.name,
+        photo_src: commentPhoto.src,
+        customer_name: customerUser.name,
+        customer_email: customerUser.email,
+        comment: commentText.trim()
+      });
+      if (error) {
+        console.error('Comment error:', error);
+        alert('Fehler beim Senden des Kommentars. Eventuell ist die Datenbank-Tabelle noch nicht erstellt.');
+      } else {
+        alert('Kommentar erfolgreich gesendet!');
+        setShowCommentModal(false);
+        setCommentText('');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  // Sync abandoned carts
+  useEffect(() => {
+    if (!supaGallery?.id || !customerUser?.email) return;
+    
+    const saveCart = async () => {
+      try {
+        if (cart.length === 0) {
+          await supabase.from('abandoned_carts')
+            .update({ converted: true })
+            .eq('gallery_id', supaGallery.id)
+            .eq('customer_email', customerUser.email);
+        } else {
+          await supabase.from('abandoned_carts').upsert({
+            gallery_id: supaGallery.id,
+            customer_email: customerUser.email,
+            cart_data: cart,
+            last_updated: new Date().toISOString(),
+            reminder_sent: false,
+            converted: false
+          }, { onConflict: 'gallery_id, customer_email' });
+        }
+      } catch(err) {
+        // Ignoriere Fehler (z.B. wenn Tabelle noch fehlt)
+      }
+    };
+    saveCart();
+  }, [cart, customerUser, supaGallery?.id]);
+
 
   const isPhotoSelected = (src) => {
     if (!customerUser) return false;

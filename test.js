@@ -3,18 +3,13 @@ import puppeteer from 'puppeteer';
   const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
   page.on('console', msg => {
-    console.log('CONSOLE:', msg.text());
-    if (msg.type() === 'error') {
-      const location = msg.location();
-      console.log('LOCATION:', location);
+    if (msg.text().includes('ErrorBoundary')) {
       msg.args().forEach(async (arg) => {
-        const val = await arg.jsonValue().catch(() => null);
-        console.log('ARG:', val);
+        // Evaluate the arg in the browser to get its stack
+        const stack = await arg.evaluate(obj => obj && obj.stack ? obj.stack : JSON.stringify(obj)).catch(() => null);
+        console.log('STACK:', stack);
       });
     }
-  });
-  page.on('pageerror', error => {
-    console.error('PAGE_ERROR_STACK:', error.stack);
   });
   await page.goto('http://localhost:4173/test-gallery');
   await new Promise(r => setTimeout(r, 2000));
