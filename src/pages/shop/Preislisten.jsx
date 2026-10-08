@@ -173,6 +173,7 @@ const Preislisten = () => {
         lab: item.lab,
         selling_price: item.sellingPrice,
         enabled: item.enabled,
+        gelato_uid: item.gelato_uid || '',
       });
       if (error) console.error('[Preislisten] Update failed:', error);
     } else {
@@ -189,6 +190,7 @@ const Preislisten = () => {
             purchase_price: item.purchasePrice,
             selling_price: item.sellingPrice,
             enabled: item.enabled,
+            gelato_uid: item.gelato_uid || '',
           })
           .select()
           .single();
@@ -270,6 +272,7 @@ const Preislisten = () => {
               <tr>
                 <th style={{ width: 240 }}>Produkt</th>
                 <th>Labor</th>
+                <th>Gelato UID</th>
                 <th>Einkauf</th>
                 <th>Verkauf</th>
                 <th>Brutto Marge</th>
@@ -348,6 +351,17 @@ const Preislisten = () => {
                                 <option value="gelato">Gelato</option>
                                 <option value="nphoto">nPhoto</option>
                               </select>
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className="price-input"
+                                style={{ width: 120, fontSize: '0.75rem' }}
+                                placeholder="Gelato ID"
+                                value={item.gelato_uid || ''}
+                                onChange={(e) => updateLocalItem(item.product_sku, 'gelato_uid', e.target.value)}
+                                onBlur={(e) => handleItemBlur({ ...item, gelato_uid: e.target.value })}
+                              />
                             </td>
                             <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                               Fr. {purchase.toFixed(2)}
