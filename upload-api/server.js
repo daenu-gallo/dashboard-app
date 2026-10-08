@@ -2628,6 +2628,26 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       quantity: item.quantity || 1,
     }));
 
+    const sessionMetadata = {
+      galleryId: String(galleryId || ''),
+      userId: String(userId || ''),
+      customerFirstName: customer.firstName || '',
+      customerLastName: customer.lastName || '',
+      customerAddress: customer.addressLine1 || '',
+      customerCity: customer.city || '',
+      customerPostCode: customer.postCode || '',
+      customerCountry: customer.country || 'CH',
+      customerPhone: customer.phone || '',
+      couponCode: couponCode || '',
+    };
+    
+    // Store the full items data as JSON for the webhook, chunked to 500 chars to avoid Stripe limits
+    const itemsJson = JSON.stringify(items);
+    const chunks = itemsJson.match(/.{1,500}/g) || [];
+    chunks.forEach((chunk, i) => {
+      sessionMetadata[`orderItems_${i}`] = chunk;
+    });
+
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -2636,21 +2656,20 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       phone_number_collection: {
         enabled: true,
       },
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: 'fixed_amount',
+            fixed_amount: {
+              amount: 790, // 7.90 CHF in cents
+              currency: 'chf',
+            },
+            display_name: 'Versand (Flat rate)',
+          },
+        },
+      ],
       line_items: lineItems,
-      metadata: {
-        galleryId: String(galleryId || ''),
-        userId: String(userId || ''),
-        customerFirstName: customer.firstName || '',
-        customerLastName: customer.lastName || '',
-        customerAddress: customer.addressLine1 || '',
-        customerCity: customer.city || '',
-        customerPostCode: customer.postCode || '',
-        customerCountry: customer.country || 'CH',
-        customerPhone: customer.phone || '',
-        couponCode: couponCode || '',
-        // Store the full items data as JSON for the webhook
-        orderItems: JSON.stringify(items),
-      },
+      metadata: sessionMetadata,
       success_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=cancelled`,
     });
@@ -2691,7 +2710,15 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
     try {
       const meta = session.metadata || {};
-      const items = JSON.parse(meta.orderItems || '[]');
+      
+      let itemsJson = meta.orderItems || '';
+      let chunkIdx = 0;
+      while (meta[`orderItems_${chunkIdx}`]) {
+        itemsJson += meta[`orderItems_${chunkIdx}`];
+        chunkIdx++;
+      }
+      const items = JSON.parse(itemsJson || '[]');
+      
       const customer = {
         firstName: meta.customerFirstName || '',
         lastName: meta.customerLastName || '',
