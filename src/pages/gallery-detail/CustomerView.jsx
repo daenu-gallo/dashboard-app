@@ -570,6 +570,9 @@ const CustomerView = ({ domainMode = null }) => {
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   // Load shop products from photographer's price list (only if shop toggle is ON)
   useEffect(() => {
@@ -690,6 +693,38 @@ const CustomerView = ({ domainMode = null }) => {
   };
 
   // Submit order via Stripe Checkout
+  const handleValidateCoupon = async () => {
+    setCouponError('');
+    setAppliedCoupon(null);
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    try {
+      const resp = await fetch(`${UPLOAD_API}/api/stripe/validate-coupon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), userId: supaGallery?.user_id })
+      });
+      const data = await resp.json();
+      if (data.valid) {
+        setAppliedCoupon({ discount_type: data.discount_type, discount_value: data.discount_value });
+      } else {
+        setCouponError(data.error || 'Ungültiger Gutschein');
+      }
+    } catch (err) {
+      setCouponError('Netzwerkfehler');
+    }
+    setValidatingCoupon(false);
+  };
+
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.discount_type === 'Prozent' || appliedCoupon.discount_type === 'percent') {
+      return cartTotal * (appliedCoupon.discount_value / 100);
+    } else {
+      return Math.min(cartTotal, appliedCoupon.discount_value);
+    }
+  };
+
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (cart.length === 0 || !checkoutForm.email) return;
@@ -2237,7 +2272,18 @@ const CustomerView = ({ domainMode = null }) => {
               </div>
               <div className="cv-checkout-field">
                 <label>{t.checkoutCoupon}</label>
-                <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="RABATT10" />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="RABATT10" />
+                  <button type="button" onClick={handleValidateCoupon} disabled={validatingCoupon} style={{ padding: '0 12px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {validatingCoupon ? '...' : 'Einlösen'}
+                  </button>
+                </div>
+                {appliedCoupon && (
+                  <div style={{ fontSize: '0.85rem', color: '#10b981', marginTop: '4px' }}>
+                    Gutschein aktiv: {appliedCoupon.discount_type === 'Prozent' ? `${appliedCoupon.discount_value}%` : `CHF ${appliedCoupon.discount_value}`} Rabatt
+                  </div>
+                )}
+                {couponError && <div style={{ fontSize: '0.85rem', color: '#ef4444', marginTop: '4px' }}>{couponError}</div>}
               </div>
               <div className="cv-checkout-summary">
                 <h4>{t.checkoutSummary}</h4>
@@ -2251,9 +2297,15 @@ const CustomerView = ({ domainMode = null }) => {
                   <span>{t.shipping}</span>
                   <span>CHF 7.90</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="cv-checkout-line" style={{ color: '#10b981' }}>
+                    <span>Rabatt ({couponInput})</span>
+                    <span>- CHF {calculateDiscount().toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="cv-checkout-line cv-checkout-line-total">
                   <span>{t.total}</span>
-                  <span>CHF {(cartTotal + 7.90).toFixed(2)}</span>
+                  <span>CHF {(Math.max(0, cartTotal + 7.90 - (appliedCoupon ? calculateDiscount() : 0))).toFixed(2)}</span>
                 </div>
               </div>
               <button type="submit" className="cv-checkout-submit" disabled={orderSubmitting}>

@@ -2607,6 +2607,34 @@ app.get('/api/stripe/config', (req, res) => {
   res.json({ publishableKey: STRIPE_PUBLISHABLE_KEY });
 });
 
+// ── POST /api/stripe/validate-coupon — Check if coupon is valid ──
+app.post('/api/stripe/validate-coupon', async (req, res) => {
+  try {
+    const { code, userId } = req.body;
+    if (!code || !userId) return res.status(400).json({ valid: false, error: 'Missing code or userId' });
+    
+    // Check coupons in Supabase
+    const { data: coupon, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('code', code)
+      .single();
+      
+    if (error || !coupon) {
+      return res.json({ valid: false, error: 'Gutschein nicht gefunden oder ungültig.' });
+    }
+    
+    res.json({ 
+      valid: true, 
+      discount_type: coupon.discount_type, 
+      discount_value: coupon.discount_value 
+    });
+  } catch (err) {
+    res.status(500).json({ valid: false, error: 'Serverfehler bei der Gutschein-Prüfung' });
+  }
+});
+
 // ── POST /api/stripe/create-checkout-session — Create Stripe payment session ──
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
   if (!stripe) {
@@ -2617,6 +2645,41 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
 
     if (!customer?.email || !items?.length) {
       return res.status(400).json({ error: 'customer.email and items[] required' });
+    }
+
+    // --- Verify Coupon & Create Stripe Coupon if valid ---
+    let stripeCouponId = null;
+    let finalCouponCode = '';
+    if (couponCode && userId) {
+      const { data: dbCoupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('code', couponCode)
+        .single();
+        
+      if (dbCoupon) {
+        finalCouponCode = dbCoupon.code;
+        // Create an ephemeral Stripe coupon for this checkout
+        const couponParams = {
+          name: dbCoupon.name || dbCoupon.code,
+          duration: 'once',
+          currency: 'chf'
+        };
+        if (dbCoupon.discount_type === 'Prozent' || dbCoupon.discount_type === 'percent') {
+          couponParams.percent_off = dbCoupon.discount_value;
+          delete couponParams.currency;
+        } else {
+          couponParams.amount_off = Math.round(dbCoupon.discount_value * 100); // Stripe uses cents
+        }
+        
+        try {
+          const sCoupon = await stripe.coupons.create(couponParams);
+          stripeCouponId = sCoupon.id;
+        } catch (couponErr) {
+          console.error('[Stripe] Failed to create Stripe coupon:', couponErr);
+        }
+      }
     }
 
     // Build Stripe line items from cart
@@ -2646,7 +2709,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       customerPostCode: customer.postCode || '',
       customerCountry: customer.country || 'CH',
       customerPhone: customer.phone || '',
-      couponCode: couponCode || '',
+      couponCode: finalCouponCode,
     };
     
     // Store the full items data as JSON for the webhook, chunked to 500 chars to avoid Stripe limits
@@ -2657,7 +2720,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     });
 
     // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = {
       mode: 'payment',
       payment_method_types: ['card'],
       customer_email: customer.email,
@@ -2678,9 +2741,17 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       ],
       line_items: lineItems,
       metadata: sessionMetadata,
-      success_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${returnUrl || 'https://galerie.fotohahn.ch'}?payment=cancelled`,
-    });
+      success_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: returnUrl,
+    };
+
+    // Apply Stripe discount if we successfully created the coupon
+    if (stripeCouponId) {
+      sessionParams.discounts = [{ coupon: stripeCouponId }];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
 
     console.log(`[Stripe] ✅ Checkout session created: ${session.id}`);
     res.json({ sessionId: session.id, url: session.url });
