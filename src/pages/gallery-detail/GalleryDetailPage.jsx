@@ -11,6 +11,7 @@ import VerschickenTab from './VerschickenTab';
 import { useGalleries } from '../../contexts/GalleryContext';
 import { useGalleryImages } from '../../hooks/useGalleryImages';
 import { supabase } from '../../lib/supabaseClient';
+import KommentareTab from './KommentareTab';
 import './GalleryDetail.css';
 
 const tabs = [
@@ -19,6 +20,7 @@ const tabs = [
   { id: 'design', label: 'Design' },
   { id: 'shop', label: 'Shop' },
   { id: 'auswahlen', label: 'Auswahlen' },
+  { id: 'kommentare', label: 'Kommentare' },
   { id: 'statistiken', label: 'Statistiken' },
   { id: 'verschicken', label: 'Verschicken' },
 ];
@@ -91,6 +93,7 @@ const GalleryDetailPage = () => {
       case 'einstellungen': return <EinstellungenTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'design': return <DesignTab gallery={legacyGallery} supabaseGallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'auswahlen': return <AuswahlenTab galleryKey={slug} />;
+      case 'kommentare': return <KommentareTab galleryId={gallery.id} />;
       case 'shop': return <ShopTab gallery={gallery} updateGallery={handleUpdateGallery} />;
       case 'statistiken': return <StatistikenTab galleryId={gallery.id} />;
       case 'verschicken': return <VerschickenTab gallery={legacyGallery} galleryKey={galleryKey} settings={{ titel: gallery.title, domain: gallery.domain, domainpfad: gallery.domain_path }} uploadedImages={galleryImages} appIconSrc={appIconSrc} />;

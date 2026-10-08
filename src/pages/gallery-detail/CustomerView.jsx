@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send, ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, Share2, LogIn, UserPlus, Mail, Image as ImageIcon, Play, X, Facebook, Twitter, Instagram, Youtube, Heart, User, Download, Lock, Eye, EyeOff, Send, ShoppingCart, Plus, Minus, Trash2, Check, MessageCircle } from 'lucide-react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useWatermarks } from '../../hooks/useWatermarks';
 import { useBrand } from '../../contexts/BrandContext';
@@ -575,6 +575,12 @@ const CustomerView = ({ domainMode = null }) => {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [freeShipping, setFreeShipping] = useState(null);
 
+  // ── COMMENTS STATE ──
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentPhoto, setCommentPhoto] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
   const getShippingCost = () => {
     if (freeShipping && freeShipping.free_shipping && cartTotal >= freeShipping.free_shipping_threshold) {
       return 0;
@@ -673,6 +679,34 @@ const CustomerView = ({ domainMode = null }) => {
     })();
   }, [supaGallery?.user_id, toggles.shop]);
 
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim() || !commentPhoto || !customerUser) return;
+    setCommentSubmitting(true);
+    try {
+      const { error } = await supabase.from('gallery_comments').insert({
+        gallery_id: supaGallery.id,
+        photo_name: commentPhoto.name,
+        photo_src: commentPhoto.src,
+        customer_name: customerUser.name,
+        customer_email: customerUser.email,
+        comment: commentText.trim()
+      });
+      if (error) {
+        console.error('Comment error:', error);
+        alert('Fehler beim Senden des Kommentars. Eventuell ist die Datenbank-Tabelle noch nicht erstellt.');
+      } else {
+        alert('Kommentar erfolgreich gesendet!');
+        setShowCommentModal(false);
+        setCommentText('');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
   // Cart helpers
   const addToCart = (product, photo) => {
     setCart(prev => {
@@ -701,6 +735,34 @@ const CustomerView = ({ domainMode = null }) => {
       return { ...item, quantity: newQty };
     }));
   };
+
+  // Sync abandoned carts
+  useEffect(() => {
+    if (!supaGallery?.id || !customerUser?.email) return;
+    
+    const saveCart = async () => {
+      try {
+        if (cart.length === 0) {
+          await supabase.from('abandoned_carts')
+            .update({ converted: true })
+            .eq('gallery_id', supaGallery.id)
+            .eq('customer_email', customerUser.email);
+        } else {
+          await supabase.from('abandoned_carts').upsert({
+            gallery_id: supaGallery.id,
+            customer_email: customerUser.email,
+            cart_data: cart,
+            last_updated: new Date().toISOString(),
+            reminder_sent: false,
+            converted: false
+          }, { onConflict: 'gallery_id, customer_email' });
+        }
+      } catch(err) {
+        // Ignoriere Fehler (z.B. wenn Tabelle noch fehlt)
+      }
+    };
+    saveCart();
+  }, [cart, customerUser, supaGallery?.id]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -2027,6 +2089,21 @@ const CustomerView = ({ domainMode = null }) => {
             }}>
               <EyeOff size={16} /> Ausblenden
             </button>
+            {toggles.kommentarfunktion && (
+              <button className="cv-lightbox-btn" onClick={() => {
+                const photo = lightboxPhotos[lightboxIndex];
+                if (!photo) return;
+                if (!customerUser) {
+                  pendingSelection.current = { src: photo.src, name: photo.name };
+                  setShowLoginModal(true);
+                  return;
+                }
+                setCommentPhoto(photo);
+                setShowCommentModal(true);
+              }}>
+                <MessageCircle size={16} /> Kommentieren
+              </button>
+            )}
             <button
               className={`cv-lightbox-btn cv-lightbox-btn-select ${isPhotoSelected(lightboxPhotos[lightboxIndex]?.src) ? 'selected' : ''}`}
               onClick={() => {
@@ -2043,6 +2120,36 @@ const CustomerView = ({ domainMode = null }) => {
               <Heart size={16} fill={isPhotoSelected(lightboxPhotos[lightboxIndex]?.src) ? 'currentColor' : 'none'} />
               {isPhotoSelected(lightboxPhotos[lightboxIndex]?.src) ? 'Ausgewählt' : 'Auswählen'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {showCommentModal && (
+        <div className="cv-login-overlay" onClick={() => setShowCommentModal(false)}>
+          <div className="cv-login-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="cv-login-close" onClick={() => setShowCommentModal(false)}>
+              <X size={20} />
+            </button>
+            <h3>Kommentar hinterlassen</h3>
+            <p>Schreibe einen Kommentar zu diesem Bild.</p>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+              <img src={commentPhoto?.thumbSrc || commentPhoto?.src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4 }} />
+              <div style={{ flex: 1, fontSize: '0.85rem', color: '#999' }}>{commentPhoto?.name}</div>
+            </div>
+            <form onSubmit={handleCommentSubmit}>
+              <textarea
+                placeholder="Dein Kommentar..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                required
+                rows={4}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '1rem', marginBottom: '1rem', resize: 'vertical' }}
+              />
+              <button type="submit" disabled={commentSubmitting} className="cv-save-btn" style={{ width: '100%', background: 'var(--cv-accent, #5a8a5c)', color: '#fff', padding: '0.75rem', border: 'none', borderRadius: 6, fontWeight: 'bold' }}>
+                {commentSubmitting ? 'Wird gesendet...' : 'Kommentar absenden'}
+              </button>
+            </form>
           </div>
         </div>
       )}

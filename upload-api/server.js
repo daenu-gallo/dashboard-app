@@ -1619,6 +1619,63 @@ cron.schedule('*/5 * * * *', () => {
   runUptimeCheck();
 }, { timezone: 'Europe/Zurich' });
 
+// Abandoned Cart Reminders (every hour)
+cron.schedule('0 * * * *', async () => {
+  if (!supabase || !emailTransporter) return;
+  console.log('[Cron] Checking for abandoned carts...');
+  try {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data: carts, error } = await supabase
+      .from('abandoned_carts')
+      .select('id, gallery_id, customer_email, cart_data, galleries(title, domain, domain_path, user_id)')
+      .eq('reminder_sent', false)
+      .eq('converted', false)
+      .lt('last_updated', twoHoursAgo);
+
+    if (error) {
+      // Ignoriere, falls Tabelle nicht existiert
+      if (!error.message.includes('does not exist')) console.error('[Cron] Error fetching carts:', error);
+      return;
+    }
+
+    for (const cart of (carts || [])) {
+      if (!cart.galleries) continue;
+      
+      const brandName = 'Ihre Fotogalerie';
+      const galleryUrl = cart.galleries.domain 
+        ? `https://${cart.galleries.domain}/${cart.galleries.domain_path || ''}`
+        : `https://fotohahn.ch/gallery/${cart.galleries.slug || cart.gallery_id}`; // fallback
+
+      const mailOptions = {
+        from: `"${brandName}" <${process.env.SMTP_FROM || 'noreply@fotohahn.ch'}>`,
+        to: cart.customer_email,
+        subject: 'Haben Sie etwas vergessen?',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Hallo!</h2>
+            <p>Wir haben festgestellt, dass Sie noch wunderschöne Fotos von <b>${cart.galleries.title}</b> in Ihrem Warenkorb haben.</p>
+            <p>Möchten Sie Ihren Einkauf jetzt abschliessen?</p>
+            <br>
+            <a href="${galleryUrl}" style="background-color: #5a8a5c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Zur Galerie zurückkehren</a>
+            <br><br>
+            <p>Ihre ausgewählten Erinnerungen warten auf Sie!</p>
+          </div>
+        `
+      };
+
+      try {
+        await emailTransporter.sendMail(mailOptions);
+        await supabase.from('abandoned_carts').update({ reminder_sent: true }).eq('id', cart.id);
+        console.log(`[Cron] Sent cart reminder to ${cart.customer_email}`);
+      } catch (err) {
+        console.error('[Cron] Failed to send reminder to', cart.customer_email, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[Cron] Cart check failed:', err);
+  }
+}, { timezone: 'Europe/Zurich' });
+
 // ══════════════════════════════════════════
 // ── API Key Rotation System ──
 // ══════════════════════════════════════════
@@ -2877,6 +2934,14 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             options: { fileUrl: item.fileUrl },
           }));
           await supabase.from('order_items').insert(orderItems);
+        }
+
+        // Mark cart as converted
+        if (supabaseOrder && meta.galleryId) {
+          await supabase.from('abandoned_carts')
+            .update({ converted: true })
+            .eq('gallery_id', parseInt(meta.galleryId))
+            .eq('customer_email', customer.email);
         }
       }
 
