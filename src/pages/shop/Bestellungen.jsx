@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Download, Eye } from 'lucide-react';
 import { useShop } from '../../contexts/ShopContext';
+import { supabase } from '../../lib/supabaseClient';
 
 const Bestellungen = () => {
   const { orders, fetchOrders } = useShop();
@@ -46,9 +47,16 @@ const Bestellungen = () => {
           <input type="date" className="date-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         </div>
         <button className="btn-show-period" onClick={handleShowPeriod}>Zeitraum anzeigen</button>
-        <button className="btn-download-invoices">
+        <button className="btn-download-invoices" onClick={async () => {
+          const uApi = import.meta.env.VITE_UPLOAD_API_URL || 'http://localhost:3001';
+          const url = new URL(`${uApi}/api/generate-accounting-pdf`);
+          if (dateFrom) url.searchParams.append('from', dateFrom);
+          if (dateTo) url.searchParams.append('to', dateTo);
+          url.searchParams.append('userId', (await supabase.auth.getSession()).data.session.user.id);
+          window.open(url.toString(), '_blank');
+        }}>
           <Download size={13} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-          Rechnungen herunterladen
+          Abrechnung (PDF)
         </button>
       </div>
 

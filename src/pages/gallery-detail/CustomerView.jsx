@@ -573,6 +573,14 @@ const CustomerView = ({ domainMode = null }) => {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [freeShipping, setFreeShipping] = useState(null);
+
+  const getShippingCost = () => {
+    if (freeShipping && freeShipping.free_shipping && cartTotal >= freeShipping.free_shipping_threshold) {
+      return 0;
+    }
+    return 7.90;
+  };
 
   // Load shop products from photographer's price list (only if shop toggle is ON)
   useEffect(() => {
@@ -592,6 +600,17 @@ const CustomerView = ({ domainMode = null }) => {
 
         if (shopSettings) {
           setShopProvider(shopSettings.provider || 'gelato');
+        }
+
+        // Check automation for free shipping
+        const { data: automation } = await supabase
+          .from('shop_automation')
+          .select('free_shipping, free_shipping_threshold')
+          .eq('user_id', supaGallery.user_id)
+          .maybeSingle();
+          
+        if (automation) {
+          setFreeShipping(automation);
         }
 
         // Load first active price list with items
@@ -1327,6 +1346,22 @@ const CustomerView = ({ domainMode = null }) => {
         <button className="cv-icon-btn" title={t.contact} onClick={() => { setShowContact(true); }}>
           <Mail size={22} />
         </button>
+        {toggles.teilen && (
+          <button className="cv-icon-btn" title="Teilen" onClick={() => {
+            if (navigator.share) {
+              navigator.share({
+                title: supaGallery?.title || 'Galerie',
+                text: 'Schau dir diese Galerie an!',
+                url: window.location.href,
+              }).catch(err => console.log('Share error:', err));
+            } else {
+              navigator.clipboard.writeText(window.location.href);
+              alert('Link kopiert!');
+            }
+          }}>
+            <Share2 size={22} />
+          </button>
+        )}
         {showDownloadMenu && (
           <button className="cv-icon-btn" title={t.downloadPhotos} onClick={() => { handleDownloadClick(); }}>
             <Download size={22} />
@@ -1410,6 +1445,25 @@ const CustomerView = ({ domainMode = null }) => {
             <button className="cv-menu-item" onClick={() => { setShowContact(true); setMenuOpen(false); }}>
               <Mail size={16} /><span>{t.contact}</span>
             </button>
+            
+            {/* Teilen */}
+            {toggles.teilen && (
+              <button className="cv-menu-item" onClick={() => {
+                setMenuOpen(false);
+                if (navigator.share) {
+                  navigator.share({
+                    title: supaGallery?.title || 'Galerie',
+                    text: 'Schau dir diese Galerie an!',
+                    url: window.location.href,
+                  }).catch(err => console.log('Share error:', err));
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('Link kopiert!');
+                }
+              }}>
+                <Share2 size={16} /><span>Teilen</span>
+              </button>
+            )}
 
             {/* Shop — only visible when shop is enabled */}
             {shopEnabled && shopProducts.length > 0 && (
@@ -2223,11 +2277,11 @@ const CustomerView = ({ domainMode = null }) => {
                 </div>
                 <div className="cv-cart-shipping">
                   <span>{t.shipping}</span>
-                  <span>{t.shippingFlat}</span>
+                  <span>{getShippingCost() === 0 ? 'Kostenlos' : `CHF ${getShippingCost().toFixed(2)}`}</span>
                 </div>
                 <div className="cv-cart-grand-total">
                   <span>{t.total}</span>
-                  <span>CHF {(cartTotal + 7.90).toFixed(2)}</span>
+                  <span>CHF {(cartTotal + getShippingCost()).toFixed(2)}</span>
                 </div>
                 <button className="cv-cart-checkout-btn" onClick={() => { setShowCartDrawer(false); setShowCheckout(true); }}>
                   {t.checkout} <ChevronRight size={18} />
@@ -2295,7 +2349,7 @@ const CustomerView = ({ domainMode = null }) => {
                 ))}
                 <div className="cv-checkout-line cv-checkout-line-ship">
                   <span>{t.shipping}</span>
-                  <span>CHF 7.90</span>
+                  <span>{getShippingCost() === 0 ? 'Kostenlos' : `CHF ${getShippingCost().toFixed(2)}`}</span>
                 </div>
                 {appliedCoupon && (
                   <div className="cv-checkout-line" style={{ color: '#10b981' }}>
@@ -2305,7 +2359,7 @@ const CustomerView = ({ domainMode = null }) => {
                 )}
                 <div className="cv-checkout-line cv-checkout-line-total">
                   <span>{t.total}</span>
-                  <span>CHF {(Math.max(0, cartTotal + 7.90 - (appliedCoupon ? calculateDiscount() : 0))).toFixed(2)}</span>
+                  <span>CHF {(Math.max(0, cartTotal + getShippingCost() - (appliedCoupon ? calculateDiscount() : 0))).toFixed(2)}</span>
                 </div>
               </div>
               <button type="submit" className="cv-checkout-submit" disabled={orderSubmitting}>

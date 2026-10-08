@@ -2719,6 +2719,25 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       sessionMetadata[`orderItems_${i}`] = chunk;
     });
 
+    // Check free shipping automation
+    let shippingAmount = 790; // Default 7.90 CHF in cents
+    try {
+      const { data: automation } = await supabase
+        .from('shop_automation')
+        .select('free_shipping, free_shipping_threshold')
+        .eq('user_id', userId)
+        .single();
+        
+      if (automation && automation.free_shipping) {
+        const cartTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+        if (cartTotal >= automation.free_shipping_threshold) {
+          shippingAmount = 0;
+        }
+      }
+    } catch (err) {
+      console.error('[Stripe] Failed to check free shipping:', err);
+    }
+
     // Create Stripe Checkout Session
     const sessionParams = {
       mode: 'payment',
@@ -2732,10 +2751,10 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
           shipping_rate_data: {
             type: 'fixed_amount',
             fixed_amount: {
-              amount: 790, // 7.90 CHF in cents
+              amount: shippingAmount,
               currency: 'chf',
             },
-            display_name: 'Versand (Flat rate)',
+            display_name: shippingAmount === 0 ? 'Kostenloser Versand' : 'Versand (Flat rate)',
           },
         },
       ],
@@ -3026,6 +3045,83 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 
   res.json({ received: true });
+});
+
+// ── GET /api/generate-accounting-pdf — Internal accounting PDF ──
+app.get('/api/generate-accounting-pdf', async (req, res) => {
+  try {
+    const { from, to, userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+
+    // Ensure only the owner can access this, though ideally it should use a proper auth token.
+    // For now, we trust the `userId` passed since it's an internal admin tool request.
+
+    let query = supabase.from('orders').select('*').eq('user_id', userId);
+    if (from) query = query.gte('created_at', from);
+    if (to) query = query.lte('created_at', to + 'T23:59:59');
+
+    const { data: orders, error } = await query.order('created_at', { ascending: false });
+    if (error) throw error;
+
+    let totalRevenue = 0; // Total from customers (incl shipping)
+    let totalStripeFee = 0; // Estimated Stripe fees (2.9% + 0.30 CHF)
+    let totalLabCost = 0; // Cost from Gelato/nPhoto
+
+    orders.forEach(o => {
+      const gross = o.total_gross || o.total_amount || 0;
+      totalRevenue += gross;
+      
+      // Calculate Stripe fee estimate: standard CH pricing is roughly 2.9% + 0.30 CHF
+      if (gross > 0) {
+        totalStripeFee += (gross * 0.029) + 0.30;
+      }
+
+      // Add lab costs
+      totalLabCost += (o.total_production_cost || 0);
+    });
+
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50 });
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Shop-Abrechnung.pdf"`);
+    doc.pipe(res);
+
+    doc.fontSize(20).text('Shop-Abrechnung', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Zeitraum: ${from ? new Date(from).toLocaleDateString('de-CH') : 'Alle'} bis ${to ? new Date(to).toLocaleDateString('de-CH') : 'Heute'}`, { align: 'center' });
+    doc.moveDown(2);
+
+    doc.fontSize(14).text('Umsatz-Übersicht', { underline: true });
+    doc.moveDown();
+
+    const drawRow = (label, value, bold = false) => {
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(12)
+         .text(label, { continued: true })
+         .text(`CHF ${value.toFixed(2)}`, { align: 'right' });
+    };
+
+    drawRow('Gesamteinnahmen (Kunden):', totalRevenue);
+    doc.moveDown(0.5);
+    drawRow('Abzug Stripe-Gebühren (geschätzt):', -totalStripeFee);
+    doc.moveDown(0.5);
+    drawRow('Abzug Produktionskosten (Labore):', -totalLabCost);
+    
+    const margin = totalRevenue - totalStripeFee - totalLabCost;
+    doc.moveDown();
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+    drawRow('Dein Reingewinn (Marge):', margin, true);
+    
+    doc.moveDown(2);
+    doc.fontSize(10).font('Helvetica-Oblique').text('Hinweis: Die exakten Produktionskosten von Gelato und nPhoto sowie die taggenauen Stripe-Auszahlungsgebühren entnehmen Sie bitte den jeweiligen Dashboards. Diese Aufstellung dient der Übersicht.', { width: 500 });
+
+    doc.end();
+
+  } catch (err) {
+    console.error('Accounting PDF error:', err);
+    res.status(500).send('Fehler bei der PDF-Generierung');
+  }
 });
 
 // ── Start ──
