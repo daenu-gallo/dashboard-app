@@ -10,7 +10,7 @@ const KommentareTab = ({ galleryId }) => {
     loadComments();
   }, [galleryId]);
 
-  const loadComments = async () => {
+  async function loadComments() {
     if (!galleryId) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -22,13 +22,13 @@ const KommentareTab = ({ galleryId }) => {
     if (error) console.error(error);
     else setComments(data || []);
     setLoading(false);
-  };
+  }
 
-  const deleteComment = async (id) => {
+  async function deleteComment(id) {
     if (!window.confirm('Kommentar wirklich löschen?')) return;
     await supabase.from('gallery_comments').delete().eq('id', id);
     loadComments();
-  };
+  }
 
   if (loading) return <div style={{ padding: '2rem' }}>Lade Kommentare...</div>;
 
