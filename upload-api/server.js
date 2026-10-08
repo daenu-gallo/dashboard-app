@@ -2790,9 +2790,15 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         }
       }
 
-      // 2) Submit to Gelato for production (only physical products)
+      // 2) Submit to respective labs (Gelato or nPhoto)
       const physicalItems = items.filter(i => i.productUid && !i.productSku?.startsWith('digital_'));
-      if (GELATO_API_KEY && physicalItems.length > 0) {
+      const gelatoItems = physicalItems.filter(i => i.provider === 'gelato' || !i.provider);
+      const nphotoItems = physicalItems.filter(i => i.provider === 'nphoto');
+      
+      let finalStatus = 'paid';
+
+      // --- Gelato Submission ---
+      if (GELATO_API_KEY && gelatoItems.length > 0) {
         try {
           const gelatoOrder = await gelatoFetch(`${GELATO_API_BASE}/orders`, {
             method: 'POST',
@@ -2801,16 +2807,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               orderReferenceId: orderNumber,
               customerReferenceId: customer.email,
               currency: 'CHF',
-              items: physicalItems.map((item, i) => ({
-                itemReferenceId: `${orderNumber}_${i}`,
+              items: gelatoItems.map((item, i) => ({
+                itemReferenceId: `${orderNumber}_gelato_${i}`,
                 productUid: item.productUid,
                 quantity: item.quantity || 1,
-                files: [
-                  {
-                    type: 'default',
-                    url: item.fileUrl
-                  }
-                ]
+                files: [{ type: 'default', url: item.fileUrl }]
               })),
               shippingAddress: {
                 firstName: customer.firstName,
@@ -2831,17 +2832,29 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               external_id: gelatoOrder.id,
               status: 'processing',
             }).eq('id', supabaseOrder.id);
+            finalStatus = 'processing';
           }
-
           console.log(`[Stripe→Gelato] ✅ Order ${orderNumber} → Gelato ID: ${gelatoOrder?.id}`);
         } catch (gelatoErr) {
           console.error(`[Stripe→Gelato] ❌ Gelato submission failed for ${orderNumber}:`, gelatoErr.message);
+          finalStatus = 'paid_gelato_error';
           if (supabaseOrder) {
             await supabase.from('orders').update({
-              status: 'paid_gelato_error',
+              status: finalStatus,
               invoice_numbers: `Gelato Error: ${gelatoErr.message}`,
             }).eq('id', supabaseOrder.id);
           }
+        }
+      }
+
+      // --- nPhoto Submission (Safe fallback) ---
+      if (nphotoItems.length > 0) {
+        console.log(`[Stripe→nPhoto] ⚠️ Received nPhoto items for ${orderNumber}. Setting status to manual fulfillment until nPhoto API is configured.`);
+        finalStatus = finalStatus === 'paid' ? 'paid_manual_fulfillment' : finalStatus;
+        if (supabaseOrder) {
+          await supabase.from('orders').update({
+            status: finalStatus,
+          }).eq('id', supabaseOrder.id);
         }
       }
 
