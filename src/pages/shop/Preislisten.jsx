@@ -205,6 +205,7 @@ const Preislisten = () => {
                 : li
             )
           );
+          fetchPriceLists();
         }
       } catch (err) {
         console.error('[Preislisten] Insert error:', err);

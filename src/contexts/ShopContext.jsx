@@ -80,9 +80,13 @@ export const ShopProvider = ({ children }) => {
       .from('price_list_items')
       .update(updates)
       .eq('id', itemId);
-    if (error) console.error('[ShopContext] updatePriceListItem:', error);
+    if (error) {
+      console.error('[ShopContext] updatePriceListItem:', error);
+    } else {
+      await fetchPriceLists();
+    }
     return { error };
-  }, []);
+  }, [fetchPriceLists]);
 
   // ─── Delete Price List ───
   const deletePriceList = useCallback(async (listId) => {
