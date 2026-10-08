@@ -132,7 +132,14 @@ const generalLimiter = rateLimit({
 const uploadLimiter = (req, res, next) => next();
 app.use(generalLimiter);
 
-app.use(express.json({ limit: '10mb' }));
+// Use JSON parser globally EXCEPT for the Stripe webhook (which needs the raw body for signature verification)
+app.use((req, res, next) => {
+  if (req.originalUrl.includes('/api/stripe/webhook')) {
+    next();
+  } else {
+    express.json({ limit: '10mb' })(req, res, next);
+  }
+});
 
 // ── GET /api/manifest ── Dynamic Web App Manifest ──
 // Generates a per-gallery manifest so iOS "Add to Home Screen" preserves the correct URL.
