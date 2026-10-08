@@ -2805,7 +2805,12 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                 itemReferenceId: `${orderNumber}_${i}`,
                 productUid: item.productUid,
                 quantity: item.quantity || 1,
-                fileUrl: item.fileUrl,
+                files: [
+                  {
+                    type: 'default',
+                    url: item.fileUrl
+                  }
+                ]
               })),
               shippingAddress: {
                 firstName: customer.firstName,
