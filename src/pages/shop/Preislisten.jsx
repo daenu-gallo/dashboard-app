@@ -360,7 +360,7 @@ const Preislisten = () => {
                                 step="0.05"
                                 min="0"
                                 onChange={(e) => updateLocalItem(item.product_sku, 'sellingPrice', parseFloat(e.target.value) || 0)}
-                                onBlur={() => handleItemBlur(item)}
+                                onBlur={(e) => handleItemBlur({ ...item, sellingPrice: parseFloat(e.target.value) || 0 })}
                               />
                             </td>
                             <td>
