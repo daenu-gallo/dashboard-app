@@ -74,7 +74,23 @@ export const ShopProvider = ({ children }) => {
     return list;
   }, [user, fetchPriceLists]);
 
+
+  // ─── Update Price List ───
+  const updatePriceList = useCallback(async (listId, updates) => {
+    const { error } = await supabase
+      .from('price_lists')
+      .update(updates)
+      .eq('id', listId);
+    if (error) {
+      console.error('[ShopContext] updatePriceList:', error);
+    } else {
+      await fetchPriceLists();
+    }
+    return { error };
+  }, [fetchPriceLists]);
+
   // ─── Update Price List Items ───
+
   const updatePriceListItem = useCallback(async (itemId, updates) => {
     const { error } = await supabase
       .from('price_list_items')
@@ -213,7 +229,7 @@ export const ShopProvider = ({ children }) => {
     // Shop Settings
     shopSettings, saveShopSettings, fetchShopSettings,
     // Price Lists
-    priceLists, fetchPriceLists, createPriceList, updatePriceListItem, deletePriceList,
+    priceLists, fetchPriceLists, createPriceList, updatePriceList, updatePriceListItem, deletePriceList,
     // Coupons
     coupons, fetchCoupons, createCoupon, updateCoupon, deleteCoupon,
     // Orders

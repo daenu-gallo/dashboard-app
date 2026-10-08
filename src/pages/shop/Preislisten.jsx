@@ -156,6 +156,15 @@ const Preislisten = () => {
     setSaving(false);
   };
 
+
+  const handleRenameList = async () => {
+    if (!selectedList) return;
+    const newName = prompt('Neuer Name für die Preisliste:', selectedList.name);
+    if (newName && newName.trim() !== '' && newName !== selectedList.name) {
+      await updatePriceList(selectedList.id, { name: newName.trim() });
+    }
+  };
+
   const handleDeleteList = async () => {
     if (priceLists.length <= 1) return;
     if (!confirm(`Preisliste "${selectedList?.name}" wirklich löschen?`)) return;
@@ -261,7 +270,7 @@ const Preislisten = () => {
           <div className="pricelist-card-header">
             <span className="pricelist-card-title">{selectedList.name}</span>
             <div className="pricelist-card-actions">
-              <button className="edit-btn" title="Umbenennen"><Pencil size={16} /></button>
+              <button className="edit-btn" title="Umbenennen" onClick={handleRenameList}><Pencil size={16} /></button>
               <button className="edit-btn" title="Löschen" onClick={handleDeleteList} style={{ color: '#dc2626' }}>
                 <Trash2 size={16} />
               </button>

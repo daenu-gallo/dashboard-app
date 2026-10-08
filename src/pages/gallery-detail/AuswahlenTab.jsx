@@ -71,8 +71,8 @@ const AuswahlenTab = ({ galleryKey }) => {
       </div>
 
       <div className="auswahlen-actions">
-        <button><Upload size={12} /> Export</button>
-        <button><Download size={12} /> Auswahl herunterladen</button>
+        <button onClick={handleExport}><Upload size={12} /> Export (CSV)</button>
+        <button onClick={handleDownloadAll}><Download size={12} /> Auswahl herunterladen</button>
         <button onClick={handleCleanup}>✓ Aufräumen</button>
         <button onClick={handleDeleteSelection} disabled={activeCustomerIdx === null}>
           <Trash2 size={12} /> Auswahl löschen
@@ -94,9 +94,9 @@ const AuswahlenTab = ({ galleryKey }) => {
                 )}
                 <span className="heart" style={{ position: 'absolute', top: '4px', left: '4px', color: '#e74c3c', fontSize: '1rem' }}>♥</span>
                 <div className="selected-photo-actions">
-                  <button title="Vergrössern"><ArrowUpCircle size={14} /></button>
-                  <button title="Info"><Info size={14} /></button>
-                  <button title="Herunterladen"><Download size={14} /></button>
+                  <button title="Vergrössern" onClick={(e) => { e.stopPropagation(); window.open(photo.src, '_blank'); }}><ArrowUpCircle size={14} /></button>
+                  <button title="Info" onClick={(e) => { e.stopPropagation(); alert(`Dateiname: ${photo.name}\nLink: ${photo.src}`); }}><Info size={14} /></button>
+                  <button title="Herunterladen" onClick={(e) => { e.stopPropagation(); const a = document.createElement('a'); a.href = photo.src; a.download = photo.name; a.target = '_blank'; a.click(); }}><Download size={14} /></button>
                 </div>
               </div>
             ))

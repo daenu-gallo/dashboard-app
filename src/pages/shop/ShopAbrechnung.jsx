@@ -161,7 +161,7 @@ const ShopAbrechnung = () => {
                 <CreditCard size={18} />
                 {settlementCard.type} Card
               </div>
-              <button className="edit-btn" title="Bearbeiten"><Pencil size={16} /></button>
+              <button className="edit-btn" title="Bearbeiten" onClick={() => alert("Kreditkarten-Informationen können aus Sicherheitsgründen derzeit nur direkt über dein Stripe/Zahlungsanbieter-Dashboard geändert werden.")}><Pencil size={16} /></button>
             </div>
             <p className="payment-card-number">{settlementCard.number}</p>
           </div>

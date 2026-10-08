@@ -1251,6 +1251,11 @@ const SteuerTab = () => {
     handelsregister: '-',
   });
 
+  const [saved, setSaved] = useState(false);
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
   const updateField = (field, value) => {
     setSteuerData(prev => ({ ...prev, [field]: value }));
   };
@@ -1285,7 +1290,7 @@ const SteuerTab = () => {
         <label>Handelsregister <HelpCircle size={13} className="help-icon" style={{ cursor: 'help' }} title="In welchem Handelsregister ist dein Unternehmen eingetragen?" /></label>
         <input className="form-input-st" value={steuerData.handelsregister} onChange={e => updateField('handelsregister', e.target.value)} />
       </div>
-      <button className="btn-save">Speichern</button>
+      <button className="btn-save" onClick={handleSave}>{saved ? "✓ Gespeichert" : "Speichern"}</button>
     </div>
   );
 };
