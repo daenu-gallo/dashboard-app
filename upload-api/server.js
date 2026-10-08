@@ -2850,7 +2850,15 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         doc.fontSize(20).text('Rechnung', { align: 'right' });
         doc.fontSize(10).text(`Rechnungsnummer: ${orderNumber}`, { align: 'right' });
         doc.text(`Datum: ${new Date().toLocaleDateString('de-CH')}`, { align: 'right' });
-        doc.moveDown(3);
+
+        // Sender Address (Top Left)
+        doc.moveUp(3);
+        doc.fontSize(12).font('Helvetica-Bold').text('Fotohahn Print & Production');
+        doc.font('Helvetica').fontSize(10).text('Musterstrasse 123');
+        doc.text('8000 Zürich');
+        doc.text('info@fotohahn.ch');
+        
+        doc.moveDown(4);
 
         doc.fontSize(12).font('Helvetica-Bold').text('Kunde:');
         doc.font('Helvetica').text(`${customer.firstName} ${customer.lastName}`);
