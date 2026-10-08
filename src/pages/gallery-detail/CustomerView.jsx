@@ -59,6 +59,14 @@ const translations = {
     total: 'Gesamt',
     shipping: 'Versand',
     shippingFlat: 'Pauschal CHF 7.90',
+    checkoutName: 'Name',
+    checkoutEmail: 'E-Mail',
+    checkoutPhone: 'Telefon (für SMS Code von Stripe)',
+    checkoutStreet: 'Strasse',
+    checkoutZip: 'PLZ',
+    checkoutCity: 'Ort',
+    checkoutCoupon: 'Gutschein-Code',
+    checkoutSummary: 'Zusammenfassung',
   },
   English: {
     gallery: 'Gallery',
@@ -98,6 +106,14 @@ const translations = {
     total: 'Total',
     shipping: 'Shipping',
     shippingFlat: 'Flat rate CHF 7.90',
+    checkoutName: 'Name',
+    checkoutEmail: 'Email',
+    checkoutPhone: 'Phone (for Stripe SMS code)',
+    checkoutStreet: 'Street',
+    checkoutZip: 'ZIP code',
+    checkoutCity: 'City',
+    checkoutCoupon: 'Coupon code',
+    checkoutSummary: 'Summary',
   },
   'Français': {
     gallery: 'Galerie',
@@ -2196,38 +2212,38 @@ const CustomerView = ({ domainMode = null }) => {
             <form onSubmit={handleCheckoutSubmit} className="cv-checkout-form">
               <div className="cv-checkout-row">
                 <div className="cv-checkout-field">
-                  <label>Name *</label>
+                  <label>{t.checkoutName} *</label>
                   <input type="text" required value={checkoutForm.name} onChange={e => setCheckoutForm(p => ({ ...p, name: e.target.value }))} placeholder="Max Mustermann" />
                 </div>
                 <div className="cv-checkout-field">
-                  <label>E-Mail *</label>
+                  <label>{t.checkoutEmail} *</label>
                   <input type="email" required value={checkoutForm.email} onChange={e => setCheckoutForm(p => ({ ...p, email: e.target.value }))} placeholder="max@example.com" />
                 </div>
               </div>
               <div className="cv-checkout-field">
-                <label>Telefon (für SMS Code von Stripe) *</label>
+                <label>{t.checkoutPhone} *</label>
                 <input type="tel" required value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} placeholder="+41 79 123 45 67" />
               </div>
               <div className="cv-checkout-field">
-                <label>Strasse</label>
+                <label>{t.checkoutStreet}</label>
                 <input type="text" value={checkoutForm.strasse} onChange={e => setCheckoutForm(p => ({ ...p, strasse: e.target.value }))} placeholder="Musterstrasse 1" />
               </div>
               <div className="cv-checkout-row">
                 <div className="cv-checkout-field" style={{ flex: '0 0 120px' }}>
-                  <label>PLZ</label>
+                  <label>{t.checkoutZip}</label>
                   <input type="text" value={checkoutForm.plz} onChange={e => setCheckoutForm(p => ({ ...p, plz: e.target.value }))} placeholder="8000" />
                 </div>
                 <div className="cv-checkout-field">
-                  <label>Ort</label>
+                  <label>{t.checkoutCity}</label>
                   <input type="text" value={checkoutForm.ort} onChange={e => setCheckoutForm(p => ({ ...p, ort: e.target.value }))} placeholder="Zürich" />
                 </div>
               </div>
               <div className="cv-checkout-field">
-                <label>Gutschein-Code</label>
+                <label>{t.checkoutCoupon}</label>
                 <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="RABATT10" />
               </div>
               <div className="cv-checkout-summary">
-                <h4>Zusammenfassung</h4>
+                <h4>{t.checkoutSummary}</h4>
                 {cart.map((item, idx) => (
                   <div key={idx} className="cv-checkout-line">
                     <span>{item.quantity}x {item.product.name}</span>
