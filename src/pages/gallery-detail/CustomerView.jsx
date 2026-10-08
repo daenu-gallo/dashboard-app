@@ -2220,10 +2220,7 @@ const CustomerView = ({ domainMode = null }) => {
                   <input type="email" required value={checkoutForm.email} onChange={e => setCheckoutForm(p => ({ ...p, email: e.target.value }))} placeholder="max@example.com" />
                 </div>
               </div>
-              <div className="cv-checkout-field">
-                <label>{t.checkoutPhone} *</label>
-                <input type="tel" required value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} placeholder="+41 79 123 45 67" />
-              </div>
+
               <div className="cv-checkout-field">
                 <label>{t.checkoutStreet}</label>
                 <input type="text" value={checkoutForm.strasse} onChange={e => setCheckoutForm(p => ({ ...p, strasse: e.target.value }))} placeholder="Musterstrasse 1" />
