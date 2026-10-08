@@ -744,6 +744,13 @@ const CustomerView = ({ domainMode = null }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
 
+  // Restore authentication from session storage to prevent lockout after Stripe redirect
+  useEffect(() => {
+    const key = supaGallery?.title || slug;
+    if (key && sessionStorage.getItem(`gallery_auth_${key}`) === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, [supaGallery, slug]);
   // App install hint
   const [showAppHint, setShowAppHint] = useState(true);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
@@ -1030,6 +1037,7 @@ const CustomerView = ({ domainMode = null }) => {
     e.preventDefault();
     if (passwordInput === settings.passwort) {
       setIsAuthenticated(true);
+      sessionStorage.setItem(`gallery_auth_${galleryKey}`, 'true');
       setPasswordError(false);
     } else {
       setPasswordError(true);
