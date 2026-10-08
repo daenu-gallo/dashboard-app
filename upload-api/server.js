@@ -3145,7 +3145,6 @@ app.get('/api/generate-accounting-pdf', async (req, res) => {
       totalLabCost += (o.total_production_cost || 0);
     });
 
-    const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50 });
     
     res.setHeader('Content-Type', 'application/pdf');
