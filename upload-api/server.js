@@ -16,6 +16,7 @@ import { promisify } from 'util';
 import cron from 'node-cron';
 import archiver from 'archiver';
 import Stripe from 'stripe';
+import PDFDocument from 'pdfkit';
 
 const execAsync = promisify(exec);
 
@@ -2799,7 +2800,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               orderType: 'order',
               orderReferenceId: orderNumber,
               customerReferenceId: customer.email,
-              lineItems: physicalItems.map((item, i) => ({
+              currency: 'CHF',
+              items: physicalItems.map((item, i) => ({
                 itemReferenceId: `${orderNumber}_${i}`,
                 productUid: item.productUid,
                 quantity: item.quantity || 1,
@@ -2809,9 +2811,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                 firstName: customer.firstName,
                 lastName: customer.lastName,
                 addressLine1: customer.addressLine1,
-                city: customer.city,
-                postCode: customer.postCode,
-                country: customer.country,
+                city: customer.city || '',
+                postCode: customer.postCode || '',
+                country: (customer.country || 'CH').substring(0, 2).toUpperCase(),
                 email: customer.email,
                 phone: customer.phone,
               },
@@ -2838,7 +2840,60 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         }
       }
 
-      // 3) Send confirmation email
+      // 3) Generate PDF Invoice
+      const pdfBuffer = await new Promise((resolve) => {
+        const doc = new PDFDocument({ margin: 50 });
+        const buffers = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        
+        doc.fontSize(20).text('Rechnung', { align: 'right' });
+        doc.fontSize(10).text(`Rechnungsnummer: ${orderNumber}`, { align: 'right' });
+        doc.text(`Datum: ${new Date().toLocaleDateString('de-CH')}`, { align: 'right' });
+        doc.moveDown(3);
+
+        doc.fontSize(12).font('Helvetica-Bold').text('Kunde:');
+        doc.font('Helvetica').text(`${customer.firstName} ${customer.lastName}`);
+        doc.text(customer.addressLine1);
+        doc.text(`${customer.postCode} ${customer.city}`);
+        doc.moveDown(3);
+
+        doc.fontSize(14).font('Helvetica-Bold').text('Bestellübersicht');
+        doc.moveDown();
+
+        let y = doc.y;
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Artikel', 50, y);
+        doc.text('Menge', 350, y);
+        doc.text('Preis', 450, y);
+        doc.moveTo(50, y + 15).lineTo(500, y + 15).stroke();
+        doc.moveDown(2);
+
+        doc.font('Helvetica');
+        items.forEach(item => {
+          y = doc.y;
+          doc.text(item.productName, 50, y, { width: 280 });
+          doc.text((item.quantity || 1).toString(), 350, y);
+          doc.text(`${((item.price || 0) * (item.quantity || 1)).toFixed(2)} CHF`, 450, y);
+          doc.moveDown();
+        });
+
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(500, doc.y).stroke();
+        doc.moveDown();
+        
+        doc.text('Versand (Flat):', 300, doc.y);
+        doc.text('7.90 CHF', 450, doc.y - 12); // Realign y
+        doc.moveDown();
+        
+        doc.fontSize(12).font('Helvetica-Bold');
+        doc.text('Total inkl. MwSt:', 300, doc.y);
+        doc.text(`${totalGross.toFixed(2)} CHF`, 450, doc.y - 14); // Realign y
+        
+        doc.end();
+      });
+
+      // 4) Send confirmation email
       if (emailTransporter && customer.email) {
         try {
           await emailTransporter.sendMail({
@@ -2850,9 +2905,17 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               <p>Bestellnummer: <strong>${orderNumber}</strong></p>
               <p>Betrag: <strong>CHF ${totalGross.toFixed(2)}</strong></p>
               <p>Deine Bestellung wird nun produziert und direkt zu dir versendet.</p>
+              <p>Im Anhang findest du deine Rechnung als PDF.</p>
               <br/>
               <p>Liebe Grüsse,<br/>Fotohahn</p>
             `,
+            attachments: [
+              {
+                filename: `Rechnung_${orderNumber}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+              }
+            ]
           });
           console.log(`[Stripe] 📧 Confirmation email sent to ${customer.email}`);
         } catch (mailErr) {
